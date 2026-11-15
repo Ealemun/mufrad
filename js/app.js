@@ -1048,7 +1048,8 @@ async function syncAccount() {
       const w = lu.data
         ? await sb.from("sauvegardes").update({ donnees, version: lu.data.version + 1, maj_le: new Date().toISOString() }).eq("utilisateur", me.id).eq("version", lu.data.version).select("version")
         : await sb.from("sauvegardes").insert({ donnees }).select("version");
-      if (w.error && lu.data) throw new Error(w.error.message);
+      // Seul « copie déjà créée par un autre appareil » (code 23505) mérite de relire ; toute autre erreur est un vrai échec
+      if (w.error && (lu.data || w.error.code !== "23505")) throw new Error(w.error.message);
       if (w.error || !w.data || !w.data.length) continue;   // un autre appareil vient d'écrire : on relit et on refusionne
       // Des réponses ont pu être données pendant l'attente : on refusionne avec l'état actuel plutôt que de l'écraser
       Object.assign(S, mergeProgress(S, m)); saveState();
