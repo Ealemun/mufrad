@@ -62,7 +62,7 @@ UNITES.push({
     { id: "u3-43", l: 22, ar: "الأَحَد", tr: "al-aḥad", fr: "dimanche", note: "" },
     { id: "u3-44", l: 22, ar: "الإثْنَين", tr: "al-ithnayn", fr: "lundi", note: "" },
     { id: "u3-45", l: 22, ar: "الثُّلاثاء", tr: "ath-thulāthāʾ", fr: "mardi", note: "" },
-    { id: "u3-46", l: 22, ar: "الأَرْبِعاء", tr: "al-arbiʿāʾ", fr: "mercredi", note: "kasra du ب non imprimée dans le manuel, gardée pour la lecture" },
+    { id: "u3-46", l: 22, ar: "الأَرْبعاء", tr: "al-arbiʿāʾ", fr: "mercredi", note: "voyelle à vérifier : le manuel n'imprime pas de voyelle sur le ب et l'usage varie (arbiʿāʾ, arbaʿāʾ, arbuʿāʾ) ; laissée vide en attendant un contributeur" },
     { id: "u3-47", l: 22, ar: "الخَميس", tr: "al-khamīs", fr: "jeudi", note: "" },
     { id: "u3-48", l: 22, ar: "الجُمُعَة", tr: "al-jumuʿa", fr: "vendredi", note: "" },
     { id: "u3-49", l: 22, ar: "مُحَرَّم", tr: "muḥarram", fr: "muharram (1er mois de l'année hégirienne)", note: "titre du calendrier" },

@@ -27,7 +27,7 @@ UNITES.push({
     { id: "u5-12", l: 37, ar: "وَزْن", tr: "wazn", fr: "poids", note: "" },
     { id: "u5-13", l: 37, ar: "قَليل", tr: "qalīl", fr: "peu, peu nombreux", note: "" },
     { id: "u5-14", l: 37, ar: "كَثير", tr: "kathīr", fr: "beaucoup, nombreux", note: "" },
-    { id: "u5-15", l: 37, ar: "١٠٠ كيلِ", tr: "miʾat kīl", fr: "100 kilos", note: "" },
+    { id: "u5-15", l: 37, ar: "١٠٠ كيل", tr: "miʾat kīl", fr: "100 kilos", note: "voyelle à vérifier : le manuel imprime une kasra dont on ne voit pas si elle est sous le ك ou sous le ل ; retirée en attendant un contributeur" },
     { id: "u5-16", l: 37, ar: "سَمين", tr: "samīn", fr: "gros", note: "" },
     { id: "u5-17", l: 37, ar: "نَحيف", tr: "naḥīf", fr: "maigre, mince", note: "" },
     { id: "u5-18", l: 37, ar: "جِدّاً", tr: "jiddan", fr: "très", note: "relevé dans le dialogue" },
