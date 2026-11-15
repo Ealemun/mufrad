@@ -45,6 +45,7 @@ function blankState() {
     voiceIdx: {},    // voix choisie pour chaque élément qui en a plusieurs : id -> rang
     mic: "",         // micro choisi pour enregistrer (vide = celui par défaut)
     fold: {},        // unités pliées ou dépliées à la main dans le parcours : numéro -> true si pliée
+    mesure: true,    // statistiques anonymes d'utilisation (refusables dans les réglages)
     offset: 0        // décalage de test, en jours
   };
 }
@@ -173,6 +174,7 @@ function otherWay(task) {
 }
 
 function blankSession(kind, title) {
+  noter("seance_debut", kind);   // statistiques anonymes : type de séance commencée
   return { kind, title, tasks: [], st: {}, n: 0, i: 0, answers: 0, correct: 0, learned: 0, cur: null, hist: [], peek: null, over: false };
 }
 
@@ -281,6 +283,7 @@ function finalize(task, st, ms) {
 // Une séance terminée avec au moins une réponse fait compter le jour dans la série.
 function finishSession() {
   if (sess.answers > 0) { dayRec(today()).done = true; saveState(); }
+  noter("seance_fin", sess.kind + ":" + sess.answers);   // statistiques anonymes : type de séance et nombre de réponses
   sess.over = true;
   sfx("done");
   render();
@@ -919,6 +922,9 @@ function viewSettings() {
       <p class="muted">Fixe le nombre maximal d'éléments dans la révision du jour (${GOALS[S.goal]}).</p></section>
     <section class="panel"><h3>Affichage</h3>
       <div class="seg"><button data-act="translit" data-on="1" aria-pressed="${S.translit}">Avec translittération</button><button data-act="translit" data-on="0" aria-pressed="${!S.translit}">Arabe seul</button></div></section>
+    <section class="panel"><h3>Statistiques anonymes</h3>
+      <p class="muted">Mufrad compte ses visiteurs et les boutons touchés, sans savoir qui vous êtes, pour s'améliorer. <a href="confidentialite.html">En savoir plus</a></p>
+      <div class="seg"><button data-act="mesure" data-on="1" aria-pressed="${S.mesure !== false}">Je participe</button><button data-act="mesure" data-on="0" aria-pressed="${S.mesure === false}">Ne pas me compter</button></div></section>
     <section class="panel"><h3>Bruitages</h3>
       <div class="seg"><button data-act="sfx" data-on="1" aria-pressed="${S.sfx !== false}">Activés</button><button data-act="sfx" data-on="0" aria-pressed="${S.sfx === false}">Coupés</button></div></section>
     <section class="panel"><h3>Sauvegarde</h3>
@@ -965,13 +971,7 @@ function initCloud() {
   try {
     if (typeof supabase === "undefined" || !supabase.createClient) return;
     sb = supabase.createClient(SB_URL, SB_KEY);
-    // Compteur anonyme des ouvertures (supabase/0005_compteur_ouvertures.sql) : +1 au total du jour, sans aucun
-    // identifiant ni rien de gardé sur l'appareil. On note seulement si l'application est ouverte depuis son icône.
-    // Sans réseau, ou tant que le fichier SQL n'est pas exécuté, l'échec est ignoré.
-    try {
-      const icone = Boolean(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-      sb.rpc("compter_ouverture", { depuis_icone: icone }).then(() => {}, () => {});
-    } catch (e) {}
+    noter("ouverture");   // mesure d'audience anonyme (section 11)
     // À chaque connexion ou déconnexion ; le délai évite d'appeler la base depuis l'intérieur de son propre signal
     sb.auth.onAuthStateChange((evt, session) => { setTimeout(() => onSession(session), 0); });
     loadVoices();
@@ -1375,11 +1375,61 @@ function viewContentRecos() {
       ${msg}<div>${rows}</div></section>`;
 }
 
+/* ---------- 11. MESURE D'AUDIENCE ANONYME ---------- */
+
+// Combien de visiteurs, ce qu'ils font et ce qu'ils touchent, sans savoir qui ils sont (supabase/0005_mesure_audience.sql).
+//  - Un appareil est reconnu par un identifiant tiré au hasard, gardé dans ce navigateur et renouvelé tous les 13 mois.
+//    Il n'est jamais relié au compte, à l'adresse électronique ni à la progression.
+//  - Les événements attendent dans une file et partent par lots : toutes les 10 secondes, ou quand on quitte la page.
+//    Sans réseau, ou tant que le fichier SQL n'est pas exécuté, l'envoi échoue sans gêner l'application.
+//  - Qui refuse dans les réglages n'est plus compté du tout, et son identifiant est effacé.
+const APPAREIL_KEY = "mufrad-appareil";
+const TREIZE_MOIS = 395 * 86400 * 1000;
+let fileMesure = [];      // événements pas encore envoyés : { type, detail, quand }
+let minuterieMesure = null;
+// Identifiant de l'appareil, créé au premier besoin et renouvelé après 13 mois
+function appareilId() {
+  try {
+    const a = JSON.parse(localStorage.getItem(APPAREIL_KEY) || "null");
+    if (a && a.id && Date.now() - a.cree < TREIZE_MOIS) return a.id;
+    const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : null;
+    if (!id) return null;
+    localStorage.setItem(APPAREIL_KEY, JSON.stringify({ id, cree: Date.now() }));
+    return id;
+  } catch (e) { return null; }
+}
+// Ouverte depuis l'icône de l'écran d'accueil, ou dans le navigateur
+const depuisIcone = () => { try { return Boolean(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; } catch (e) { return false; } };
+// Ajoute un événement à la file (types : ouverture, onglet, clic, seance_debut, seance_fin)
+function noter(type, detail) {
+  if (S.mesure === false || fileMesure.length >= 200) return;
+  fileMesure.push({ type, detail: detail == null ? null : String(detail), quand: new Date().toISOString() });
+  if (!minuterieMesure && typeof setTimeout !== "undefined" && sb) minuterieMesure = setTimeout(envoyerMesure, 10000);
+}
+// Envoie la file par lots de 50 ; en cas d'échec, les événements restent pour le prochain essai
+function envoyerMesure() {
+  minuterieMesure = null;
+  if (!sb || S.mesure === false || !fileMesure.length) return;
+  const id = appareilId(); if (!id) return;
+  const lot = fileMesure.splice(0, 50);
+  sb.rpc("noter_evenements", { appareil: id, installee: depuisIcone(), liste: lot })
+    .then(r => { if (r.error) fileMesure = lot.concat(fileMesure).slice(0, 200); else if (fileMesure.length) envoyerMesure(); },
+          () => { fileMesure = lot.concat(fileMesure).slice(0, 200); });
+}
+// Refus ou acceptation depuis les réglages
+function choisirMesure(oui) {
+  S.mesure = oui; saveState();
+  if (!oui) { fileMesure = []; try { localStorage.removeItem(APPAREIL_KEY); } catch (e) {} }
+}
+// Quand on quitte la page ou qu'on passe à une autre application : on envoie ce qui attend
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") envoyerMesure(); });
+
 /* ---------- 8. CLICS ET DÉMARRAGE ---------- */
 
 document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act;
+  noter("clic", act + (el.dataset.l ? ":" + el.dataset.l : ""));   // statistiques anonymes : quel bouton, jamais quel mot ni qui
   if (act !== "copy" && act !== "import") uiMsg = "";
   switch (act) {
     // Parcours
@@ -1505,13 +1555,15 @@ document.addEventListener("click", e => {
     case "reco-no": decide(el.dataset.id, false); return;
     case "pend-ok": { const n = confirmPending(); uiMsg = plural(n, "enregistrement") + (n > 1 ? " déposés." : " déposé."); break; }
     // Réglages
+    case "mesure": choisirMesure(el.dataset.on === "1"); break;
     case "sfx": S.sfx = el.dataset.on === "1"; saveState(); if (S.sfx) sfx("ok"); break;
     case "goal": S.goal = Number(el.dataset.g); saveState(); break;
     case "translit": S.translit = el.dataset.on === "1"; saveState(); break;
     case "skip": S.offset = (S.offset || 0) + 1; saveState(); break;
     case "reset": askReset = true; break;
     case "reset-no": askReset = false; break;
-    case "reset-yes": S = blankState(); saveState(); askReset = false; sess = null; break;
+    case "reset-yes": { const m = S.mesure; S = blankState(); S.mesure = m; } saveState();   // le choix sur les statistiques est gardé
+      askReset = false; sess = null; break;
     case "copy": {
       const ta = document.getElementById("io");
       try { navigator.clipboard.writeText(ta.value).then(() => { uiMsg = "Copié."; render(); }, () => { ta.select(); uiMsg = "Copie refusée : le texte est sélectionné, copiez-le à la main."; render(); }); }
@@ -1559,7 +1611,7 @@ document.addEventListener("input", e => {
   if (tl) tl.textContent = "Gardé : " + sec(p.b - p.a) + " sur " + sec(p.dur);
 });
 
-window.addEventListener("hashchange", () => { sheet = null; editForm = null; wantScroll = true; render(); });
+window.addEventListener("hashchange", () => { sheet = null; editForm = null; wantScroll = true; noter("onglet", route()); render(); });
 applyCached();   // corrections et mots ajoutés reçus la dernière fois
 render();
 initAudio();

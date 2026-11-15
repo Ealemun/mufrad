@@ -11,7 +11,7 @@ unites.forEach(f => assert.ok(lire("index.html").includes("js/unites/" + f), "in
 // Faux environnement de navigateur, réduit à ce que l'application utilise
 const store = {};
 const el = () => ({ innerHTML: "", textContent: "", setAttribute() {}, removeAttribute() {}, dataset: {} });
-global.localStorage = { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } };
+global.localStorage = { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; }, removeItem: k => { delete store[k]; } };
 global.document = { getElementById: el, querySelectorAll: () => [], addEventListener() {} };
 global.window = { addEventListener() {} };
 global.location = { hash: "" };
@@ -113,6 +113,16 @@ out.fusion = {
   stable: JSON.stringify(mergeProgress(compte2, compte2)) === JSON.stringify(compte2) && JSON.stringify(mergeProgress(tel, compte2)) === JSON.stringify(compte2)
 };
 S.cards = {}; S.days = {}; S.log = [];
+// Mesure d'audience : les événements attendent en file ; un refus vide la file, efface l'identifiant et arrête le comptage ;
+// l'identifiant d'appareil est stable, puis renouvelé après 13 mois
+fileMesure = []; S.mesure = true;
+noter("clic", "learn:3"); startLearn(2); const fileAvant = fileMesure.map(e => e.type + "/" + e.detail);
+const id1 = appareilId(), id2 = appareilId();
+localStorage.setItem(APPAREIL_KEY, JSON.stringify({ id: id1, cree: Date.now() - 400 * 86400000 })); const id3 = appareilId();
+choisirMesure(false); noter("clic", "x");
+out.mesure = { file: fileAvant.slice(0, 2), stable: Boolean(id1) && id1 === id2, renouvele: id3 !== id1,
+  refus: fileMesure.length === 0 && localStorage.getItem(APPAREIL_KEY) === null, reglage: viewSettings().includes("Ne pas me compter") };
+choisirMesure(true); fileMesure = []; sess = null;
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -157,6 +167,8 @@ assert.strictEqual(r.listeRepliee, 4, "sans progression, la liste ne déroule qu
 assert.ok(r.rechercheAr && r.rechercheFr, "la recherche trouve un mot sans ses voyelles ni ses accents");
 assert.deepStrictEqual(r.fusion, { rienPerdu: true, cartes: true, plusRecente: true, ordre: true, stable: true },
   "deux appareils hors ligne qui se synchronisent ne perdent aucune réponse, dans n'importe quel ordre");
+assert.deepStrictEqual(r.mesure, { file: ["clic/learn:3", "seance_debut/learn"], stable: true, renouvele: true, refus: true, reglage: true },
+  "statistiques : file d'événements, identifiant stable puis renouvelé, refus respecté");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
