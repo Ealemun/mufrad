@@ -932,7 +932,8 @@ function viewSettings() {
       ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}</section>
     <section class="panel"><h3>Version alpha</h3>
       <p class="muted">Cette version est en cours de test. Le contenu n'est pas encore entièrement relu et la progression peut être remise à zéro d'une version à l'autre.</p>
-      <a class="btn ghost" href="https://github.com/Ealemun/mufrad/issues">Signaler un problème</a></section>
+      <a class="btn ghost" href="https://github.com/Ealemun/mufrad/issues">Signaler un problème</a>
+      <a class="linkbtn" href="confidentialite.html">Conditions d'utilisation et confidentialité</a></section>
     <section class="panel"><h3>Outils de test</h3>
       <p class="muted">Avancer la date permet de vérifier qu'un mot raté revient plus tôt qu'un mot réussi. Décalage actuel : ${S.offset} jour${S.offset > 1 ? "s" : ""}.</p>
       <div class="row"><button class="btn small ghost" data-act="skip">Avancer d'un jour</button>
@@ -1155,6 +1156,7 @@ function viewShare() {
   if (!hasConsent) return `<section class="panel"><h3>Accord de partage de ma voix</h3>
       <p>J'accepte que les enregistrements que j'envoie soient entendus par les utilisateurs de Mufrad. Je peux retirer cet accord quand je veux : mes enregistrements sont alors supprimés du serveur.</p>
       <label class="check" for="c-train"><input type="checkbox" id="c-train"> J'accepte aussi qu'ils servent à entraîner les modèles de prononciation de Mufrad (facultatif).</label>
+      <p class="muted"><a href="confidentialite.html">Ce que deviennent vos enregistrements</a></p>
       <button class="btn" data-act="consent">Je signe l'accord</button>${msg}</section>`;
   const n = unsharedIds().length;
   const recoRows = recos.map(v => `<div class="vrow">${AR(BY_ID[v.element].ar)}<div class="vact"><span class="pill">${esc(readerLabel(v.auteur))}</span>
@@ -1225,7 +1227,8 @@ function viewAccount() {
       <p class="muted">Le compte sert à partager ses enregistrements. Aucun mot de passe : vous recevez un lien de connexion par courriel.</p>
       <label for="sb-email">Adresse électronique</label>
       <input type="email" id="sb-email" class="field" autocomplete="email" inputmode="email" placeholder="nom@exemple.org">
-      <button class="btn" data-act="signin">Recevoir un lien de connexion</button>${msg}</section>`;
+      <button class="btn" data-act="signin">Recevoir un lien de connexion</button>
+      <p class="muted">En créant un compte, vous acceptez les <a href="confidentialite.html">conditions d'utilisation</a>.</p>${msg}</section>`;
 }
 
 /* ---------- 10. VOCABULAIRE : CORRIGER ET AJOUTER DES MOTS ---------- */

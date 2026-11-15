@@ -40,6 +40,7 @@ Le test joue une leçon, une révision avec une erreur et plusieurs révisions d
 | Chemin | Contenu |
 | --- | --- |
 | `index.html` | Structure de la page |
+| `confidentialite.html` | Mentions légales, conditions d'utilisation et confidentialité (à mettre à jour quand la collecte change) |
 | `css/app.css` | Apparence |
 | `js/contenu.js` | L'alphabet et ses formes |
 | `js/unites/` | Un fichier par unité du manuel : la liste de ses mots |

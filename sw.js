@@ -1,7 +1,7 @@
 // Service worker de Mufrad : permet d'ouvrir l'application sans réseau et de l'installer sur l'écran d'accueil.
 // Stratégie « réseau d'abord » : en ligne, on sert toujours la dernière version et on en garde une copie ;
 // hors ligne, on sert la copie. Ainsi une mise à jour n'est jamais bloquée par un vieux cache.
-const CACHE = "mufrad-v15";
+const CACHE = "mufrad-v16";
 // Les fichiers d'unité ne sont pas listés ici : ils sont mis en copie à leur première lecture en ligne.
 const BASE = ["./", "index.html", "css/app.css", "js/contenu.js", "js/assemblage.js", "js/app.js", "manifest.webmanifest", "icons/icone-192.png"];
 
