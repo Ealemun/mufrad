@@ -22,10 +22,13 @@
   <main id="view"></main>
   <footer class="foot" id="foot"></footer>
 </div>
-<!-- Le contenu est chargé avant l'application, qui s'en sert -->
 <!-- Bibliothèque de la base de données (comptes, partage des voix). Sans réseau, l'application s'en passe. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<!-- Contenu : l'alphabet, puis un fichier par unité, puis l'assemblage ; l'application vient en dernier -->
 <script src="js/contenu.js"></script>
+<script src="js/unites/unite-01.js"></script>
+<script src="js/unites/unite-02.js"></script>
+<script src="js/assemblage.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

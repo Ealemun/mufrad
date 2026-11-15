@@ -3,7 +3,10 @@
 // Lancement : node tests/simulation.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const lire = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const code = lire("js/contenu.js") + "\n" + lire("js/app.js");
+const unites = fs.readdirSync(path.join(__dirname, "..", "js", "unites")).filter(f => f.endsWith(".js")).sort();
+const code = [lire("js/contenu.js"), ...unites.map(f => lire("js/unites/" + f)), lire("js/assemblage.js"), lire("js/app.js")].join("\n");
+// Chaque fichier d'unité doit aussi être déclaré dans la page, sinon il ne serait jamais chargé
+unites.forEach(f => assert.ok(lire("index.html").includes("js/unites/" + f), "index.html ne charge pas js/unites/" + f));
 
 // Faux environnement de navigateur, réduit à ce que l'application utilise
 const store = {};
@@ -69,9 +72,15 @@ addPending("w01", CLIPS.w01.orig, { a: 0.1, b: 0.4 }); out.reprise = pending.len
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
+// Cohérence du contenu : identifiants uniques, champs remplis, chaque mot rattaché à une leçon de son unité
+out.doublons = ITEMS.length - new Set(ITEMS.map(i => i.id)).size;
+out.incomplets = WORDS.filter(m => !m.id || !m.ar || !m.fr || !m.tr || typeof m.l !== "number").map(m => m.id);
+out.horsLecon = WORDS.filter(m => !UNITS.find(x => x.n === m.u).lessons.some(([l]) => l === m.l)).map(m => m.id);
+const nums = UNITS.flatMap(x => x.lessons.map(([l]) => l)); out.leconsDoubles = nums.length - new Set(nums).size;
+out.leconsVides = nums.filter(l => itemsOf(l).length < 3);
 return out;`)();
 
-assert.strictEqual(r.items, 110, "110 éléments attendus (28 lettres, 82 mots)");
+assert.ok(r.items >= 110, "au moins 110 éléments attendus (28 lettres, 82 mots des unités 1 et 2)");
 assert.strictEqual(r.formes, 4, "le premier groupe de l'alphabet pose une question de forme par lettre");
 assert.strictEqual(r.lettres, 4, "une séance d'alphabet introduit tout le groupe");
 assert.strictEqual(r.alif, "ا|ا|ـا|ـا", "alif ne s'attache pas à la lettre suivante");
@@ -91,5 +100,10 @@ assert.ok(r.attente === 2 && r.avantDepot === false && r.vueAttente, "un fichier
 assert.ok(r.deposes === 1 && r.apresDepot, "seuls les enregistrements gardés sont déposés à la confirmation");
 assert.ok(r.origine && r.reprise, "un enregistrement déposé peut être rogné de nouveau à partir de son fichier d'origine");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
+assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
+assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
+assert.deepStrictEqual(r.horsLecon, [], "mots rattachés à une leçon absente de leur unité");
+assert.strictEqual(r.leconsDoubles, 0, "un numéro de leçon est utilisé deux fois");
+assert.deepStrictEqual(r.leconsVides, [], "une leçon doit compter au moins 3 éléments");
 assert.strictEqual(r.dieu, false);
 console.log("Simulation réussie :", JSON.stringify({ elements: r.items, dus: r.dus, dusApres: r.dusApres, acquis: r.acquis }));
