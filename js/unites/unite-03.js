@@ -3,7 +3,7 @@
    Liste des mots de chaque leçon, dans l'ordre du manuel (leçons 19 à 22 ; les leçons 23 à 27 restent à lire).
    Chaque ligne a été transcrite à la main à partir des pages du livre.
    Quand la page de vocabulaire imprime un mot sans certaines voyelles, les voyelles sont reprises du dialogue
-   de la même leçon et la ligne porte une note « à vérifier ».
+   de la même leçon et la note le dit.
    Règles : ne jamais changer un identifiant ni réordonner les lignes (la progression des apprenants en dépend) ;
    corriger une ligne sur place ; ajouter un mot à la fin, avec l'identifiant suivant. */
 UNITES.push({
@@ -14,7 +14,7 @@ UNITES.push({
   lecons: [[19, "Où habites-tu ?"], [20, "Visiter un appartement"], [21, "Les meubles"], [22, "Les jours de la semaine"]],
   mots: [
     // Leçon 19 : page de vocabulaire illustré, puis un mot-outil du dialogue
-    { id: "u3-01", l: 19, ar: "بَيْت", tr: "bayt", fr: "maison", note: "sukūn absent de la page de vocabulaire, imprimé dans le dialogue : voyelle à vérifier" },
+    { id: "u3-01", l: 19, ar: "بَيْت", tr: "bayt", fr: "maison", note: "la page de vocabulaire imprime بَيت, sans sukūn ; sukūn repris du dialogue" },
     { id: "u3-02", l: 19, ar: "شَقَّة", tr: "shaqqa", fr: "appartement", note: "" },
     { id: "u3-03", l: 19, ar: "رَقْم", tr: "raqm", fr: "numéro", note: "" },
     { id: "u3-04", l: 19, ar: "حَيّ", tr: "ḥayy", fr: "quartier", note: "" },
@@ -25,7 +25,7 @@ UNITES.push({
     { id: "u3-09", l: 19, ar: "ما", tr: "mā", fr: "quel ? (question)", note: "relevé dans le dialogue" },
     // Leçon 20 : page de vocabulaire illustré, puis les mots-outils du dialogue
     { id: "u3-10", l: 20, ar: "دَوْر", tr: "dawr", fr: "étage", note: "" },
-    { id: "u3-11", l: 20, ar: "جَميلَة", tr: "jamīla", fr: "belle", note: "imprimé sans voyelles sur la page de vocabulaire, voyelles du dialogue : à vérifier ; masculin جَميل" },
+    { id: "u3-11", l: 20, ar: "جَميلَة", tr: "jamīla", fr: "belle", note: "imprimé sans voyelles sur la page de vocabulaire, voyelles reprises du dialogue ; masculin جَميل" },
     { id: "u3-12", l: 20, ar: "غُرَف", tr: "ghuraf", fr: "pièces, chambres (pluriel)", note: "pluriel de غُرْفَة" },
     { id: "u3-13", l: 20, ar: "تَفَضَّلْ", tr: "tafaḍḍal", fr: "je t'en prie (invitation, à un homme)", note: "" },
     { id: "u3-14", l: 20, ar: "مُشاهَدَة", tr: "mushāhada", fr: "fait de voir, visite", note: "imprimé sans voyelles dans l'encadré, vocalisé dans l'exercice de la même page" },
@@ -38,12 +38,12 @@ UNITES.push({
     { id: "u3-21", l: 20, ar: "مِن فَضْلِكَ", tr: "min faḍlika", fr: "s'il te plaît (à un homme)", note: "relevé dans le dialogue" },
     { id: "u3-22", l: 20, ar: "لَدَينا", tr: "ladaynā", fr: "nous avons", note: "relevé dans le dialogue" },
     // Leçon 21 : page de vocabulaire illustré, puis les mots-outils du dialogue
-    { id: "u3-23", l: 21, ar: "مَطْبَخ", tr: "maṭbakh", fr: "cuisine (pièce)", note: "sukūn absent de la page de vocabulaire, imprimé dans le dialogue : voyelle à vérifier" },
+    { id: "u3-23", l: 21, ar: "مَطْبَخ", tr: "maṭbakh", fr: "cuisine (pièce)", note: "la page de vocabulaire imprime مَطبَخ, sans sukūn ; sukūn repris du dialogue" },
     { id: "u3-24", l: 21, ar: "غُرْفَةُ نَوْم", tr: "ghurfat nawm", fr: "chambre à coucher", note: "" },
     { id: "u3-25", l: 21, ar: "غُرْفَةُ جُلوس", tr: "ghurfat julūs", fr: "salon", note: "" },
-    { id: "u3-26", l: 21, ar: "أَثاث", tr: "athāth", fr: "meubles, mobilier", note: "imprimé sans voyelles sur la page de vocabulaire, voyelle du dialogue : à vérifier" },
+    { id: "u3-26", l: 21, ar: "أَثاث", tr: "athāth", fr: "meubles, mobilier", note: "imprimé sans voyelles sur la page de vocabulaire, voyelle reprise du dialogue" },
     { id: "u3-27", l: 21, ar: "سِتارَة", tr: "sitāra", fr: "rideau", note: "" },
-    { id: "u3-28", l: 21, ar: "أريكَة", tr: "arīka", fr: "canapé", note: "voyelle à vérifier (première lettre sans voyelle, ici et dans le dialogue)" },
+    { id: "u3-28", l: 21, ar: "أريكَة", tr: "arīka", fr: "canapé", note: "imprimé ainsi : aucune voyelle sur le alif, ni ici ni dans le dialogue" },
     { id: "u3-29", l: 21, ar: "سَجّادَة", tr: "sajjāda", fr: "tapis", note: "" },
     { id: "u3-30", l: 21, ar: "سَرير", tr: "sarīr", fr: "lit", note: "" },
     { id: "u3-31", l: 21, ar: "ثَلّاجَة", tr: "thallāja", fr: "réfrigérateur", note: "" },
