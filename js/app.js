@@ -102,7 +102,7 @@ function schedule(card, rating, t) {
 
 let sess = null;            // séance en cours (en mémoire seulement)
 const CHUNK_WORDS = 6;      // mots nouveaux introduits par séance d'apprentissage
-const CHUNK_LETTERS = 3;    // lettres nouvelles par séance d'apprentissage
+const CHUNK_LETTERS = 5;    // lettres nouvelles par séance : un groupe entier de l'alphabet
 
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
@@ -117,11 +117,13 @@ function lessonStats(l) {
 // Éléments en difficulté : déjà ratés au moins une fois et pas encore solides
 function hardItems() { return ITEMS.filter(it => isSeen(it) && S.cards[it.id].lapses > 0 && S.cards[it.id].s < 7); }
 
-// Exercice pour une lettre. Avec un son disponible et la translittération masquée, tout passe par l'écoute ;
-// sinon on retombe sur le nom écrit en lettres latines (tour 1 : lettre -> nom, tour 2 : nom -> lettre).
+// Exercices pour une lettre.
+//   tour 1 : reconnaître la lettre par son nom — à l'écoute si un son existe et que la translittération est masquée,
+//            sinon par son nom écrit en lettres latines ;
+//   tour 2 : reconnaître la lettre sous une autre forme (début, milieu ou fin de mot), sans aucune phonétique.
 function letterEx(it, round) {
-  if (!S.translit && canSpeak(it.id)) return "listen";
-  return round === 1 ? "l2n" : "n2l";
+  if (round === 2) return "f2l";
+  return !S.translit && canSpeak(it.id) ? "listen" : "l2n";
 }
 // Exercice pour une révision : reconnaissance tant que le mot est jeune, production ensuite.
 function reviewExercise(it) {
@@ -132,7 +134,7 @@ function reviewExercise(it) {
 const FLIP = { ar2fr: "fr2ar", fr2ar: "ar2fr", listen: "fr2ar" };
 function otherWay(task) {
   const it = BY_ID[task.id];
-  return it.type === "letter" ? letterEx(it, task.ex === "l2n" ? 2 : 1) : FLIP[task.ex];
+  return it.type === "letter" ? letterEx(it, task.ex === "f2l" ? 1 : 2) : FLIP[task.ex];
 }
 
 function blankSession(kind, title) {
@@ -193,7 +195,11 @@ function distractors(it) {
 function showTask() {
   if (sess.i >= sess.tasks.length) return finishSession();
   const task = sess.tasks[sess.i];
-  if (task.kind === "q") sess.cur = { opts: shuffle([BY_ID[task.id], ...distractors(BY_ID[task.id])]), picked: null, checked: false, t0: Date.now() };
+  if (task.kind === "q") {
+    sess.cur = { opts: shuffle([BY_ID[task.id], ...distractors(BY_ID[task.id])]), picked: null, checked: false, t0: Date.now() };
+    // Pour la question sur les formes, on tire une fois pour toutes la forme montrée (jamais la forme isolée)
+    if (task.ex === "f2l") { const f = formsOf(BY_ID[task.id]); sess.cur.form = shuffle([f.debut, f.milieu, f.fin].filter(x => x !== f.isolee))[0]; }
+  }
   else if (task.kind === "match") sess.cur = { left: task.ids.slice(), right: shuffle(task.ids.slice()), sel: null, done: {}, bad: null };
   else sess.cur = {};
   render();
@@ -367,6 +373,7 @@ function render() {
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">alpha</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     $view.innerHTML = r === "mots" ? viewWords() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : viewHome();
+    if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
     $foot.innerHTML = `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "accueil" && !TABS.some(t => t[0] === r)) ? 'aria-current="page"' : ""}>${label}</a>`).join("") + `</nav>`;
   }
 }
@@ -381,13 +388,13 @@ function viewHome() {
     : `<p class="muted">${seen ? "Aucune révision due aujourd'hui. Vous pouvez avancer dans une leçon ou réviser celle de votre choix." : "Touchez la première leçon pour commencer."}</p>`;
   const OFF = [0, 46, 70, 46, 0, -46, -70, -46]; // décalages qui font serpenter le parcours
   let k = 0;
-  const path = UNITS.map(u => `<div class="unit-banner"><span class="ub-n">Unité ${u.n}</span><b>${esc(u.fr)}</b>${AR(u.ar)}</div><div class="path">` +
+  const path = UNITS.map(u => `<div class="unit-banner"><span class="ub-n">${unitName(u)}</span><b>${esc(u.fr)}</b>${AR(u.ar)}</div><div class="path">` +
     u.lessons.map(([l, title]) => {
       const s = lessonStats(l), state = s.known === s.total ? "gold" : s.seen > 0 ? "on" : "off";
       return `<div class="stop" style="--x:${OFF[k++ % OFF.length]}px">
         ${l === next ? `<span class="go">${s.seen ? "Continuer" : "Commencer"}</span>` : ""}
         <span class="ring" style="--a:${100 * s.known / s.total};--b:${100 * s.seen / s.total}">
-          <button class="node ${state}" data-act="node" data-l="${l}" aria-label="${esc(lessonLabel(l))} : ${s.known} acquis sur ${s.total}${s.due ? ", " + s.due + " à revoir" : ""}">${l}${s.due ? `<i class="badge">${s.due}</i>` : ""}</button></span>
+          <button class="node ${state}" data-act="node" data-l="${l}" aria-label="${esc(lessonLabel(l))} : ${s.known} acquis sur ${s.total}${s.due ? ", " + s.due + " à revoir" : ""}">${isAlpha(l) ? AR(itemsOf(l)[0].ar) : l}${s.due ? `<i class="badge">${s.due}</i>` : ""}</button></span>
         <div class="stop-txt"><b>${esc(title)}</b><span>${s.known} / ${s.total} acquis</span></div></div>`;
     }).join("") + `</div>`).join("");
   return `<section class="card"><h3>Ce que je connais</h3>
@@ -402,7 +409,7 @@ function viewSheet(l) {
   const chunk = Math.min(unseen, s.its[0].type === "letter" ? CHUNK_LETTERS : CHUNK_WORDS);
   return `<button class="scrim" data-act="sheet-close" aria-label="Fermer"></button>
     <div class="sheet" role="dialog" aria-label="${esc(lessonLabel(l))}">
-      <h3>Leçon ${l}</h3><h2>${esc(LESSON_TITLE[l])}</h2>
+      <h3>${isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l}</h3><h2>${esc(LESSON_TITLE[l])}</h2>
       <div class="tiles"><div><b>${s.known}</b>acquis</div><div><b>${s.seen - s.known}</b>en cours</div><div><b>${unseen}</b>à découvrir</div></div>
       ${unseen ? `<button class="btn" data-act="learn" data-l="${l}">Apprendre ${plural(chunk, "nouveauté")}</button>` : ""}
       ${s.seen ? `<button class="btn ${unseen ? "ghost" : ""}" data-act="review" data-l="${l}">Réviser ce que j'ai vu (${s.seen})</button>` : ""}
@@ -451,7 +458,8 @@ function sessFoot() {
 function viewIntro(it) {
   const body = it.type === "letter"
     ? `${AR(it.ar, "glyph")}<p class="fr">${esc(it.name)}</p><p>${esc(it.desc)}</p>
-       <p class="muted">${it.join ? `Début, milieu et fin de mot : ${AR(it.join)}` : `Attachée à la lettre précédente : ${AR(it.fin)} · ne s'attache jamais à la suivante`}</p>
+       <div class="formes">${Object.entries({ "Seule": "isolee", "Début": "debut", "Milieu": "milieu", "Fin": "fin" }).map(([nom, k]) => `<div>${AR(formsOf(it)[k])}<span>${nom}</span></div>`).join("")}</div>
+       ${it.join ? "" : `<p class="muted">Cette lettre ne s'attache jamais à la suivante.</p>`}
        <p>Exemple : ${AR(it.ex)} <span class="muted">(${esc(it.exFr)})</span></p>`
     : `${AR(it.ar)}${translit(it)}<p class="fr">${esc(it.fr)}</p>${it.note ? `<p class="muted">${it.note.replace(/[؀-ۿ ]{2,}/g, m => AR(m.trim()) + " ")}</p>` : ""}`;
   return `<p class="ask"><small>${esc(lessonLabel(it.l))}</small>${it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot"}</p>
@@ -466,6 +474,7 @@ function viewQuestion(task, c, ro) {
   if (ex === "fr2ar")  { ask = "Comment le dit-on en arabe ?";      prompt = `<span class="fr">${esc(it.fr)}</span>`;   optLabel = o => esc(o.ar); optCls = "ar"; }
   if (ex === "listen") { ask = "Qu'entendez-vous ?";                prompt = speakBtn(it.id, "Écouter");                optLabel = o => esc(o.ar); optCls = "ar"; }
   if (ex === "listen" && it.type === "letter") { optCls = "ar glyph"; two = true; }
+  if (ex === "f2l")    { ask = "Quelle lettre reconnaissez-vous ?"; prompt = AR(c.form, "glyph");                       optLabel = o => esc(o.ar); optCls = "ar glyph"; two = true; }
   if (ex === "l2n")    { ask = "Quelle est cette lettre ?";         prompt = AR(it.ar, "glyph") + speakBtn(it.id);       optLabel = o => `<b>${esc(o.name)}</b> · ${esc(o.s)}`; two = true; }
   if (ex === "n2l")    { ask = "Quelle lettre s'appelle ainsi ?";   prompt = `<span class="fr">${esc(it.name)} · ${esc(it.s)}</span>`; optLabel = o => esc(o.ar); optCls = "ar glyph"; two = true; }
   const opts = c.opts.map((o, k) => {
@@ -523,8 +532,8 @@ function viewWords() {
     const txt = it.type === "letter" ? `<b>${esc(it.name)}</b>` : `${esc(it.fr)}${S.translit ? `<br><span class="tr">${esc(it.tr)}</span>` : ""}`;
     return `<div class="wrow">${AR(it.ar)}<div class="txt">${txt}</div><span class="pill ${cls}">${label}</span></div>`;
   };
-  const chips = UNITS.map(u => `<p class="muted">Unité ${u.n} · ${esc(u.fr)}</p><div class="chips">` +
-    u.lessons.map(([l, title]) => `<button class="chip" data-act="drill-toggle" data-l="${l}" aria-pressed="${Boolean(drillSel[l])}">${l} · ${esc(title)}</button>`).join("") + `</div>`).join("");
+  const chips = UNITS.map(u => `<p class="muted">${unitName(u)} · ${esc(u.fr)}</p><div class="chips">` +
+    u.lessons.map(([l, title]) => `<button class="chip" data-act="drill-toggle" data-l="${l}" aria-pressed="${Boolean(drillSel[l])}">${lessonShort(l)} · ${esc(title)}</button>`).join("") + `</div>`).join("");
   const n = drillItems().length, hard = hardItems().length;
   const groups = UNITS.map(u => u.lessons.map(([l]) => `<section class="panel"><h3>${esc(lessonLabel(l))}</h3><div>${itemsOf(l).map(row).join("")}</div></section>`).join("")).join("");
   return `<section class="panel"><h3>Réviser ce que je veux</h3>
@@ -538,13 +547,97 @@ function viewWords() {
 // --- Voix : enregistrer soi-même les lettres et les mots, à la place de la voix de l'appareil.
 // Rien n'est déposé d'office : chaque enregistrement passe d'abord par une liste d'attente,
 // où on l'écoute avant de le confirmer ou de l'écarter.
-let voiceLesson = 1;   // leçon affichée dans l'onglet Voix
+let voiceLesson = 101; // leçon affichée dans l'onglet Voix (au départ : le premier groupe de l'alphabet)
 let pending = [];      // enregistrements en attente de confirmation : { id, file, url }
 let rec = null;        // enregistrement au micro en cours : { id, recorder }
 
+
+// --- Rognage d'un enregistrement : on voit la piste, on règle le début et la fin, et seul le passage gardé est déposé.
+// Les trois fonctions ci-dessous sont de simples calculs sur les échantillons ; elles sont couvertes par le test.
+
+// Mélange les canaux en un seul (mono)
+function monoData(buf) {
+  const n = buf.length, out = new Float32Array(n), ch = buf.numberOfChannels;
+  for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) out[i] += d[i] / ch; }
+  return out;
+}
+// Hauteur de la piste pour chaque colonne du dessin : le plus fort échantillon de la tranche
+function peaksOf(data, cols) {
+  const step = Math.max(1, Math.floor(data.length / cols)), res = [];
+  for (let c = 0; c < cols; c++) {
+    let m = 0;
+    for (let i = c * step, end = Math.min(data.length, (c + 1) * step); i < end; i++) { const v = Math.abs(data[i]); if (v > m) m = v; }
+    res.push(m);
+  }
+  return res;
+}
+// Proposition de rognage : du premier au dernier son nettement audible, avec une petite marge de chaque côté
+function autoTrim(data, rate) {
+  let max = 0;
+  for (let i = 0; i < data.length; i++) { const v = Math.abs(data[i]); if (v > max) max = v; }
+  const dur = data.length / rate, thr = max * 0.08;
+  if (max === 0) return [0, dur];
+  let i0 = 0, i1 = data.length - 1;
+  while (i0 < data.length && Math.abs(data[i0]) < thr) i0++;
+  while (i1 > i0 && Math.abs(data[i1]) < thr) i1--;
+  return [Math.max(0, i0 / rate - 0.06), Math.min(dur, i1 / rate + 0.08)];
+}
+// Fabrique un fichier WAV (mono, 16 bits) avec le passage compris entre a et b secondes
+function wavBytes(data, rate, a, b) {
+  const i0 = Math.max(0, Math.floor(a * rate)), i1 = Math.min(data.length, Math.ceil(b * rate)), n = Math.max(0, i1 - i0);
+  const ab = new ArrayBuffer(44 + n * 2), v = new DataView(ab);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); str(8, "WAVE");
+  str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);   // PCM, un canal
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, data[i0 + i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return ab;
+}
+
+// Décode un enregistrement en attente pour pouvoir dessiner sa piste ; s'il est illisible, il sera déposé tel quel
+async function decodePending(p) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await actx.decodeAudioData(await p.file.arrayBuffer());
+    p.data = monoData(buf); p.rate = buf.sampleRate; p.dur = buf.duration;
+    [p.a, p.b] = autoTrim(p.data, p.rate);
+    if (route() === "voix") render();
+  } catch (e) { p.data = null; }
+}
+// Dessine la piste : en couleur ce qui est gardé, en gris ce qui sera coupé
+function drawWave(p) {
+  const cv = document.getElementById("wv-" + p.id);
+  if (!cv || !cv.getContext || !p.data) return;
+  const g = cv.getContext("2d"), W = cv.width, H = cv.height, css = getComputedStyle(document.documentElement);
+  const peaks = p.peaks || (p.peaks = peaksOf(p.data, W / 3)), top = Math.max(...peaks, 0.001);
+  g.clearRect(0, 0, W, H);
+  peaks.forEach((v, i) => {
+    const t = (i + 0.5) / peaks.length * p.dur, h = Math.max(2, v / top * (H - 8));
+    g.fillStyle = css.getPropertyValue(t >= p.a && t <= p.b ? "--primary" : "--line-deep");
+    g.fillRect(i * 3, (H - h) / 2, 2, h);
+  });
+  g.fillStyle = css.getPropertyValue("--gold");                 // repères du début et de la fin gardés
+  g.fillRect(p.a / p.dur * W - 1, 0, 3, H); g.fillRect(p.b / p.dur * W - 2, 0, 3, H);
+}
+const sec = x => x.toFixed(2).replace(".", ",") + " s";
+// Écoute du passage gardé seulement
+let playing = null;
+function playPending(p) {
+  try {
+    if (playing) { try { playing.stop(); } catch (e) {} }
+    if (!p.data) { new Audio(p.url).play().catch(() => {}); return; }
+    const buf = actx.createBuffer(1, p.data.length, p.rate); buf.getChannelData(0).set(p.data);
+    playing = actx.createBufferSource(); playing.buffer = buf; playing.connect(actx.destination);
+    playing.start(0, p.a, Math.max(0.05, p.b - p.a));
+  } catch (e) {}
+}
+
 function addPending(id, file) {
   dropPending(id);                                   // un seul enregistrement en attente par élément
-  pending.push({ id, file, url: URL.createObjectURL(file) });
+  const p = { id, file, url: URL.createObjectURL(file), data: null };
+  pending.push(p);
+  if (typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext) && file.arrayBuffer) decodePending(p);
 }
 function dropPending(id) {
   pending.filter(p => p.id === id).forEach(p => URL.revokeObjectURL(p.url));
@@ -552,7 +645,12 @@ function dropPending(id) {
 }
 function confirmPending() {                          // dépôt de tout ce qui a été écouté et gardé
   const n = pending.length;
-  pending.forEach(p => { URL.revokeObjectURL(p.url); saveClip(p.id, p.file); });
+  pending.forEach(p => {
+    URL.revokeObjectURL(p.url);
+    // Si la piste a été rognée, on dépose seulement le passage gardé ; sinon le fichier d'origine
+    const trimmed = p.data && (p.a > 0.005 || p.b < p.dur - 0.005);
+    saveClip(p.id, trimmed ? new Blob([wavBytes(p.data, p.rate, p.a, p.b)], { type: "audio/wav" }) : p.file);
+  });
   pending = [];
   return n;
 }
@@ -581,14 +679,18 @@ function viewVoices() {
   const total = ITEMS.filter(it => AUDIO[it.id]).length, micro = canRecord();
   const chips = UNITS.map(u => `<div class="chips">` + u.lessons.map(([l]) => {
     const n = itemsOf(l).filter(it => AUDIO[it.id]).length, t = itemsOf(l).length;
-    return `<button class="chip" data-act="voice-lesson" data-l="${l}" aria-pressed="${l === voiceLesson}">Leçon ${l} · ${n}/${t}</button>`;
+    return `<button class="chip" data-act="voice-lesson" data-l="${l}" aria-pressed="${l === voiceLesson}">${lessonShort(l)} · ${n}/${t}</button>`;
   }).join("") + `</div>`).join("");
   // Liste d'attente : on écoute chaque enregistrement, on écarte ceux qui ne conviennent pas, puis on dépose le reste
   const wait = pending.length ? `<section class="panel attente"><h3>À écouter avant de déposer · ${pending.length}</h3>
-      <p class="muted">Écoutez chaque enregistrement. Écartez ceux qui ne vont pas, puis déposez les autres.</p>
-      <div>${pending.map(p => `<div class="vrow">${AR(BY_ID[p.id].ar)}<div class="vact">
-          <button class="mini" data-act="pend-play" data-id="${p.id}" aria-label="Écouter cet enregistrement">${ICON_SPEAK}</button>
-          <button class="mini txt" data-act="pend-drop" data-id="${p.id}">Écarter</button></div></div>`).join("")}</div>
+      <p class="muted">Écoutez chaque enregistrement. Réglez le début et la fin pour couper les bruits autour du mot : seul le passage en couleur est gardé. Écartez ceux qui ne vont pas, puis déposez les autres.</p>
+      <div>${pending.map(p => `<div class="pend"><div class="vrow">${AR(BY_ID[p.id].ar)}<div class="vact">
+          <button class="mini" data-act="pend-play" data-id="${p.id}" aria-label="Écouter le passage gardé">${ICON_SPEAK}</button>
+          <button class="mini txt" data-act="pend-drop" data-id="${p.id}">Écarter</button></div></div>
+        ${p.data ? `<canvas class="wave" id="wv-${p.id}" width="600" height="72" role="img" aria-label="Piste de l'enregistrement"></canvas>
+          <div class="trim"><label for="ta-${p.id}">Début</label><input type="range" id="ta-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.a / p.dur)}" data-trim="a" data-id="${p.id}">
+            <label for="tb-${p.id}">Fin</label><input type="range" id="tb-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.b / p.dur)}" data-trim="b" data-id="${p.id}"></div>
+          <p class="muted" id="tl-${p.id}">Gardé : ${sec(p.b - p.a)} sur ${sec(p.dur)}</p>` : ""}</div>`).join("")}</div>
       <button class="btn good" data-act="pend-ok">Déposer ${plural(pending.length, "enregistrement")}</button>
       <button class="btn ghost" data-act="pend-none">Tout écarter</button></section>` : "";
   const rows = its.map(it => {
@@ -708,7 +810,7 @@ document.addEventListener("click", e => {
     case "rec": toggleRecord(el.dataset.id); return;                       // démarre ou arrête le micro
     case "pend-play": {                                                    // écoute d'un enregistrement en attente
       const p = pending.find(x => x.id === el.dataset.id);
-      if (p) { try { new Audio(p.url).play().catch(() => {}); } catch (err) {} }
+      if (p) playPending(p);
       return;
     }
     case "pend-drop": dropPending(el.dataset.id); break;
@@ -753,6 +855,17 @@ document.addEventListener("change", e => {
     else { files.forEach((f, i) => addPending(its[i].id, f)); uiMsg = "Écoutez chaque enregistrement ci-dessus pour vérifier l'ordre, puis déposez."; }
   }
   render();
+});
+
+document.addEventListener("input", e => {
+  const el = e.target;
+  if (!el.dataset || !el.dataset.trim) return;
+  const p = pending.find(x => x.id === el.dataset.id); if (!p || !p.data) return;
+  const t = Number(el.value) / 1000 * p.dur;
+  if (el.dataset.trim === "a") p.a = Math.min(t, p.b - 0.05); else p.b = Math.max(t, p.a + 0.05); // le début reste avant la fin
+  drawWave(p);
+  const tl = document.getElementById("tl-" + p.id);
+  if (tl) tl.textContent = "Gardé : " + sec(p.b - p.a) + " sur " + sec(p.dur);
 });
 
 window.addEventListener("hashchange", () => { sheet = null; render(); });

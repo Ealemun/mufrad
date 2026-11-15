@@ -39,7 +39,15 @@ const run = failOnce => {
 const out = {};
 out.items = ITEMS.length;
 out.options = ITEMS.map(it => distractors(it).length);        // nombre de mauvaises réponses proposées pour chaque élément
-viewHome(); viewWords(); viewVoices(); viewSettings(); viewSheet(1);
+viewHome(); viewWords(); viewVoices(); viewSettings(); viewSheet(1); viewSheet(101);
+// Alphabet : un groupe entier par séance, avec une question sur les formes ; une lettre non liante n'a que deux dessins
+startLearn(101); out.formes = sess.tasks.filter(t => t.ex === "f2l").length; run(false);
+out.lettres = Object.keys(S.cards).length; out.alif = Object.values(formsOf(BY_ID.l1)).join("|"); out.ba = Object.values(formsOf(BY_ID.l7)).join("|");
+S.cards = {}; S.days = {}; S.log = [];
+// Rognage : un son entouré de silence est proposé sans ses bords, et le fichier produit a la bonne taille
+const faux = new Float32Array(16000); for (let i = 4000; i < 8000; i++) faux[i] = Math.sin(i / 5) * 0.5;
+const [ta, tb] = autoTrim(faux, 16000); out.rognage = [ta, tb];
+out.wav = wavBytes(faux, 16000, ta, tb).byteLength; out.pics = peaksOf(faux, 8).map(v => v > 0.1);
 startLearn(1); run(false);
 out.apresLecon = Object.keys(S.cards).length;
 out.echeanceReussi = diffDays(today(), S.cards.w01.due);
@@ -58,7 +66,14 @@ dropPending("w02"); out.deposes = confirmPending(); out.apresDepot = Boolean(AUD
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
 return out;`)();
 
-assert.strictEqual(r.items, 91, "91 éléments attendus (9 lettres, 82 mots)");
+assert.strictEqual(r.items, 110, "110 éléments attendus (28 lettres, 82 mots)");
+assert.strictEqual(r.formes, 4, "le premier groupe de l'alphabet pose une question de forme par lettre");
+assert.strictEqual(r.lettres, 4, "une séance d'alphabet introduit tout le groupe");
+assert.strictEqual(r.alif, "ا|ا|ـا|ـا", "alif ne s'attache pas à la lettre suivante");
+assert.strictEqual(r.ba, "ب|بـ|ـبـ|ـب", "bāʾ a quatre formes");
+assert.ok(Math.abs(r.rognage[0] - 0.19) < 0.02 && Math.abs(r.rognage[1] - 0.58) < 0.02, "le rognage proposé encadre le son : " + r.rognage);
+assert.strictEqual(r.wav, 44 + 2 * (Math.ceil(r.rognage[1] * 16000) - Math.floor(r.rognage[0] * 16000)), "taille du fichier rogné");
+assert.deepStrictEqual(r.pics, [false, false, true, true, false, false, false, false], "la piste montre le son au bon endroit");
 assert.ok(r.options.every(n => n === 3), "chaque question doit proposer trois mauvaises réponses");
 assert.strictEqual(r.apresLecon, 6, "une séance d'apprentissage introduit 6 mots");
 assert.strictEqual(r.echeanceReussi, 3, "un mot nouveau réussi revient dans 3 jours");
