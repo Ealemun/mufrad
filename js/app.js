@@ -628,18 +628,19 @@ function viewWords() {
   const row = it => {
     const [cls, label] = stateOf(it);
     const txt = it.type === "letter" ? `<b>${esc(it.name)}</b>` : `${esc(it.fr)}${S.translit ? `<br><span class="tr">${esc(it.tr)}</span>` : ""}`;
-    return `<div class="wrow">${AR(it.ar)}<div class="txt">${txt}</div><span class="pill ${cls}">${label}</span></div>`;
+    const edit = me && it.type === "word" ? `<button class="mini txt" data-act="voc-edit" data-id="${it.id}">Modifier</button>` : "";
+    return `<div class="wrow">${AR(it.ar)}<div class="txt">${txt}</div><span class="pill ${cls}">${label}</span>${edit}</div>`;
   };
   const chips = UNITS.map(u => `<p class="muted">${unitName(u)} · ${esc(u.fr)}</p><div class="chips">` +
     u.lessons.map(([l, title]) => `<button class="chip" data-act="drill-toggle" data-l="${l}" aria-pressed="${Boolean(drillSel[l])}">${lessonShort(l)} · ${esc(title)}</button>`).join("") + `</div>`).join("");
   const n = drillItems().length, hard = hardItems().length;
-  const groups = UNITS.map(u => u.lessons.map(([l]) => `<section class="panel"><h3>${lessonHtml(l)}</h3><div>${itemsOf(l).map(row).join("")}</div></section>`).join("")).join("");
+  const groups = UNITS.map(u => u.lessons.map(([l]) => `<section class="panel"><h3>${lessonHtml(l)}</h3><div>${itemsOf(l).map(row).join("")}</div>${me && !isAlpha(l) && motsOk ? `<button class="btn small ghost" data-act="voc-add" data-l="${l}">Ajouter un mot</button>` : ""}</section>`).join("")).join("");
   return `<section class="panel"><h3>Réviser ce que je veux</h3>
       <p>Cochez une ou plusieurs leçons. Les questions s'enchaînent jusqu'à ce que chaque élément soit réussi deux fois de suite.</p>
       ${chips}
       <div class="row"><button class="btn small ghost" data-act="drill-all">Tout cocher</button><button class="btn small ghost" data-act="drill-none">Tout décocher</button></div>
       <button class="btn" data-act="drill-start" ${n ? "" : "disabled"}>${n ? "Réviser " + plural(n, "élément") : "Choisissez une leçon"}</button>
-      ${hard ? `<button class="btn ghost" data-act="drill-hard">Reprendre mes ${plural(hard, "élément")} en difficulté</button>` : ""}</section>` + groups;
+      ${hard ? `<button class="btn ghost" data-act="drill-hard">Reprendre mes ${plural(hard, "élément")} en difficulté</button>` : ""}</section>` + viewContentRecos() + groups + viewEditForm();
 }
 
 // --- Voix : enregistrer soi-même les lettres et les mots, à la place de la voix de l'appareil.
@@ -893,7 +894,7 @@ const LEVELS = {};             // identifiant -> niveau, connu des contributeurs
 let sbMsg = "";                // dernier message de cette partie (envoi, erreur)
 const isContributor = () => myLevel === "contributeur" || myLevel === "administrateur";
 const publicUrl = chemin => SB_URL + "/storage/v1/object/public/voix/" + chemin;
-const refresh = () => { if (!sess || sess.over) render(); };
+const refresh = () => { if ((!sess || sess.over) && !(typeof editForm !== "undefined" && editForm)) render(); };
 
 function initCloud() {
   try {
@@ -902,6 +903,7 @@ function initCloud() {
     // À chaque connexion ou déconnexion ; le délai évite d'appeler la base depuis l'intérieur de son propre signal
     sb.auth.onAuthStateChange((evt, session) => { setTimeout(() => onSession(session), 0); });
     loadVoices();
+    loadContent();
   } catch (e) { sb = null; }
 }
 
@@ -917,6 +919,7 @@ async function onSession(session) {
     } catch (e) {}
   }
   await loadVoices();
+  await loadContent();
   refresh();
 }
 
@@ -1120,6 +1123,150 @@ function viewAccount() {
       <button class="btn" data-act="signin">Recevoir un lien de connexion</button>${msg}</section>`;
 }
 
+/* ---------- 10. VOCABULAIRE : CORRIGER ET AJOUTER DES MOTS ---------- */
+
+// Le vocabulaire de départ vient des fichiers du dossier js/unites/. Par-dessus, la base garde :
+//   - des corrections : une nouvelle valeur pour un champ d'un mot (table « corrections ») ;
+//   - des mots ajoutés à une leçon (table « mots », créée par supabase/0003_ajout_de_mots.sql).
+// Un contributeur ou un administrateur publie directement ; les autres envoient une recommandation.
+// Seul ce qui est publié est appliqué. La dernière version reçue est gardée sur l'appareil pour le hors ligne.
+const CONTENT_KEY = "mufrad-contenu-v1";
+const CHAMPS = { arabe: "ar", translitteration: "tr", traduction: "fr", note: "note" };   // nom dans la base -> nom dans l'application
+const CHAMP_FR = { arabe: "arabe", translitteration: "translittération", traduction: "traduction", note: "note" };
+// Valeurs d'origine des mots du manuel, pour pouvoir défaire une correction
+const ORIG = Object.fromEntries(WORDS.map(m => [m.id, { ar: m.ar, tr: m.tr, fr: m.fr, note: m.note }]));
+let corrRows = [];        // corrections que j'ai le droit de voir
+let motRows = [];         // mots ajoutés que j'ai le droit de voir
+let motsOk = true;        // faux si la table des mots ajoutés n'existe pas encore dans la base
+let editForm = null;      // formulaire ouvert : { id } pour corriger un mot, { l } pour en ajouter un à une leçon
+let vocMsg = "";          // dernier message de cette partie
+
+// Remet le contenu d'origine, puis applique les mots ajoutés et les corrections publiés
+function applyContent(corrs, mots) {
+  // 1. on retire les mots ajoutés lors d'un passage précédent
+  for (let i = ITEMS.length - 1; i >= 0; i--) if (ITEMS[i].added) { delete BY_ID[ITEMS[i].id]; ITEMS.splice(i, 1); }
+  for (let i = WORDS.length - 1; i >= 0; i--) if (WORDS[i].added) WORDS.splice(i, 1);
+  // 2. on remet les valeurs d'origine
+  WORDS.forEach(m => Object.assign(m, ORIG[m.id]));
+  // 3. mots ajoutés (rattachés à une leçon qui existe)
+  mots.filter(m => m.etat === "publie" && LESSON_TITLE[m.lecon] && !isAlpha(m.lecon)).forEach(m => {
+    const u = UNITS.find(x => x.lessons.some(([l]) => l === m.lecon));
+    const it = { id: "m-" + m.id, l: m.lecon, ar: m.arabe, tr: m.translitteration || "", fr: m.traduction, note: m.note || "", u: u.n, type: "word", added: true };
+    WORDS.push(it); ITEMS.push(it); BY_ID[it.id] = it;
+  });
+  // 4. corrections, de la plus ancienne à la plus récente : la dernière publiée l'emporte
+  corrs.filter(c => c.etat === "publie" && BY_ID[c.element] && BY_ID[c.element].type === "word" && CHAMPS[c.champ])
+    .forEach(c => { BY_ID[c.element][CHAMPS[c.champ]] = c.valeur; });
+}
+// Au démarrage : le contenu reçu la dernière fois, avant même d'avoir du réseau
+function applyCached() {
+  try { const c = JSON.parse(localStorage.getItem(CONTENT_KEY) || "null"); if (c) applyContent(c.corrs || [], c.mots || []); } catch (e) {}
+}
+// Lit corrections et mots ajoutés dans la base, les applique et les garde pour le hors ligne
+async function loadContent() {
+  if (!sb) return;
+  try {
+    const c = await sb.from("corrections").select("id,element,champ,valeur,auteur,etat,cree_le").order("cree_le", { ascending: true });
+    if (c.error) return;
+    const m = await sb.from("mots").select("id,lecon,arabe,translitteration,traduction,note,auteur,etat,cree_le").order("cree_le", { ascending: true });
+    motsOk = !m.error;
+    corrRows = c.data; motRows = m.error ? [] : m.data;
+    applyContent(corrRows, motRows);
+    const pub = r => r.etat === "publie";
+    try { localStorage.setItem(CONTENT_KEY, JSON.stringify({ corrs: corrRows.filter(pub), mots: motRows.filter(pub) })); } catch (e) {}
+    ITEMS.forEach(it => refreshAudio(it.id));
+    refresh();
+  } catch (e) {}
+}
+
+// Lit le formulaire ouvert ; renvoie null (avec un message) si l'essentiel manque
+function readForm() {
+  const v = k => { const f = document.getElementById("vf-" + k); return f ? f.value.trim() : ""; };
+  const vals = { arabe: v("ar"), translitteration: v("tr"), traduction: v("fr"), note: v("note") };
+  if (!/[؀-ۿ]/.test(vals.arabe)) { vocMsg = "Écrivez le mot en arabe, avec ses voyelles."; return null; }
+  if (!vals.traduction) { vocMsg = "Donnez la traduction."; return null; }
+  return vals;
+}
+const sentMsg = etat => etat === "publie" ? "Publié : visible par tous les utilisateurs." : "Envoyé en recommandation : un contributeur le relira avant publication.";
+// Corriger un mot : une ligne par champ réellement modifié
+async function saveEdit(id) {
+  const it = BY_ID[id], vals = readForm();
+  if (!vals) { render(); return; }
+  const changed = Object.keys(CHAMPS).filter(k => vals[k] !== (it[CHAMPS[k]] || ""));
+  if (!changed.length) { editForm = null; vocMsg = ""; render(); return; }
+  let etat = null, err = "";
+  for (const k of changed) {
+    const r = await sb.from("corrections").insert({ element: id, champ: k, valeur: vals[k] }).select("etat").single();
+    if (r.error) err = k === "translitteration" ? "la translittération demande le fichier supabase/0003_ajout_de_mots.sql" : r.error.message; else etat = r.data.etat;
+  }
+  vocMsg = (etat ? sentMsg(etat) : "") + (err ? " Non enregistré : " + err + "." : "");
+  editForm = null;
+  await loadContent(); render();
+}
+// Ajouter un mot à une leçon
+async function addWord(l) {
+  const vals = readForm();
+  if (!vals) { render(); return; }
+  const r = await sb.from("mots").insert({ lecon: l, arabe: vals.arabe, translitteration: vals.translitteration, traduction: vals.traduction, note: vals.note }).select("etat").single();
+  vocMsg = r.error ? "Mot non enregistré : la base n'a pas encore reçu le fichier supabase/0003_ajout_de_mots.sql (" + r.error.message + ")." : sentMsg(r.data.etat);
+  editForm = null;
+  await loadContent(); render();
+}
+// Accepter, refuser ou retirer une correction ou un mot ajouté (table = "corrections" ou "mots")
+async function setContentState(table, rowId, etat) {
+  const patch = etat === "retire" ? { etat } : { etat, traite_par: me.id, traite_le: new Date().toISOString() };
+  const r = await sb.from(table).update(patch).eq("id", rowId);
+  vocMsg = r.error ? "Action refusée : " + r.error.message : { publie: "Accepté et publié.", refuse: "Refusé.", retire: "Retiré." }[etat];
+  if (etat === "retire") editForm = null;
+  await loadContent(); render();
+}
+
+// Formulaire de correction ou d'ajout, affiché par-dessus l'onglet Réviser
+function viewEditForm() {
+  if (!editForm || !me) return "";
+  const it = editForm.id ? BY_ID[editForm.id] : null;
+  if (editForm.id && !it) return "";
+  const val = k => it ? esc(it[k] || "") : "";
+  // Pour un contributeur : les corrections publiées de ce mot, qu'on peut annuler une à une
+  const hist = it && isContributor() ? corrRows.filter(c => c.element === it.id && c.etat === "publie").map(c =>
+    `<div class="avoice"><span>${CHAMP_FR[c.champ]} : <bdi>${esc(c.valeur)}</bdi> · ${jour(c.cree_le)}</span><button class="mini txt" data-act="voc-undo" data-id="${c.id}">Annuler</button></div>`).join("") : "";
+  const row = it && it.added ? motRows.find(m => "m-" + m.id === it.id) : null;
+  const canRemove = row && (isContributor() || row.auteur === me.id);
+  return `<button class="scrim" data-act="voc-close" aria-label="Fermer"></button>
+    <div class="sheet form" role="dialog" aria-label="${it ? "Corriger un mot" : "Ajouter un mot"}">
+      <h3>${it ? "Corriger un mot" : "Ajouter un mot · " + lessonHtml(editForm.l)}</h3>
+      <p class="muted">${isContributor() ? "Vos modifications sont publiées tout de suite, pour tous les utilisateurs." : "Votre proposition est envoyée à un contributeur, qui la relit avant publication."}</p>
+      <label for="vf-ar">Arabe, avec toutes les voyelles</label><input type="text" id="vf-ar" class="field ar" lang="ar" dir="rtl" value="${val("ar")}">
+      <label for="vf-fr">Traduction</label><input type="text" id="vf-fr" class="field" value="${val("fr")}">
+      <label for="vf-tr">Translittération (facultatif)</label><input type="text" id="vf-tr" class="field" value="${val("tr")}">
+      <label for="vf-note">Note (facultatif)</label><input type="text" id="vf-note" class="field" value="${val("note")}">
+      ${vocMsg ? `<p role="status"><b>${esc(vocMsg)}</b></p>` : ""}
+      <button class="btn" data-act="voc-save">${isContributor() ? "Publier" : "Envoyer la proposition"}</button>
+      ${canRemove ? `<button class="btn ghost" data-act="voc-remove" data-id="${row.id}">Retirer ce mot de la leçon</button>` : ""}
+      ${hist ? `<p class="muted">Corrections publiées pour ce mot</p>${hist}` : ""}
+      <button class="btn ghost" data-act="voc-close">Fermer</button></div>`;
+}
+// Encadré de l'onglet Réviser : propositions à relire (contributeurs), et mes propositions en attente
+function viewContentRecos() {
+  if (!sb) return "";
+  if (!me) return `<section class="panel"><h3>Vocabulaire</h3><p class="muted">Une erreur dans un mot, un mot qui manque ? Connectez-vous pour proposer une correction ou un ajout.</p><a class="btn ghost" href="#reglages">Se connecter</a></section>`;
+  const msg = vocMsg && !editForm ? `<p role="status"><b>${esc(vocMsg)}</b></p>` : "";
+  const waitC = corrRows.filter(c => c.etat === "recommande" && BY_ID[c.element]), waitM = motRows.filter(m => m.etat === "recommande" && LESSON_TITLE[m.lecon]);
+  const btns = (table, id, mine) => isContributor()
+    ? `<button class="mini txt" data-act="voc-ok" data-t="${table}" data-id="${id}">Accepter</button><button class="mini txt" data-act="voc-no" data-t="${table}" data-id="${id}">Refuser</button>`
+    : mine ? `<button class="mini txt" data-act="voc-retire" data-t="${table}" data-id="${id}">Retirer</button>` : "";
+  const rows = waitC.map(c => { const it = BY_ID[c.element], k = CHAMPS[c.champ];
+      return `<div class="arow"><div class="ahead">${AR(it.ar)}<span class="pill">${lessonShort(it.l)} · ${CHAMP_FR[c.champ]}</span></div>
+        <div class="avoice"><span><s><bdi>${esc(it[k] || "(vide)")}</bdi></s> → <b><bdi>${esc(c.valeur || "(vide)")}</bdi></b></span>${btns("corrections", c.id, c.auteur === me.id)}</div></div>`; }).join("") +
+    waitM.map(m => `<div class="arow"><div class="ahead">${AR(m.arabe)}<span class="pill">${lessonShort(m.lecon)} · nouveau mot</span></div>
+        <div class="avoice"><span>${esc(m.traduction)}${m.translitteration ? " · " + esc(m.translitteration) : ""}${m.note ? " · " + esc(m.note) : ""}</span>${btns("mots", m.id, m.auteur === me.id)}</div></div>`).join("");
+  const n = waitC.length + waitM.length;
+  return `<section class="panel"><h3>Vocabulaire${n ? " · " + n + (isContributor() ? " à relire" : " en attente") : ""}</h3>
+      <p class="muted">Plus bas, « Modifier » corrige un mot et « Ajouter un mot » en ajoute un à une leçon. ${isContributor() ? "Vos changements sont publiés tout de suite." : "Vos propositions sont relues par un contributeur."}</p>
+      ${motsOk ? "" : `<p class="muted">L'ajout de mots attend le fichier supabase/0003_ajout_de_mots.sql dans la base ; les corrections fonctionnent déjà.</p>`}
+      ${msg}<div>${rows}</div></section>`;
+}
+
 /* ---------- 8. CLICS ET DÉMARRAGE ---------- */
 
 document.addEventListener("click", e => {
@@ -1233,6 +1380,16 @@ document.addEventListener("click", e => {
     case "share-all": shareMany(unsharedIds()); return;
     case "reco-play": try { new Audio(el.dataset.url).play().catch(() => {}); } catch (err) {} return;
     case "reco-ok": decide(el.dataset.id, true); return;
+    // Vocabulaire : corriger, ajouter, relire les propositions
+    case "voc-edit": editForm = { id: el.dataset.id }; vocMsg = ""; break;
+    case "voc-add": editForm = { l: Number(el.dataset.l) }; vocMsg = ""; break;
+    case "voc-close": editForm = null; vocMsg = ""; break;
+    case "voc-save": if (editForm.id) saveEdit(editForm.id); else addWord(editForm.l); return;
+    case "voc-ok": setContentState(el.dataset.t, el.dataset.id, "publie"); return;
+    case "voc-no": setContentState(el.dataset.t, el.dataset.id, "refuse"); return;
+    case "voc-retire": setContentState(el.dataset.t, el.dataset.id, "retire"); return;
+    case "voc-undo": setContentState("corrections", el.dataset.id, "retire"); return;
+    case "voc-remove": setContentState("mots", el.dataset.id, "retire"); return;
     case "reco-no": decide(el.dataset.id, false); return;
     case "pend-ok": { const n = confirmPending(); uiMsg = plural(n, "enregistrement") + (n > 1 ? " déposés." : " déposé."); break; }
     // Réglages
@@ -1288,7 +1445,8 @@ document.addEventListener("input", e => {
   if (tl) tl.textContent = "Gardé : " + sec(p.b - p.a) + " sur " + sec(p.dur);
 });
 
-window.addEventListener("hashchange", () => { sheet = null; wantScroll = true; render(); });
+window.addEventListener("hashchange", () => { sheet = null; editForm = null; wantScroll = true; render(); });
+applyCached();   // corrections et mots ajoutés reçus la dernière fois
 render();
 initAudio();
 loadClips();
