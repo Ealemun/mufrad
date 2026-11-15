@@ -3,7 +3,7 @@
    Liste des mots de chaque leçon, dans l'ordre du manuel (leçons 28 à 31 ; les leçons 32 à 36 restent à lire).
    Chaque ligne a été transcrite à la main à partir des pages du livre.
    Quand la page de vocabulaire imprime un mot sans certaines voyelles, les voyelles sont reprises du dialogue
-   de la même leçon et la ligne porte une note « à vérifier ».
+   de la même leçon et la note le dit.
    Règles : ne jamais changer un identifiant ni réordonner les lignes (la progression des apprenants en dépend) ;
    corriger une ligne sur place ; ajouter un mot à la fin, avec l'identifiant suivant. */
 UNITES.push({
@@ -17,7 +17,7 @@ UNITES.push({
     { id: "u4-01", l: 28, ar: "يَنام", tr: "yanām", fr: "il dort", note: "" },
     { id: "u4-02", l: 28, ar: "يَسْتَيْقِظ", tr: "yastayqiẓ", fr: "il se réveille", note: "" },
     { id: "u4-03", l: 28, ar: "يَذْهَب", tr: "yadhhab", fr: "il va, il part", note: "" },
-    { id: "u4-04", l: 28, ar: "السّاعَة السّابِعَة", tr: "as-sāʿa as-sābiʿa", fr: "sept heures", note: "voyelles incomplètes sur la page de vocabulaire (السَاعة السّابِعة), complétées d'après le dialogue : à vérifier" },
+    { id: "u4-04", l: 28, ar: "السّاعَة السّابِعَة", tr: "as-sāʿa as-sābiʿa", fr: "sept heures", note: "la page de vocabulaire imprime السَاعة السّابِعة et le dialogue السّاعَةَ السَابِعَةَ ; les deux réunis" },
     { id: "u4-05", l: 28, ar: "سَيّارَة", tr: "sayyāra", fr: "voiture", note: "" },
     { id: "u4-06", l: 28, ar: "حافِلَة", tr: "ḥāfila", fr: "autobus", note: "" },
     { id: "u4-07", l: 28, ar: "مَدْرَسَة", tr: "madrasa", fr: "école", note: "" },
@@ -26,7 +26,7 @@ UNITES.push({
     { id: "u4-10", l: 28, ar: "بَعْدَ", tr: "baʿda", fr: "après", note: "relevé dans le dialogue" },
     { id: "u4-11", l: 28, ar: "الصَّلاة", tr: "aṣ-ṣalāh", fr: "la prière", note: "relevé dans le dialogue" },
     { id: "u4-12", l: 28, ar: "تَسْتَيْقِظُ", tr: "tastayqiẓu", fr: "tu te réveilles (à un homme)", note: "relevé dans le dialogue" },
-    { id: "u4-13", l: 28, ar: "أسْتَيقِظُ", tr: "astayqiẓu", fr: "je me réveille", note: "relevé dans le dialogue ; voyelles du alif et du ي non imprimées : à vérifier" },
+    { id: "u4-13", l: 28, ar: "أسْتَيقِظُ", tr: "astayqiẓu", fr: "je me réveille", note: "relevé dans le dialogue ; imprimé ainsi, sans voyelle sur le alif ni sukūn sur le ي" },
     { id: "u4-14", l: 28, ar: "تُصَلّي", tr: "tuṣallī", fr: "tu pries (à un homme)", note: "relevé dans le dialogue" },
     { id: "u4-15", l: 28, ar: "أُصَلّي", tr: "uṣallī", fr: "je prie", note: "relevé dans le dialogue" },
     { id: "u4-16", l: 28, ar: "تَفْعَلُ", tr: "tafʿalu", fr: "tu fais (à un homme)", note: "relevé dans le dialogue" },
@@ -47,14 +47,14 @@ UNITES.push({
     { id: "u4-29", l: 30, ar: "صَحيفَة", tr: "ṣaḥīfa", fr: "journal", note: "" },
     { id: "u4-30", l: 30, ar: "تِلْفاز", tr: "tilfāz", fr: "télévision", note: "" },
     { id: "u4-31", l: 30, ar: "يُشاهِد", tr: "yushāhid", fr: "il regarde", note: "" },
-    { id: "u4-32", l: 30, ar: "الصَّباح", tr: "aṣ-ṣabāḥ", fr: "le matin", note: "fatha absente sur la page de vocabulaire (الصّباح), imprimée dans le dialogue : à vérifier" },
+    { id: "u4-32", l: 30, ar: "الصَّباح", tr: "aṣ-ṣabāḥ", fr: "le matin", note: "la page de vocabulaire imprime الصّباح, sans fatha ; fatha reprise du dialogue" },
     { id: "u4-33", l: 30, ar: "كَبير", tr: "kabīr", fr: "grand", note: "" },
     { id: "u4-34", l: 30, ar: "مُبَكِّراً", tr: "mubakkiran", fr: "tôt", note: "" },
     { id: "u4-35", l: 30, ar: "مُتَأَخِّراً", tr: "mutaʾakhkhiran", fr: "tard", note: "" },
-    { id: "u4-36", l: 30, ar: "أو", tr: "aw", fr: "ou (choix)", note: "relevé dans le dialogue ; imprimé sans voyelle : voyelle à vérifier" },
+    { id: "u4-36", l: 30, ar: "أو", tr: "aw", fr: "ou (choix)", note: "relevé dans le dialogue ; imprimé ainsi, sans voyelles" },
     { id: "u4-37", l: 30, ar: "أَيْضاً", tr: "ayḍan", fr: "aussi, également", note: "relevé dans le dialogue" },
     // Leçon 31 : encadré de vocabulaire complémentaire (les nombres ordinaux)
-    { id: "u4-38", l: 31, ar: "الأوَّل", tr: "al-awwal", fr: "le premier", note: "voyelle à vérifier (aucune voyelle visible sur le alif)" },
+    { id: "u4-38", l: 31, ar: "الأوَّل", tr: "al-awwal", fr: "le premier", note: "imprimé ainsi : aucune voyelle sur le alif" },
     { id: "u4-39", l: 31, ar: "الثّاني", tr: "ath-thānī", fr: "le deuxième", note: "" },
     { id: "u4-40", l: 31, ar: "الثّالِث", tr: "ath-thālith", fr: "le troisième", note: "" },
     { id: "u4-41", l: 31, ar: "الرّابِع", tr: "ar-rābiʿ", fr: "le quatrième", note: "" },
