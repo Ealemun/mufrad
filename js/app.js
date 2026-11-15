@@ -964,6 +964,13 @@ function initCloud() {
   try {
     if (typeof supabase === "undefined" || !supabase.createClient) return;
     sb = supabase.createClient(SB_URL, SB_KEY);
+    // Compteur anonyme des ouvertures (supabase/0005_compteur_ouvertures.sql) : +1 au total du jour, sans aucun
+    // identifiant ni rien de gardé sur l'appareil. On note seulement si l'application est ouverte depuis son icône.
+    // Sans réseau, ou tant que le fichier SQL n'est pas exécuté, l'échec est ignoré.
+    try {
+      const icone = Boolean(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+      sb.rpc("compter_ouverture", { depuis_icone: icone }).then(() => {}, () => {});
+    } catch (e) {}
     // À chaque connexion ou déconnexion ; le délai évite d'appeler la base depuis l'intérieur de son propre signal
     sb.auth.onAuthStateChange((evt, session) => { setTimeout(() => onSession(session), 0); });
     loadVoices();

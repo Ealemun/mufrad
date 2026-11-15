@@ -52,6 +52,7 @@ Le test joue une leçon, une révision avec une erreur et plusieurs révisions d
 | `sw.js`, `manifest.webmanifest`, `icons/` | Installation sur téléphone et fonctionnement hors ligne |
 | `supabase/0001_schema_initial.sql` | Schéma de la base pour l'alpha 1 (comptes, synchronisation, voix partagées) |
 | `supabase/0004_sauvegarde.sql` | Copie de la progression dans le compte, fusionnée entre appareils (bouton « Synchroniser avec mon compte ») |
+| `supabase/0005_compteur_ouvertures.sql` | Compteur anonyme des ouvertures, un total par jour (aucun identifiant) |
 
 ## Installer l'application sur un téléphone
 
