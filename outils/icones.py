@@ -22,7 +22,7 @@ from PIL import Image
 def main():
     p = argparse.ArgumentParser(description="Fabrique les icônes de l'application à partir d'une image carrée.")
     p.add_argument("source", help="image carrée d'au moins 512 pixels de côté (PNG de préférence)")
-    p.add_argument("--fond", default="#1f3d7a", help="couleur de fond des icônes plein cadre (défaut : le bleu de l'application)")
+    p.add_argument("--fond", default="#141d45", help="couleur de fond des icônes plein cadre (défaut : le bleu des cartes de l'application)")
     p.add_argument("--sortie", default=os.path.join(os.path.dirname(__file__), "..", "icons"), help="dossier de sortie")
     a = p.parse_args()
 

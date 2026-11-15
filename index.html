@@ -10,7 +10,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Scheherazade+New:wght@400;700&display=swap" rel="stylesheet">
 <!-- Installation sur l'écran d'accueil du téléphone -->
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#1f3d7a">
+<!-- Couleur de la barre du navigateur, accordée au thème clair ou sombre -->
+<meta name="theme-color" content="#f3eee2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1230" media="(prefers-color-scheme: dark)">
+<!-- Icône d'onglet : vectorielle, avec une copie PNG pour les navigateurs qui ne lisent pas le SVG -->
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/icone-apple-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Mufrad">

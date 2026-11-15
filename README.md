@@ -64,6 +64,13 @@ Une fois installée, elle s'ouvre en plein écran et fonctionne sans réseau. Le
 
 ## Changer l'icône
 
+L'icône actuelle est le mot مفرد en calligraphie ruqʿa (police Aref Ruqaa, convertie en contours), crème sur
+le bleu des cartes, avec le point du ف en or. Ses sources vectorielles sont dans `icons/` :
+`mufrad.svg` (tuile arrondie), `mufrad-plein-cadre.svg` (fond plein bord, pour Android et iPhone qui découpent
+eux-mêmes la forme) et `favicon.svg` (cadrage serré pour l'onglet du navigateur).
+
+Pour la remplacer :
+
 1. Préparer une image carrée d'au moins 512 pixels de côté.
 2. `python outils/icones.py mon-icone.png` (demande `pip install pillow`) : les quatre fichiers de `icons/` sont remplacés.
 3. Dans `sw.js`, augmenter le numéro de `CACHE` (par exemple `mufrad-v2`).
