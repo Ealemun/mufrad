@@ -535,28 +535,80 @@ function viewWords() {
       ${hard ? `<button class="btn ghost" data-act="drill-hard">Reprendre mes ${plural(hard, "élément")} en difficulté</button>` : ""}</section>` + groups;
 }
 
-// --- Voix : enregistrer soi-même les lettres et les mots, à la place de la voix de l'appareil
-let voiceLesson = 1; // leçon affichée dans l'onglet Voix
+// --- Voix : enregistrer soi-même les lettres et les mots, à la place de la voix de l'appareil.
+// Rien n'est déposé d'office : chaque enregistrement passe d'abord par une liste d'attente,
+// où on l'écoute avant de le confirmer ou de l'écarter.
+let voiceLesson = 1;   // leçon affichée dans l'onglet Voix
+let pending = [];      // enregistrements en attente de confirmation : { id, file, url }
+let rec = null;        // enregistrement au micro en cours : { id, recorder }
+
+function addPending(id, file) {
+  dropPending(id);                                   // un seul enregistrement en attente par élément
+  pending.push({ id, file, url: URL.createObjectURL(file) });
+}
+function dropPending(id) {
+  pending.filter(p => p.id === id).forEach(p => URL.revokeObjectURL(p.url));
+  pending = pending.filter(p => p.id !== id);
+}
+function confirmPending() {                          // dépôt de tout ce qui a été écouté et gardé
+  const n = pending.length;
+  pending.forEach(p => { URL.revokeObjectURL(p.url); saveClip(p.id, p.file); });
+  pending = [];
+  return n;
+}
+// Le micro n'est disponible que sur le site lui-même (connexion sécurisée) et si le navigateur le permet
+const canRecord = () => Boolean(typeof navigator !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== "undefined");
+async function toggleRecord(id) {
+  if (rec) { rec.recorder.stop(); return; }          // second appui : on arrête, l'enregistrement part en liste d'attente
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream), chunks = [];
+    recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());     // on libère le micro
+      addPending(id, new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+      rec = null; uiMsg = ""; render();
+    };
+    rec = { id, recorder };
+    recorder.start(); render();
+  } catch (e) {
+    rec = null; uiMsg = "Micro refusé ou indisponible : ajoutez un fichier à la place."; render();
+  }
+}
+
 function viewVoices() {
   const its = itemsOf(voiceLesson), have = its.filter(it => AUDIO[it.id]).length;
-  const total = ITEMS.filter(it => AUDIO[it.id]).length;
+  const total = ITEMS.filter(it => AUDIO[it.id]).length, micro = canRecord();
   const chips = UNITS.map(u => `<div class="chips">` + u.lessons.map(([l]) => {
     const n = itemsOf(l).filter(it => AUDIO[it.id]).length, t = itemsOf(l).length;
     return `<button class="chip" data-act="voice-lesson" data-l="${l}" aria-pressed="${l === voiceLesson}">Leçon ${l} · ${n}/${t}</button>`;
   }).join("") + `</div>`).join("");
-  const rows = its.map(it => `<div class="vrow">${AR(it.ar)}
+  // Liste d'attente : on écoute chaque enregistrement, on écarte ceux qui ne conviennent pas, puis on dépose le reste
+  const wait = pending.length ? `<section class="panel attente"><h3>À écouter avant de déposer · ${pending.length}</h3>
+      <p class="muted">Écoutez chaque enregistrement. Écartez ceux qui ne vont pas, puis déposez les autres.</p>
+      <div>${pending.map(p => `<div class="vrow">${AR(BY_ID[p.id].ar)}<div class="vact">
+          <button class="mini" data-act="pend-play" data-id="${p.id}" aria-label="Écouter cet enregistrement">${ICON_SPEAK}</button>
+          <button class="mini txt" data-act="pend-drop" data-id="${p.id}">Écarter</button></div></div>`).join("")}</div>
+      <button class="btn good" data-act="pend-ok">Déposer ${plural(pending.length, "enregistrement")}</button>
+      <button class="btn ghost" data-act="pend-none">Tout écarter</button></section>` : "";
+  const rows = its.map(it => {
+    const waiting = pending.some(p => p.id === it.id), on = rec && rec.id === it.id;
+    return `<div class="vrow">${AR(it.ar)}
       <div class="vact">
-        ${AUDIO[it.id] ? `<button class="mini" data-act="speak" data-id="${it.id}" aria-label="Écouter">${ICON_SPEAK}</button>` : `<span class="pill">sans voix</span>`}
-        <label class="mini txt" for="f-${it.id}">${AUDIO[it.id] ? "Remplacer" : "Ajouter"}</label>
+        ${waiting ? `<span class="pill learn">en attente</span>` : AUDIO[it.id] ? `<button class="mini" data-act="speak" data-id="${it.id}" aria-label="Écouter">${ICON_SPEAK}</button>` : `<span class="pill">sans voix</span>`}
+        ${micro ? `<button class="mini txt ${on ? "rec" : ""}" data-act="rec" data-id="${it.id}" ${rec && !on ? "disabled" : ""}>${on ? "Arrêter" : "Enregistrer"}</button>` : ""}
+        <label class="mini txt" for="f-${it.id}">Fichier</label>
         <input class="vh" type="file" accept="audio/*" id="f-${it.id}" data-clip="${it.id}">
         ${AUDIO[it.id] ? `<button class="mini txt" data-act="clip-del" data-id="${it.id}">Retirer</button>` : ""}
-      </div></div>`).join("");
+      </div></div>`;
+  }).join("");
   return `<section class="panel"><h3>Ma voix</h3>
       <p><b>${total} / ${ITEMS.length}</b> éléments ont un enregistrement. Dès qu'un élément en a un, c'est lui qu'on entend, à la place de la voix de l'appareil.</p>
-      <p class="muted">Enregistrez avec le dictaphone du téléphone, puis ajoutez le fichier ici. Les enregistrements restent dans ce navigateur : ils ne sont pas encore partagés avec les autres testeurs.</p>
+      <p class="muted">${micro ? "Enregistrez directement ici, ou ajoutez un fichier." : "Enregistrez avec le dictaphone du téléphone, puis ajoutez le fichier ici."} Les enregistrements restent sur cet appareil : ils ne sont pas encore partagés avec les autres testeurs.</p>
       ${chips}</section>
+    ${wait}
     <section class="panel"><h3>${esc(lessonLabel(voiceLesson))} · ${have} / ${its.length}</h3>
-      <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup.</p>
+      <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup. Vous les écouterez avant de les déposer.</p>
       <label class="btn ghost" for="f-bulk">Ajouter les ${its.length} fichiers de la leçon, dans l'ordre</label>
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">
       ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
@@ -653,6 +705,15 @@ document.addEventListener("click", e => {
     // Voix
     case "voice-lesson": voiceLesson = Number(el.dataset.l); break;
     case "clip-del": deleteClip(el.dataset.id); break;
+    case "rec": toggleRecord(el.dataset.id); return;                       // démarre ou arrête le micro
+    case "pend-play": {                                                    // écoute d'un enregistrement en attente
+      const p = pending.find(x => x.id === el.dataset.id);
+      if (p) { try { new Audio(p.url).play().catch(() => {}); } catch (err) {} }
+      return;
+    }
+    case "pend-drop": dropPending(el.dataset.id); break;
+    case "pend-none": pending.slice().forEach(p => dropPending(p.id)); uiMsg = ""; break;
+    case "pend-ok": { const n = confirmPending(); uiMsg = plural(n, "enregistrement") + (n > 1 ? " déposés." : " déposé."); break; }
     // Réglages
     case "sfx": S.sfx = el.dataset.on === "1"; saveState(); if (S.sfx) sfx("ok"); break;
     case "goal": S.goal = Number(el.dataset.g); saveState(); break;
@@ -679,17 +740,17 @@ document.addEventListener("click", e => {
   render();
 });
 
-// Fichiers audio choisis dans l'onglet Voix
+// Fichiers audio choisis dans l'onglet Voix : ils vont en liste d'attente, jamais directement en dépôt
 document.addEventListener("change", e => {
   const el = e.target;
   if (!el.files || !el.files.length) return;
   if (el.dataset.clip) {                       // un fichier pour un élément
-    saveClip(el.dataset.clip, el.files[0]); uiMsg = "";
+    addPending(el.dataset.clip, el.files[0]); uiMsg = "";
   } else if (el.dataset.bulk) {                // tous les fichiers d'une leçon : rangés par nom, attribués dans l'ordre de la leçon
     const its = itemsOf(Number(el.dataset.bulk));
     const files = Array.from(el.files).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     if (files.length !== its.length) uiMsg = `Cette leçon compte ${its.length} éléments et vous avez choisi ${files.length} fichiers : rien n'a été ajouté.`;
-    else { files.forEach((f, i) => saveClip(its[i].id, f)); uiMsg = `${files.length} enregistrements ajoutés. Écoutez-les pour vérifier l'ordre.`; }
+    else { files.forEach((f, i) => addPending(its[i].id, f)); uiMsg = "Écoutez chaque enregistrement ci-dessus pour vérifier l'ordre, puis déposez."; }
   }
   render();
 });
@@ -698,3 +759,5 @@ window.addEventListener("hashchange", () => { sheet = null; render(); });
 render();
 initAudio();
 loadClips();
+// Fonctionnement hors ligne et installation sur l'écran d'accueil (ignoré si le navigateur ne le permet pas)
+if (typeof navigator !== "undefined" && "serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

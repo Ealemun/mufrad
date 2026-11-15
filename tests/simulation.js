@@ -51,6 +51,10 @@ S.offset = 3; out.dus = ITEMS.filter(isDue).length; startDaily(); run(false);
 out.dusApres = ITEMS.filter(isDue).length;
 S.offset = 40; startDaily(); if (sess && !sess.over) run(false); S.offset = 41;
 out.acquis = ITEMS.filter(isKnown).length;
+// Voix : un fichier choisi attend d'être écouté ; seul le dépôt confirmé le rend audible
+addPending("w01", { faux: true }); addPending("w02", { faux: true });
+out.attente = pending.length; out.avantDepot = Boolean(AUDIO.w01); out.vueAttente = viewVoices().includes("À écouter avant de déposer");
+dropPending("w02"); out.deposes = confirmPending(); out.apresDepot = Boolean(AUDIO.w01) && !AUDIO.w02;
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
 return out;`)();
 
@@ -63,5 +67,7 @@ assert.strictEqual(r.apresRevision, 6 + 18, "réviser une leçon entière fait e
 assert.strictEqual(r.serie, 1, "une séance terminée fait compter le jour");
 assert.ok(r.dus > 0 && r.dusApres < r.dus, "la révision du jour doit faire baisser le nombre d'éléments dus");
 assert.ok(r.acquis > 0, "des éléments doivent devenir acquis après plusieurs révisions espacées");
+assert.ok(r.attente === 2 && r.avantDepot === false && r.vueAttente, "un fichier choisi attend en liste, sans être déposé");
+assert.ok(r.deposes === 1 && r.apresDepot, "seuls les enregistrements gardés sont déposés à la confirmation");
 assert.strictEqual(r.dieu, false);
 console.log("Simulation réussie :", JSON.stringify({ elements: r.items, dus: r.dus, dusApres: r.dusApres, acquis: r.acquis }));
