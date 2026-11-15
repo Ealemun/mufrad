@@ -372,6 +372,8 @@ const ICON_SPEAK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const ICON_FLAME = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 3.5 5 5.5 5 10.5A5 5 0 0 1 12 18a5 5 0 0 1-5-5.5c0-1.8.8-3.2 1.8-4.3.3 1.6 1 2.5 2 3C10.300 8.500 10.800 5 12 2z"/><path d="M6 20.500h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const speakBtn = (id, label) => canSpeak(id) ? `<button class="speak" data-act="speak" data-id="${id}">${ICON_SPEAK}${label || "Écouter"}</button>` : "";
 const translit = it => S.translit && it.tr ? `<span class="tr">${esc(it.tr)}</span>` : "";
+// Libellé d'une leçon pour l'affichage, titre isolé du reste de la ligne (sens d'écriture)
+const lessonHtml = l => esc(isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l) + " · <bdi>" + esc(LESSON_TITLE[l]) + "</bdi>";
 const plural = (n, w) => n + " " + w + (n > 1 ? "s" : "");
 
 function route() { return (location.hash || "#accueil").slice(1); }
@@ -478,7 +480,7 @@ function viewIntro(it) {
        ${it.join ? "" : `<p class="muted">Cette lettre ne s'attache jamais à la suivante.</p>`}
        <p>Exemple : ${AR(it.ex)} <span class="muted">(${esc(it.exFr)})</span></p>`
     : `${AR(it.ar)}${translit(it)}<p class="fr">${esc(it.fr)}</p>${it.note ? `<p class="muted">${it.note.replace(/[؀-ۿ ]{2,}/g, m => AR(m.trim()) + " ")}</p>` : ""}`;
-  return `<p class="ask"><small>${esc(lessonLabel(it.l))}</small>${it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot"}</p>
+  return `<p class="ask"><small>${lessonHtml(it.l)}</small>${it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot"}</p>
     <section class="card fiche">${body}${speakBtn(it.id)}</section>`;
 }
 
@@ -501,7 +503,7 @@ function viewQuestion(task, c, ro) {
     const attrs = optCls ? ' lang="ar" dir="rtl"' : "";
     return `<button class="${cls}"${attrs} data-act="pick" data-k="${k}" ${c.checked || ro ? "disabled" : ""}>${optLabel(o)}</button>`;
   }).join("");
-  return `<p class="ask"><small>${esc(lessonLabel(it.l))}</small>${ask}</p><div class="prompt">${prompt}</div><div class="opts ${two ? "two" : ""}">${opts}</div>`;
+  return `<p class="ask"><small>${lessonHtml(it.l)}</small>${ask}</p><div class="prompt">${prompt}</div><div class="opts ${two ? "two" : ""}">${opts}</div>`;
 }
 
 // Association de paires : on touche un mot d'un côté, puis son correspondant de l'autre, dans l'ordre qu'on veut
@@ -551,7 +553,7 @@ function viewWords() {
   const chips = UNITS.map(u => `<p class="muted">${unitName(u)} · ${esc(u.fr)}</p><div class="chips">` +
     u.lessons.map(([l, title]) => `<button class="chip" data-act="drill-toggle" data-l="${l}" aria-pressed="${Boolean(drillSel[l])}">${lessonShort(l)} · ${esc(title)}</button>`).join("") + `</div>`).join("");
   const n = drillItems().length, hard = hardItems().length;
-  const groups = UNITS.map(u => u.lessons.map(([l]) => `<section class="panel"><h3>${esc(lessonLabel(l))}</h3><div>${itemsOf(l).map(row).join("")}</div></section>`).join("")).join("");
+  const groups = UNITS.map(u => u.lessons.map(([l]) => `<section class="panel"><h3>${lessonHtml(l)}</h3><div>${itemsOf(l).map(row).join("")}</div></section>`).join("")).join("");
   return `<section class="panel"><h3>Réviser ce que je veux</h3>
       <p>Cochez une ou plusieurs leçons. Les questions s'enchaînent jusqu'à ce que chaque élément soit réussi deux fois de suite.</p>
       ${chips}
@@ -733,7 +735,7 @@ function viewVoices() {
       ${chips}</section>
     ${viewShare()}
     ${wait}
-    <section class="panel"><h3>${esc(lessonLabel(voiceLesson))} · ${have} / ${its.length}</h3>
+    <section class="panel"><h3>${lessonHtml(voiceLesson)} · ${have} / ${its.length}</h3>
       <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup. Vous les écouterez avant de les déposer.</p>
       <label class="btn ghost" for="f-bulk">Ajouter les ${its.length} fichiers de la leçon, dans l'ordre</label>
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">

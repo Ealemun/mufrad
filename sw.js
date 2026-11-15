@@ -1,7 +1,7 @@
 // Service worker de Mufrad : permet d'ouvrir l'application sans réseau et de l'installer sur l'écran d'accueil.
 // Stratégie « réseau d'abord » : en ligne, on sert toujours la dernière version et on en garde une copie ;
 // hors ligne, on sert la copie. Ainsi une mise à jour n'est jamais bloquée par un vieux cache.
-const CACHE = "mufrad-v3";
+const CACHE = "mufrad-v4";
 const BASE = ["./", "index.html", "css/app.css", "js/contenu.js", "js/app.js", "manifest.webmanifest", "icons/icone-192.png"];
 
 self.addEventListener("install", e => {
@@ -19,7 +19,8 @@ self.addEventListener("fetch", e => {
   // On ne s'occupe que des lectures de nos propres fichiers ; le reste (polices, base de données) passe sans nous
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(
-    fetch(req).then(res => {
+    // « no-cache » : le navigateur redemande toujours au serveur si le fichier a changé, pour que les mises à jour arrivent tout de suite
+    fetch(req.url, { cache: "no-cache" }).then(res => {
       if (res.ok) { const copie = res.clone(); caches.open(CACHE).then(c => c.put(req, copie)); }
       return res;
     }).catch(() => caches.match(req).then(hit => hit || caches.match("index.html")))
