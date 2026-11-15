@@ -4,7 +4,7 @@ Application pour apprendre et réviser le vocabulaire arabe, leçon par leçon, 
 Elle suit le découpage d'un manuel d'arabe pour non-arabophones, afin de servir de support de révision
 à ceux qui l'étudient avec un professeur.
 
-**État : alpha 0.** Deux unités, des questions à choix, la révision espacée et la série de jours.
+**État : alpha 0.** L'alphabet et deux unités, des questions à choix, la révision espacée et la série de jours.
 La progression et les enregistrements restent sur l'appareil de chacun. Le contenu arabe n'est pas
 encore entièrement relu.
 
@@ -45,14 +45,34 @@ Le test joue une leçon, une révision avec une erreur et plusieurs révisions d
 | `js/app.js` | Séances, révision espacée, écrans |
 | `tests/simulation.js` | Test de bout en bout |
 | `outils/decoupe_audio.py` | Découpe un enregistrement long en un fichier par lettre ou par mot (demande ffmpeg) |
+| `outils/icones.py` | Fabrique les fichiers d'icône à partir d'une image carrée |
+| `sw.js`, `manifest.webmanifest`, `icons/` | Installation sur téléphone et fonctionnement hors ligne |
 | `supabase/0001_schema_initial.sql` | Schéma de la base pour l'alpha 1 (comptes, synchronisation, voix partagées) |
+
+## Installer l'application sur un téléphone
+
+L'application s'installe depuis son adresse, sans passer par un magasin d'applications.
+
+- **Android (Chrome)** : ouvrir l'adresse, puis menu ⋮ → « Installer l'application » (ou « Ajouter à l'écran d'accueil »).
+- **iPhone (Safari)** : ouvrir l'adresse, puis bouton Partager → « Sur l'écran d'accueil ».
+
+Une fois installée, elle s'ouvre en plein écran et fonctionne sans réseau. Les mises à jour arrivent seules :
+à chaque ouverture avec du réseau, l'application charge la dernière version en ligne.
+
+## Changer l'icône
+
+1. Préparer une image carrée d'au moins 512 pixels de côté.
+2. `python outils/icones.py mon-icone.png` (demande `pip install pillow`) : les quatre fichiers de `icons/` sont remplacés.
+3. Dans `sw.js`, augmenter le numéro de `CACHE` (par exemple `mufrad-v2`).
+4. Envoyer les changements sur `main`. Sur un téléphone où l'application est déjà installée, l'icône de l'écran
+   d'accueil ne change qu'après désinstallation puis réinstallation.
 
 ## Enregistrer les voix d'une leçon
 
 1. Lire toute la leçon d'une traite, dans l'ordre de l'onglet « Voix », avec une seconde de silence entre deux mots.
 2. Découper : `python outils/decoupe_audio.py lecon.wav --noms noms.txt --sortie lecon/`
    (`noms.txt` : un nom par ligne, autant que d'éléments dans la leçon).
-3. Dans l'onglet « Voix », ajouter tous les fichiers de la leçon d'un coup.
+3. Dans l'onglet « Voix », ajouter tous les fichiers de la leçon d'un coup, les écouter, rogner les bords si besoin, puis déposer.
 
 ## Suite prévue
 
