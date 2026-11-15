@@ -7,7 +7,8 @@
      5. Séances : apprendre une leçon, réviser des leçons choisies, révision du jour
      6. Audio : enregistrements ajoutés par l'utilisateur, sinon voix arabe de l'appareil ; bruitages
      7. Affichage des écrans
-     8. Gestion des clics et démarrage */
+     8. Gestion des clics et démarrage
+     9. Compte et partage des enregistrements (base de données en ligne) */
 
 /* ---------- 2. DATES ---------- */
 
@@ -39,6 +40,7 @@ function blankState() {
     log: [],         // journal des réponses, jamais modifié : { t, id, ex, ok, ms }
     days: {},        // jour -> { done, answers, newIds }
     sfx: true,       // bruitages activés
+    shared: {},      // enregistrements déjà envoyés au serveur : id -> emplacement du fichier
     offset: 0        // décalage de test, en jours
   };
 }
@@ -294,15 +296,29 @@ function speak(id) {
 // --- Enregistrements fournis par l'utilisateur : gardés dans ce navigateur (IndexedDB), jamais envoyés ailleurs.
 // Ils remplissent la table AUDIO au démarrage ; dès qu'un élément a son enregistrement, c'est lui qu'on entend.
 let idb = null;
+// Enregistrements déposés sur cet appareil : id -> { orig, cut, a, b }
+//   orig = fichier d'origine, gardé pour pouvoir reprendre le rognage plus tard ;
+//   cut  = passage gardé, celui qu'on entend et qu'on partage ; a, b = début et fin gardés, en secondes.
+const CLIPS = {};
+const SHARED = {};   // enregistrements publiés pour tous : id -> adresse du fichier (rempli par la partie « compte et partage »)
 function openClipDb() {
   return new Promise(res => {
     try {
       const rq = indexedDB.open("arabe-proto-audio", 1);
-      rq.onupgradeneeded = () => rq.result.createObjectStore("clips"); // clé = identifiant de l'élément, valeur = fichier audio
+      rq.onupgradeneeded = () => rq.result.createObjectStore("clips"); // clé = identifiant de l'élément
       rq.onsuccess = () => res(rq.result);
       rq.onerror = () => res(null);
     } catch (e) { res(null); }
   });
+}
+// Les premières versions rangeaient directement le fichier : on le lit alors comme un enregistrement non rogné
+const asClip = v => (v && v.cut ? v : { orig: v, cut: v, a: 0, b: null });
+// Ce qu'on entend pour un élément : sa propre voix si elle existe, sinon la voix partagée
+function refreshAudio(id) {
+  if (AUDIO[id] && AUDIO[id].startsWith("blob:")) URL.revokeObjectURL(AUDIO[id]);
+  if (CLIPS[id]) AUDIO[id] = URL.createObjectURL(CLIPS[id].cut);
+  else if (SHARED[id]) AUDIO[id] = SHARED[id];
+  else delete AUDIO[id];
 }
 async function loadClips() {
   idb = await openClipDb();
@@ -310,20 +326,20 @@ async function loadClips() {
   await new Promise(res => {
     try {
       const rq = idb.transaction("clips").objectStore("clips").openCursor();
-      rq.onsuccess = () => { const c = rq.result; if (c) { AUDIO[c.key] = URL.createObjectURL(c.value); c.continue(); } else res(); };
+      rq.onsuccess = () => { const c = rq.result; if (c) { CLIPS[c.key] = asClip(c.value); refreshAudio(c.key); c.continue(); } else res(); };
       rq.onerror = () => res();
     } catch (e) { res(); }
   });
   audioReady();
 }
-function saveClip(id, file) {
-  if (AUDIO[id]) URL.revokeObjectURL(AUDIO[id]);
-  AUDIO[id] = URL.createObjectURL(file);
-  try { if (idb) idb.transaction("clips", "readwrite").objectStore("clips").put(file, id); } catch (e) {}
+function saveClip(id, clip) {
+  CLIPS[id] = asClip(clip);
+  refreshAudio(id);
+  try { if (idb) idb.transaction("clips", "readwrite").objectStore("clips").put(CLIPS[id], id); } catch (e) {}
 }
 function deleteClip(id) {
-  if (AUDIO[id]) URL.revokeObjectURL(AUDIO[id]);
-  delete AUDIO[id];
+  delete CLIPS[id];
+  refreshAudio(id);
   try { if (idb) idb.transaction("clips", "readwrite").objectStore("clips").delete(id); } catch (e) {}
 }
 
@@ -602,6 +618,7 @@ async function decodePending(p) {
     const buf = await actx.decodeAudioData(await p.file.arrayBuffer());
     p.data = monoData(buf); p.rate = buf.sampleRate; p.dur = buf.duration;
     [p.a, p.b] = autoTrim(p.data, p.rate);
+    if (p.preset && p.preset.b != null) { p.a = Math.min(p.preset.a, p.dur); p.b = Math.min(p.preset.b, p.dur); }
     if (route() === "voix") render();
   } catch (e) { p.data = null; }
 }
@@ -633,9 +650,10 @@ function playPending(p) {
   } catch (e) {}
 }
 
-function addPending(id, file) {
+function addPending(id, file, preset) {
   dropPending(id);                                   // un seul enregistrement en attente par élément
-  const p = { id, file, url: URL.createObjectURL(file), data: null };
+  // preset = début et fin déjà choisis, quand on reprend le rognage d'un enregistrement déposé
+  const p = { id, file, url: URL.createObjectURL(file), data: null, preset: preset || null };
   pending.push(p);
   if (typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext) && file.arrayBuffer) decodePending(p);
 }
@@ -649,9 +667,14 @@ function confirmPending() {                          // dépôt de tout ce qui a
     URL.revokeObjectURL(p.url);
     // Si la piste a été rognée, on dépose seulement le passage gardé ; sinon le fichier d'origine
     const trimmed = p.data && (p.a > 0.005 || p.b < p.dur - 0.005);
-    saveClip(p.id, trimmed ? new Blob([wavBytes(p.data, p.rate, p.a, p.b)], { type: "audio/wav" }) : p.file);
+    const cut = trimmed ? new Blob([wavBytes(p.data, p.rate, p.a, p.b)], { type: "audio/wav" }) : p.file;
+    // On garde aussi le fichier d'origine et les réglages, pour pouvoir reprendre le rognage plus tard
+    saveClip(p.id, { orig: p.file, cut, a: p.data ? p.a : 0, b: p.data ? p.b : null });
+    if (S.shared) delete S.shared[p.id];             // une nouvelle version est à renvoyer
   });
+  const ids = pending.map(p => p.id);
   pending = [];
+  if (sb && me && hasConsent) shareMany(ids);        // connecté et accord signé : envoi immédiat
   return n;
 }
 // Le micro n'est disponible que sur le site lui-même (connexion sécurisée) et si le navigateur le permet
@@ -701,13 +724,14 @@ function viewVoices() {
         ${micro ? `<button class="mini txt ${on ? "rec" : ""}" data-act="rec" data-id="${it.id}" ${rec && !on ? "disabled" : ""}>${on ? "Arrêter" : "Enregistrer"}</button>` : ""}
         <label class="mini txt" for="f-${it.id}">Fichier</label>
         <input class="vh" type="file" accept="audio/*" id="f-${it.id}" data-clip="${it.id}">
-        ${AUDIO[it.id] ? `<button class="mini txt" data-act="clip-del" data-id="${it.id}">Retirer</button>` : ""}
+        ${CLIPS[it.id] ? `<button class="mini txt" data-act="clip-edit" data-id="${it.id}">Rogner</button><button class="mini txt" data-act="clip-del" data-id="${it.id}">Retirer</button>` : ""}
       </div></div>`;
   }).join("");
   return `<section class="panel"><h3>Ma voix</h3>
       <p><b>${total} / ${ITEMS.length}</b> éléments ont un enregistrement. Dès qu'un élément en a un, c'est lui qu'on entend, à la place de la voix de l'appareil.</p>
-      <p class="muted">${micro ? "Enregistrez directement ici, ou ajoutez un fichier." : "Enregistrez avec le dictaphone du téléphone, puis ajoutez le fichier ici."} Les enregistrements restent sur cet appareil : ils ne sont pas encore partagés avec les autres testeurs.</p>
+      <p class="muted">${micro ? "Enregistrez directement ici, ou ajoutez un fichier." : "Enregistrez avec le dictaphone du téléphone, puis ajoutez le fichier ici."}</p>
       ${chips}</section>
+    ${viewShare()}
     ${wait}
     <section class="panel"><h3>${esc(lessonLabel(voiceLesson))} · ${have} / ${its.length}</h3>
       <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup. Vous les écouterez avant de les déposer.</p>
@@ -722,6 +746,7 @@ let uiMsg = "", askReset = false;
 function viewSettings() {
   const seg = [5, 10, 15].map(g => `<button data-act="goal" data-g="${g}" aria-pressed="${S.goal === g}">${g} min</button>`).join("");
   return `
+    ${viewAccount()}
     <section class="panel"><h3>Objectif quotidien</h3><div class="seg">${seg}</div>
       <p class="muted">Fixe le nombre maximal d'éléments dans la révision du jour (${GOALS[S.goal]}).</p></section>
     <section class="panel"><h3>Affichage</h3>
@@ -742,6 +767,161 @@ function viewSettings() {
       <div class="row"><button class="btn small ghost" data-act="skip">Avancer d'un jour</button>
       ${askReset ? `<button class="btn small" data-act="reset-yes">Confirmer : tout effacer</button><button class="btn small ghost" data-act="reset-no">Annuler</button>`
                  : `<button class="btn small ghost" data-act="reset">Effacer la progression</button>`}</div></section>`;
+}
+
+/* ---------- 9. COMPTE ET PARTAGE ---------- */
+
+// Base de données du projet. La clé ci-dessous est la clé publique : elle est faite pour figurer dans le code du site.
+// Ce qu'elle permet est limité par les règles d'accès de la base (voir supabase/0001_schema_initial.sql).
+const SB_URL = "https://zhbomrkicxhifbnimvat.supabase.co";
+const SB_KEY = "sb_publishable_9_sMwX5_kGMS0OuyRbK7HQ_SVGUWisj";
+const ACCORD_VERSION = "alpha-1";
+
+let sb = null;                 // client de la base ; reste null si la bibliothèque n'a pas pu se charger (hors ligne)
+let me = null;                 // personne connectée, ou null
+let myLevel = "utilisateur";   // utilisateur, contributeur ou administrateur
+let hasConsent = false;        // accord de partage de la voix signé et non retiré
+let recos = [];                // recommandations en attente, visibles des contributeurs
+let sbMsg = "";                // dernier message de cette partie (envoi, erreur)
+const isContributor = () => myLevel === "contributeur" || myLevel === "administrateur";
+const publicUrl = chemin => SB_URL + "/storage/v1/object/public/voix/" + chemin;
+const refresh = () => { if (!sess || sess.over) render(); };
+
+function initCloud() {
+  try {
+    if (typeof supabase === "undefined" || !supabase.createClient) return;
+    sb = supabase.createClient(SB_URL, SB_KEY);
+    // À chaque connexion ou déconnexion ; le délai évite d'appeler la base depuis l'intérieur de son propre signal
+    sb.auth.onAuthStateChange((evt, session) => { setTimeout(() => onSession(session), 0); });
+    loadShared();
+  } catch (e) { sb = null; }
+}
+
+// Met à jour ce qu'on sait de la personne connectée : niveau, accord, recommandations à traiter
+async function onSession(session) {
+  me = session ? session.user : null; myLevel = "utilisateur"; hasConsent = false; recos = [];
+  if (me) {
+    try {
+      const p = await sb.from("profils").select("niveau").eq("id", me.id).maybeSingle();
+      if (p.data) myLevel = p.data.niveau;
+      const a = await sb.from("accords").select("id").eq("utilisateur", me.id).is("retire_le", null).limit(1);
+      hasConsent = Boolean(a.data && a.data.length);
+      if (isContributor()) await loadRecos();
+    } catch (e) {}
+  }
+  refresh();
+}
+
+// Voix publiées pour tous : pour chaque élément, la plus récente l'emporte
+async function loadShared() {
+  if (!sb) return;
+  try {
+    const q = await sb.from("voix").select("element,chemin,cree_le").eq("etat", "publie").order("cree_le", { ascending: true });
+    if (q.error) return;
+    Object.keys(SHARED).forEach(k => { delete SHARED[k]; });
+    q.data.forEach(v => { if (BY_ID[v.element]) SHARED[v.element] = publicUrl(v.chemin); });
+    ITEMS.forEach(it => refreshAudio(it.id));
+    refresh();
+  } catch (e) {}
+}
+async function loadRecos() {
+  const q = await sb.from("voix").select("id,element,chemin,cree_le").eq("etat", "recommande").order("cree_le", { ascending: true });
+  recos = q.error ? [] : q.data.filter(v => BY_ID[v.element]);
+}
+
+// Connexion par lien reçu par courriel : pas de mot de passe
+async function signIn(email) {
+  if (!sb || !email) return;
+  const r = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+  sbMsg = r.error ? "Envoi impossible : " + r.error.message : "Lien envoyé. Ouvrez le courriel sur cet appareil et touchez le lien pour vous connecter.";
+  refresh();
+}
+async function signOut() { if (sb) { await sb.auth.signOut(); sbMsg = ""; } }
+
+// Accord électronique : rattaché au compte, daté, retirable à tout moment
+async function signConsent(training) {
+  const r = await sb.from("accords").insert({ version: ACCORD_VERSION, voix_dans_appli: true, voix_pour_entrainement: training, nom_affiche: false });
+  if (r.error) sbMsg = "Accord non enregistré : " + r.error.message; else { hasConsent = true; sbMsg = "Accord enregistré."; }
+  refresh();
+}
+// Retrait : l'accord est daté comme retiré, les envois passent à « retiré » et les fichiers sont supprimés du serveur
+async function withdrawConsent() {
+  try {
+    await sb.from("accords").update({ retire_le: new Date().toISOString() }).eq("utilisateur", me.id).is("retire_le", null);
+    await sb.from("voix").update({ etat: "retire" }).eq("auteur", me.id);
+    const l = await sb.storage.from("voix").list(me.id, { limit: 1000 });
+    if (l.data && l.data.length) await sb.storage.from("voix").remove(l.data.map(f => me.id + "/" + f.name));
+    hasConsent = false; S.shared = {}; saveState();
+    sbMsg = "Accord retiré : vos enregistrements ne sont plus partagés. Ils restent sur cet appareil.";
+    await loadShared();
+  } catch (e) { sbMsg = "Retrait incomplet : réessayez avec du réseau."; }
+  refresh();
+}
+
+// Envoie l'enregistrement d'un élément : le fichier, puis sa ligne dans la base.
+// Le serveur décide de l'état : publié pour un contributeur, recommandé pour les autres.
+const EXT = { "audio/wav": "wav", "audio/x-wav": "wav", "audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac" };
+async function shareClip(id) {
+  const clip = CLIPS[id];
+  if (!sb || !me || !hasConsent || !clip) return null;
+  const type = (clip.cut.type || "audio/wav").split(";")[0];
+  const chemin = me.id + "/" + id + "-" + Date.now() + "." + (EXT[type] || "wav");
+  const up = await sb.storage.from("voix").upload(chemin, clip.cut, { contentType: type });
+  if (up.error) throw new Error(up.error.message);
+  const row = await sb.from("voix").insert({ element: id, chemin }).select("etat").single();
+  if (row.error) throw new Error(row.error.message);
+  S.shared = S.shared || {}; S.shared[id] = chemin; saveState();
+  return row.data.etat;
+}
+// Ce qui est déposé ici mais pas encore envoyé
+const unsharedIds = () => Object.keys(CLIPS).filter(id => BY_ID[id] && !(S.shared && S.shared[id]));
+async function shareMany(ids) {
+  if (!ids.length) return;
+  let ok = 0, etat = null, err = "";
+  sbMsg = "Envoi en cours…"; refresh();
+  for (const id of ids) { try { etat = await shareClip(id); ok++; } catch (e) { err = e.message; } }
+  sbMsg = ok ? plural(ok, "enregistrement") + (etat === "publie" ? " : disponible pour tous les utilisateurs." : " : envoyé en recommandation, en attente d'un contributeur.") : "";
+  if (err) sbMsg += " Échec pour " + (ids.length - ok) + " : " + err;
+  await loadShared(); if (isContributor()) await loadRecos();
+  refresh();
+}
+// Traitement d'une recommandation par un contributeur
+async function decide(recoId, accept) {
+  const r = await sb.from("voix").update({ etat: accept ? "publie" : "refuse", traite_par: me.id, traite_le: new Date().toISOString() }).eq("id", recoId);
+  sbMsg = r.error ? "Action refusée : " + r.error.message : (accept ? "Recommandation acceptée." : "Recommandation refusée.");
+  await loadRecos(); await loadShared(); refresh();
+}
+
+// Encadré de l'onglet Voix : où en est le partage
+function viewShare() {
+  if (!sb) return `<section class="panel"><h3>Partage</h3><p class="muted">Partage indisponible pour l'instant (pas de réseau). Les enregistrements restent sur cet appareil.</p></section>`;
+  const msg = sbMsg ? `<p role="status"><b>${esc(sbMsg)}</b></p>` : "";
+  if (!me) return `<section class="panel"><h3>Partage</h3><p>Pour que vos enregistrements soient entendus par tous les utilisateurs, connectez-vous.</p><a class="btn ghost" href="#reglages">Se connecter</a>${msg}</section>`;
+  if (!hasConsent) return `<section class="panel"><h3>Accord de partage de ma voix</h3>
+      <p>J'accepte que les enregistrements que j'envoie soient entendus par les utilisateurs de Mufrad. Je peux retirer cet accord quand je veux : mes enregistrements sont alors supprimés du serveur.</p>
+      <label class="check" for="c-train"><input type="checkbox" id="c-train"> J'accepte aussi qu'ils servent à entraîner les modèles de prononciation de Mufrad (facultatif).</label>
+      <button class="btn" data-act="consent">Je signe l'accord</button>${msg}</section>`;
+  const n = unsharedIds().length;
+  const recoRows = recos.map(v => `<div class="vrow">${AR(BY_ID[v.element].ar)}<div class="vact">
+      <button class="mini" data-act="reco-play" data-url="${esc(publicUrl(v.chemin))}" aria-label="Écouter la recommandation">${ICON_SPEAK}</button>
+      <button class="mini txt" data-act="reco-ok" data-id="${v.id}">Accepter</button><button class="mini txt" data-act="reco-no" data-id="${v.id}">Refuser</button></div></div>`).join("");
+  return `<section class="panel"><h3>Partage</h3>
+      <p>${isContributor() ? "Niveau " + esc(myLevel) + " : vos enregistrements sont disponibles pour tous dès leur dépôt." : "Vos enregistrements sont envoyés en recommandation ; un contributeur les écoute avant de les rendre disponibles pour tous."}</p>
+      ${n ? `<button class="btn" data-act="share-all">Partager ${plural(n, "enregistrement")} de cet appareil</button>` : `<p class="muted">Tout ce qui est déposé sur cet appareil a été envoyé.</p>`}
+      ${msg}<button class="btn small ghost" data-act="consent-off">Retirer mon accord de partage</button></section>
+    ${recoRows ? `<section class="panel"><h3>Recommandations à traiter · ${recos.length}</h3><div>${recoRows}</div></section>` : ""}`;
+}
+// Encadré des réglages : connexion
+function viewAccount() {
+  if (!sb) return "";
+  const msg = sbMsg ? `<p role="status"><b>${esc(sbMsg)}</b></p>` : "";
+  if (me) return `<section class="panel"><h3>Compte</h3><p>Connecté : <b>${esc(me.email || "")}</b> · niveau ${esc(myLevel)}</p>
+      <button class="btn small ghost" data-act="signout">Se déconnecter</button></section>`;
+  return `<section class="panel"><h3>Compte</h3>
+      <p class="muted">Le compte sert à partager ses enregistrements. Aucun mot de passe : vous recevez un lien de connexion par courriel.</p>
+      <label for="sb-email">Adresse électronique</label>
+      <input type="email" id="sb-email" class="field" autocomplete="email" inputmode="email" placeholder="nom@exemple.org">
+      <button class="btn" data-act="signin">Recevoir un lien de connexion</button>${msg}</section>`;
 }
 
 /* ---------- 8. CLICS ET DÉMARRAGE ---------- */
@@ -815,6 +995,20 @@ document.addEventListener("click", e => {
     }
     case "pend-drop": dropPending(el.dataset.id); break;
     case "pend-none": pending.slice().forEach(p => dropPending(p.id)); uiMsg = ""; break;
+    case "clip-edit": {                                                    // reprendre le rognage d'un enregistrement déposé
+      const c = CLIPS[el.dataset.id];
+      if (c) { addPending(el.dataset.id, c.orig, { a: c.a, b: c.b }); uiMsg = "L'enregistrement est revenu dans la liste d'attente : réglez-le puis déposez-le de nouveau."; }
+      break;
+    }
+    // Compte et partage
+    case "signin": { const f = document.getElementById("sb-email"); signIn(f ? f.value.trim() : ""); return; }
+    case "signout": signOut(); return;
+    case "consent": { const c = document.getElementById("c-train"); signConsent(Boolean(c && c.checked)); return; }
+    case "consent-off": withdrawConsent(); return;
+    case "share-all": shareMany(unsharedIds()); return;
+    case "reco-play": try { new Audio(el.dataset.url).play().catch(() => {}); } catch (err) {} return;
+    case "reco-ok": decide(el.dataset.id, true); return;
+    case "reco-no": decide(el.dataset.id, false); return;
     case "pend-ok": { const n = confirmPending(); uiMsg = plural(n, "enregistrement") + (n > 1 ? " déposés." : " déposé."); break; }
     // Réglages
     case "sfx": S.sfx = el.dataset.on === "1"; saveState(); if (S.sfx) sfx("ok"); break;
@@ -872,5 +1066,7 @@ window.addEventListener("hashchange", () => { sheet = null; render(); });
 render();
 initAudio();
 loadClips();
+initCloud();
 // Fonctionnement hors ligne et installation sur l'écran d'accueil (ignoré si le navigateur ne le permet pas)
 if (typeof navigator !== "undefined" && "serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+

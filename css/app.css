@@ -15,6 +15,7 @@
   --gold: #c9962a;           /* acquis, série */
   --gold-deep: #8f6a12;
   --gold-ink: #7a580b;
+  --mid: #1f3d7a;            /* en cours */
   --good: #1c7449; --good-deep: #115235; --good-bg: #dff1e4;
   --bad: #ab2d24;  --bad-deep: #7c1c15;  --bad-bg: #f8e2dd;
   --font-ui: "Fredoka", "Trebuchet MS", "Segoe UI", sans-serif;
@@ -25,7 +26,7 @@
     color-scheme: dark;
     --paper: #0b1230; --surface: #141d45; --ink: #f1ead6; --muted: #aeb2cc; --line: #2d3a70; --line-deep: #1c2654;
     --primary: #dcb55c; --primary-deep: #a07f2f; --primary-soft: #2a3160; --on-primary: #0b1230;
-    --gold: #dcb55c; --gold-deep: #a07f2f; --gold-ink: #dcb55c;
+    --gold: #dcb55c; --gold-deep: #a07f2f; --gold-ink: #dcb55c; --mid: #7ea6ee;
     --good: #6fd0a0; --good-deep: #3d9a6e; --good-bg: #11382e; --bad: #f39a8f; --bad-deep: #b8635a; --bad-bg: #43201f;
   }
 }
@@ -33,7 +34,7 @@
   color-scheme: dark;
   --paper: #0b1230; --surface: #141d45; --ink: #f1ead6; --muted: #aeb2cc; --line: #2d3a70; --line-deep: #1c2654;
   --primary: #dcb55c; --primary-deep: #a07f2f; --primary-soft: #2a3160; --on-primary: #0b1230;
-  --gold: #dcb55c; --gold-deep: #a07f2f; --gold-ink: #dcb55c;
+  --gold: #dcb55c; --gold-deep: #a07f2f; --gold-ink: #dcb55c; --mid: #7ea6ee;
   --good: #6fd0a0; --good-deep: #3d9a6e; --good-bg: #11382e; --bad: #f39a8f; --bad-deep: #b8635a; --bad-bg: #43201f;
 }
 * { box-sizing: border-box; }
@@ -70,10 +71,10 @@ h3 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 600; text-tra
 
 /* Maîtrise globale : acquis, en cours, à découvrir */
 .tri { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--line); }
-.tri .a { background: var(--gold); } .tri .b { background: var(--primary); }
+.tri .a { background: var(--gold); } .tri .b { background: var(--mid); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; color: var(--muted); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; background: var(--line-deep); }
-.legend .a i { background: var(--gold); } .legend .b i { background: var(--primary); }
+.legend .a i { background: var(--gold); } .legend .b i { background: var(--mid); }
 
 /* Parcours : une bannière par unité, une pastille par leçon */
 .unit-banner { background: var(--primary); color: var(--on-primary); border-radius: 18px; padding: 14px 18px; display: flex; flex-direction: column; box-shadow: 0 4px 0 var(--primary-deep); }
@@ -83,7 +84,7 @@ h3 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 600; text-tra
 .path { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 14px 0 10px; }
 .stop { display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(var(--x)); position: relative; }
 .ring { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center;
-  background: conic-gradient(var(--gold) 0 calc(var(--a) * 1%), var(--primary) calc(var(--a) * 1%) calc(var(--b) * 1%), var(--line) calc(var(--b) * 1%) 100%); }
+  background: conic-gradient(var(--gold) 0 calc(var(--a) * 1%), var(--mid) calc(var(--a) * 1%) calc(var(--b) * 1%), var(--line) calc(var(--b) * 1%) 100%); }
 .node { width: 72px; height: 72px; border-radius: 50%; border: 5px solid var(--paper); font: inherit; font-size: 26px; font-weight: 600; cursor: pointer; position: relative; font-variant-numeric: tabular-nums;
   background: var(--line); color: var(--muted); box-shadow: 0 5px 0 var(--line-deep); }
 .node.on { background: var(--primary); color: var(--on-primary); box-shadow: 0 5px 0 var(--primary-deep); }
@@ -150,7 +151,7 @@ h3 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 600; text-tra
 .wrow .ar { font-size: 28px; flex: 0 0 40%; }
 .wrow .txt { flex: 1; min-width: 0; font-size: 15px; }
 .pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border: 2px solid var(--line); color: var(--muted); white-space: nowrap; border-radius: 999px; }
-.pill.learn { border-color: var(--primary); color: var(--primary); }
+.pill.learn { border-color: var(--mid); color: var(--mid); }
 .pill.known { border-color: var(--gold); color: var(--gold-ink); }
 .pill.due { border-color: var(--bad); color: var(--bad); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -196,3 +197,7 @@ textarea { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; width: 100%;
 .wave { width: 100%; height: 72px; background: var(--paper); border-radius: 10px; }
 .trim { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; font-size: 14px; }
 .trim input { width: 100%; min-height: 32px; accent-color: var(--primary); }
+/* Compte et accord de partage */
+.field { font: inherit; width: 100%; min-height: 50px; padding: 10px 14px; border-radius: 14px; border: 2px solid var(--line); background: var(--paper); color: var(--ink); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+.check input { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--primary); flex: none; }
