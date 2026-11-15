@@ -86,6 +86,7 @@ out.incomplets = WORDS.filter(m => !m.id || !m.ar || !m.fr || !m.tr || typeof m.
 out.horsLecon = WORDS.filter(m => !UNITS.find(x => x.n === m.u).lessons.some(([l]) => l === m.l)).map(m => m.id);
 const nums = UNITS.flatMap(x => x.lessons.map(([l]) => l)); out.leconsDoubles = nums.length - new Set(nums).size;
 out.leconsVides = nums.filter(l => itemsOf(l).length < 3);
+const vus = {}; out.traductionsDoubles = WORDS.filter(m => (vus[m.fr] = (vus[m.fr] || 0) + 1) > 1).map(m => m.id + " : " + m.fr);
 return out;`)();
 
 assert.ok(r.items >= 110, "au moins 110 éléments attendus (28 lettres, 82 mots des unités 1 et 2)");
@@ -116,5 +117,6 @@ assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obl
 assert.deepStrictEqual(r.horsLecon, [], "mots rattachés à une leçon absente de leur unité");
 assert.strictEqual(r.leconsDoubles, 0, "un numéro de leçon est utilisé deux fois");
 assert.deepStrictEqual(r.leconsVides, [], "une leçon doit compter au moins 3 éléments");
+assert.deepStrictEqual(r.traductionsDoubles, [], "deux mots ont exactement la même traduction : préciser entre parenthèses");
 assert.strictEqual(r.dieu, false);
 console.log("Simulation réussie :", JSON.stringify({ elements: r.items, dus: r.dus, dusApres: r.dusApres, acquis: r.acquis }));

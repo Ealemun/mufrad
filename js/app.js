@@ -441,7 +441,7 @@ function viewHome() {
     const open = isOpen(u, next);
     const banner = `<button class="unit-banner ${us === 0 ? "todo" : ""}" data-act="fold" data-u="${u.n}" aria-expanded="${open}">
         <span class="ub-n">${unitName(u)} <i class="chev">${open ? "▾" : "▸"}</i></span><b>${esc(u.fr)}</b>${AR(u.ar)}
-        <span class="ub-s">${uk} / ${its.length} acquis${ud ? " · " + ud + " à revoir" : ""}${us === its.length ? "" : " · " + (its.length - us) + " à découvrir"}</span></button>`;
+        <span class="ub-s">${uk} / ${its.length} acquis${ud ? " · " + ud + " à revoir" : ""}${us === its.length ? "" : " · " + (its.length - us) + " à découvrir"}${u.relu ? "" : " · contenu à relire"}</span></button>`;
     if (!open) return banner;
     let k = 0;
     const stops = u.lessons.map(([l, title]) => {

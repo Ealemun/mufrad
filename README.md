@@ -41,7 +41,10 @@ Le test joue une leçon, une révision avec une erreur et plusieurs révisions d
 | --- | --- |
 | `index.html` | Structure de la page |
 | `css/app.css` | Apparence |
-| `js/contenu.js` | Lettres et mots, dans l'ordre du manuel |
+| `js/contenu.js` | L'alphabet et ses formes |
+| `js/unites/` | Un fichier par unité du manuel : la liste de ses mots |
+| `js/assemblage.js` | Réunit l'alphabet et les unités |
+| `docs/ajouter-une-unite.md` | Marche à suivre pour préparer et intégrer une nouvelle unité |
 | `js/app.js` | Séances, révision espacée, écrans |
 | `tests/simulation.js` | Test de bout en bout |
 | `outils/decoupe_audio.py` | Découpe un enregistrement long en un fichier par lettre ou par mot (demande ffmpeg) |
