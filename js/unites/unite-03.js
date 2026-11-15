@@ -43,7 +43,7 @@ UNITES.push({
     { id: "u3-25", l: 21, ar: "غُرْفَةُ جُلوس", tr: "ghurfat julūs", fr: "salon", note: "" },
     { id: "u3-26", l: 21, ar: "أَثاث", tr: "athāth", fr: "meubles, mobilier", note: "imprimé sans voyelles sur la page de vocabulaire, voyelle reprise du dialogue" },
     { id: "u3-27", l: 21, ar: "سِتارَة", tr: "sitāra", fr: "rideau", note: "" },
-    { id: "u3-28", l: 21, ar: "أريكَة", tr: "arīka", fr: "canapé", note: "imprimé ainsi : aucune voyelle sur le alif, ni ici ni dans le dialogue" },
+    { id: "u3-28", l: 21, ar: "أَريكَة", tr: "arīka", fr: "canapé", note: "fatha du alif ajoutée pour la lecture (non imprimée, ni ici ni dans le dialogue)" },
     { id: "u3-29", l: 21, ar: "سَجّادَة", tr: "sajjāda", fr: "tapis", note: "" },
     { id: "u3-30", l: 21, ar: "سَرير", tr: "sarīr", fr: "lit", note: "" },
     { id: "u3-31", l: 21, ar: "ثَلّاجَة", tr: "thallāja", fr: "réfrigérateur", note: "" },

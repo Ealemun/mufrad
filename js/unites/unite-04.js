@@ -43,10 +43,10 @@ UNITES.push({
     { id: "u4-33", l: 30, ar: "كَبير", tr: "kabīr", fr: "grand", note: "" },
     { id: "u4-34", l: 30, ar: "مُبَكِّراً", tr: "mubakkiran", fr: "tôt", note: "" },
     { id: "u4-35", l: 30, ar: "مُتَأَخِّراً", tr: "mutaʾakhkhiran", fr: "tard", note: "" },
-    { id: "u4-36", l: 30, ar: "أو", tr: "aw", fr: "ou (choix)", note: "relevé dans le dialogue ; imprimé ainsi, sans voyelles" },
+    { id: "u4-36", l: 30, ar: "أَوْ", tr: "aw", fr: "ou (choix)", note: "relevé dans le dialogue ; non vocalisé ici, vocalisé أَو dans le dialogue de la leçon 38 ; sukūn ajouté pour la lecture" },
     { id: "u4-37", l: 30, ar: "أَيْضاً", tr: "ayḍan", fr: "aussi, également", note: "relevé dans le dialogue" },
     // Leçon 31 : encadré de vocabulaire complémentaire (les nombres ordinaux)
-    { id: "u4-38", l: 31, ar: "الأوَّل", tr: "al-awwal", fr: "le premier", note: "imprimé ainsi : aucune voyelle sur le alif" },
+    { id: "u4-38", l: 31, ar: "الأَوَّل", tr: "al-awwal", fr: "le premier", note: "fatha du alif ajoutée pour la lecture (non imprimée)" },
     { id: "u4-39", l: 31, ar: "الثّاني", tr: "ath-thānī", fr: "le deuxième", note: "" },
     { id: "u4-40", l: 31, ar: "الثّالِث", tr: "ath-thālith", fr: "le troisième", note: "" },
     { id: "u4-41", l: 31, ar: "الرّابِع", tr: "ar-rābiʿ", fr: "le quatrième", note: "" },

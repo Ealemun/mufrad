@@ -2,7 +2,7 @@
 /* Mufrad — unité 5 : La nourriture et les boissons.
    Liste des mots de chaque leçon, dans l'ordre du manuel (leçons 37 à 40 ; les leçons 41 à 45 restent à lire).
    Chaque ligne a été transcrite à la main à partir des pages du livre.
-   Les mots sont écrits comme imprimés ; quand le manuel n'imprime pas une voyelle, la note le dit.
+   Les mots sont entièrement vocalisés ; quand le manuel n'imprime pas une voyelle, la note le dit.
    Règles : ne jamais changer un identifiant ni réordonner les lignes (la progression des apprenants en dépend) ;
    corriger une ligne sur place ; ajouter un mot à la fin, avec l'identifiant suivant. */
 UNITES.push({
@@ -17,7 +17,7 @@ UNITES.push({
     { id: "u5-02", l: 37, ar: "أَرُزّ", tr: "aruzz", fr: "riz", note: "" },
     { id: "u5-03", l: 37, ar: "سَمَك", tr: "samak", fr: "poisson", note: "" },
     { id: "u5-04", l: 37, ar: "خُبْز", tr: "khubz", fr: "pain", note: "" },
-    { id: "u5-05", l: 37, ar: "يأْكُل", tr: "yaʾkul", fr: "il mange", note: "imprimé ainsi : pas de fatha sur le ي (le dialogue imprime تَأْكُلُ)" },
+    { id: "u5-05", l: 37, ar: "يَأْكُل", tr: "yaʾkul", fr: "il mange", note: "fatha du ي ajoutée pour la lecture (le dialogue imprime تَأْكُلُ)" },
     { id: "u5-06", l: 37, ar: "مَطْعَم", tr: "maṭʿam", fr: "restaurant", note: "la page de vocabulaire imprime مَطعَم, sans sukūn ; sukūn repris du dialogue" },
     { id: "u5-07", l: 37, ar: "عَشاء", tr: "ʿashāʾ", fr: "dîner", note: "" },
     { id: "u5-08", l: 37, ar: "غَداء", tr: "ghadāʾ", fr: "déjeuner", note: "" },
@@ -42,10 +42,10 @@ UNITES.push({
     { id: "u5-28", l: 38, ar: "تَمْر", tr: "tamr", fr: "dattes", note: "" },
     { id: "u5-29", l: 38, ar: "عِنَب", tr: "ʿinab", fr: "raisin", note: "" },
     { id: "u5-30", l: 38, ar: "طَعام", tr: "ṭaʿām", fr: "nourriture", note: "" },
-    { id: "u5-31", l: 38, ar: "يَطلُب", tr: "yaṭlub", fr: "il demande, il commande", note: "imprimé ainsi : pas de sukūn sur le ط (le dialogue imprime تَطْلُبينَ)" },
+    { id: "u5-31", l: 38, ar: "يَطْلُب", tr: "yaṭlub", fr: "il demande, il commande", note: "sukūn du ط ajouté pour la lecture (le dialogue imprime تَطْلُبينَ)" },
     { id: "u5-32", l: 38, ar: "يَشْرَب", tr: "yashrab", fr: "il boit", note: "" },
-    { id: "u5-33", l: 38, ar: "المضيفَة", tr: "al-muḍīfa", fr: "l'hôtesse (de l'air)", note: "relevé dans le dialogue ; imprimé ainsi, avec la seule fatha du ف" },
-    { id: "u5-34", l: 38, ar: "المسافِرَة", tr: "al-musāfira", fr: "la voyageuse", note: "relevé dans le dialogue ; imprimé ainsi, sans voyelle sur le م" },
+    { id: "u5-33", l: 38, ar: "المُضيفَة", tr: "al-muḍīfa", fr: "l'hôtesse (de l'air)", note: "relevé dans le dialogue ; damma du م ajoutée pour la lecture (non imprimée)" },
+    { id: "u5-34", l: 38, ar: "المُسافِرَة", tr: "al-musāfira", fr: "la voyageuse", note: "relevé dans le dialogue ; damma du م ajoutée pour la lecture (non imprimée)" },
     { id: "u5-40", l: 38, ar: "بِـ", tr: "bi-", fr: "avec, au (le café au lait)", note: "relevé dans le dialogue (بِالحَليب)" },
     { id: "u5-41", l: 38, ar: "عَفْواً", tr: "ʿafwan", fr: "de rien, je vous en prie", note: "relevé dans le dialogue" },
     // Leçon 39 : page de vocabulaire illustré, puis les mots du dialogue
