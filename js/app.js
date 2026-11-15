@@ -68,6 +68,35 @@ function streak() {
   return n;
 }
 
+// Fusionne deux progressions (celle de l'appareil et la copie du compte) sans rien perdre, même quand plusieurs
+// appareils ont avancé chacun de son côté, hors ligne. Le résultat ne dépend pas de l'ordre des deux copies,
+// et refusionner un résultat ne le change plus : on peut synchroniser autant de fois qu'on veut.
+//   - journal : toutes les réponses des deux côtés, une seule fois chacune, dans l'ordre du temps
+//     (il reste complet : la future synchronisation par le journal pourra tout recalculer à partir de lui) ;
+//   - cartes : pour chaque élément, l'état le plus récent (dernière révision, puis le plus de réponses) ;
+//   - jours : un jour compte dans la série s'il a été terminé d'un côté ou de l'autre.
+// Les réglages (objectif, translittération, bruitages…) restent ceux de l'appareil : ils ne sont pas fusionnés.
+function mergeProgress(a, b) {
+  const cle = e => [e.t, e.id, e.ex, e.ok].join("|");
+  const log = {};
+  [...(a.log || []), ...(b.log || [])].forEach(e => { log[cle(e)] = e; });
+  // Départage de deux états d'un même élément ; le dernier critère (le texte) ne sert qu'à rester indépendant de l'ordre
+  const recent = (x, y) => !x ? y : !y ? x
+    : x.last !== y.last ? (x.last > y.last ? x : y)
+    : x.reps !== y.reps ? (x.reps > y.reps ? x : y)
+    : JSON.stringify(x) >= JSON.stringify(y) ? x : y;
+  // Clés triées : le résultat est exactement le même quel que soit l'ordre des deux copies
+  const cards = {};
+  [...new Set([...Object.keys(a.cards || {}), ...Object.keys(b.cards || {})])].sort().forEach(id => { cards[id] = recent((a.cards || {})[id], (b.cards || {})[id]); });
+  const days = {};
+  [...new Set([...Object.keys(a.days || {}), ...Object.keys(b.days || {})])].sort().forEach(k => {
+    const x = (a.days || {})[k] || {}, y = (b.days || {})[k] || {};
+    days[k] = { done: Boolean(x.done || y.done), answers: Math.max(x.answers || 0, y.answers || 0),
+      newIds: [...new Set([...(x.newIds || []), ...(y.newIds || [])])].sort() };
+  });
+  return { cards, log: Object.values(log).sort((x, y) => x.t - y.t || (cle(x) < cle(y) ? -1 : 1)), days };
+}
+
 /* ---------- 4. RÉPÉTITION ESPACÉE (FSRS-4.5) ---------- */
 
 // Paramètres par défaut de FSRS-4.5. Notes : 1 = raté, 2 = difficile, 3 = bien, 4 = facile.
@@ -893,7 +922,10 @@ function viewSettings() {
     <section class="panel"><h3>Bruitages</h3>
       <div class="seg"><button data-act="sfx" data-on="1" aria-pressed="${S.sfx !== false}">Activés</button><button data-act="sfx" data-on="0" aria-pressed="${S.sfx === false}">Coupés</button></div></section>
     <section class="panel"><h3>Sauvegarde</h3>
-      <p class="muted">La progression est gardée dans ce navigateur seulement. Pour la transférer, copiez ce texte et collez-le sur l'autre appareil.</p>
+      ${sb && me ? `<p class="muted">Votre progression peut être gardée dans votre compte. Synchronisez sur chaque appareil : les réponses de tous vos appareils sont réunies, même celles faites hors ligne, sans rien effacer.</p>
+        <button class="btn" data-act="sync">Synchroniser avec mon compte</button>${syncMsg ? `<p role="status"><b>${esc(syncMsg)}</b></p>` : ""}`
+        : sb ? `<p class="muted">Connectez-vous (plus haut) pour garder une copie de votre progression dans votre compte.</p>` : ""}
+      <p class="muted">Sans compte, la progression est gardée dans ce navigateur seulement. Pour la transférer, copiez ce texte et collez-le sur l'autre appareil.</p>
       <label for="io" class="muted">Données de progression</label>
       <textarea id="io" spellcheck="false">${esc(JSON.stringify({ v: S.v, goal: S.goal, unit: S.unit, translit: S.translit, cards: S.cards, log: S.log, days: S.days }))}</textarea>
       <div class="row"><button class="btn small ghost" data-act="copy">Copier</button><button class="btn small ghost" data-act="import">Remplacer par le texte collé</button></div>
@@ -995,6 +1027,39 @@ async function setName(nom) {
   const r = await sb.rpc("definir_nom", { nouveau: nom });
   sbMsg = r.error ? "Nom non enregistré : la base n'a pas encore reçu le fichier supabase/0002_noms_lecteurs.sql." : "Nom de lecteur enregistré.";
   if (!r.error) READER_NAME[me.id] = nom;
+  refresh();
+}
+
+// Copie de la progression dans le compte (demande supabase/0004_sauvegarde.sql).
+// On ne remplace jamais à l'aveugle : on lit la copie du compte, on la fusionne avec celle de l'appareil
+// (voir mergeProgress), puis on renvoie le résultat et on le garde aussi sur l'appareil.
+// Si un autre appareil a écrit entre notre lecture et notre écriture, la version ne correspond plus :
+// l'écriture est refusée, et on recommence avec la copie à jour.
+let syncMsg = "";
+async function syncAccount() {
+  if (!sb || !me) return;
+  syncMsg = "Synchronisation en cours…"; refresh();
+  try {
+    for (let essai = 0; essai < 3; essai++) {
+      const lu = await sb.from("sauvegardes").select("donnees,version").eq("utilisateur", me.id).maybeSingle();
+      if (lu.error) { syncMsg = "Synchronisation indisponible : la base n'a pas encore reçu le fichier supabase/0004_sauvegarde.sql."; break; }
+      const compte = lu.data ? lu.data.donnees : {}, avant = S.log.length, avantCompte = (compte.log || []).length;
+      const m = mergeProgress(S, compte), donnees = { cards: m.cards, log: m.log, days: m.days };
+      const w = lu.data
+        ? await sb.from("sauvegardes").update({ donnees, version: lu.data.version + 1, maj_le: new Date().toISOString() }).eq("utilisateur", me.id).eq("version", lu.data.version).select("version")
+        : await sb.from("sauvegardes").insert({ donnees }).select("version");
+      if (w.error && lu.data) throw new Error(w.error.message);
+      if (w.error || !w.data || !w.data.length) continue;   // un autre appareil vient d'écrire : on relit et on refusionne
+      // Des réponses ont pu être données pendant l'attente : on refusionne avec l'état actuel plutôt que de l'écraser
+      Object.assign(S, mergeProgress(S, m)); saveState();
+      const recus = S.log.length - avant, envoyes = m.log.length - avantCompte;
+      syncMsg = "Synchronisé." + (recus ? " " + plural(recus, "réponse") + " d'un autre appareil récupérée" + (recus > 1 ? "s." : ".") : "")
+        + (envoyes ? " " + plural(envoyes, "réponse") + " de cet appareil envoyée" + (envoyes > 1 ? "s." : ".") : "")
+        + (recus || envoyes ? "" : " Rien de nouveau.");
+      refresh(); return;
+    }
+    if (syncMsg === "Synchronisation en cours…") syncMsg = "Un autre appareil synchronise en même temps : réessayez dans un instant.";
+  } catch (e) { syncMsg = "Synchronisation impossible : vérifiez le réseau, puis réessayez. Rien n'a été perdu."; }
   refresh();
 }
 
@@ -1407,6 +1472,7 @@ document.addEventListener("click", e => {
     // Compte et partage
     case "signin": { const f = document.getElementById("sb-email"); signIn(f ? f.value.trim() : ""); return; }
     case "signout": signOut(); return;
+    case "sync": syncAccount(); return;                    // fusionne la progression avec la copie du compte
     case "consent": { const c = document.getElementById("c-train"); signConsent(Boolean(c && c.checked)); return; }
     case "consent-off": withdrawConsent(); return;
     case "share-all": shareMany(unsharedIds()); return;

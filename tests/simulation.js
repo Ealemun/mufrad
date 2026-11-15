@@ -96,6 +96,23 @@ S.cards = {}; S.fold = {}; listOpen = {};
 out.listeRepliee = (wordList().match(/class="wrow"/g) || []).length;
 wordQuery = "سلام"; out.rechercheAr = (wordList().match(/class="wrow"/g) || []).length > 0;
 wordQuery = "FRERE"; out.rechercheFr = (wordList().match(/class="wrow"/g) || []).length > 0; wordQuery = "";
+// Deux appareils progressent chacun hors ligne, puis se synchronisent avec le compte :
+// aucune réponse n'est perdue, l'ordre de synchronisation ne change rien, et refusionner ne change plus rien.
+const copie = () => JSON.parse(JSON.stringify({ cards: S.cards, log: S.log, days: S.days }));
+S.cards = {}; S.days = {}; S.log = []; S.offset = 0;
+startLearn(1); run(false); const tel = copie();                     // le téléphone apprend la leçon 1
+S.cards = {}; S.days = {}; S.log = [];
+startLearn(2); run(false); S.offset = 1; startDrill(itemsOf(1).slice(0, 2), "x"); run(true); const pc = copie(); S.offset = 0;  // l'ordinateur, la leçon 2 et deux mots de la 1
+const compte1 = mergeProgress(tel, {}), compte2 = mergeProgress(pc, compte1);                         // le téléphone synchronise, puis l'ordinateur
+const autreOrdre = mergeProgress(tel, mergeProgress(pc, {}));
+out.fusion = {
+  rienPerdu: compte2.log.length === tel.log.length + pc.log.length,
+  cartes: Object.keys(compte2.cards).length === new Set([...Object.keys(tel.cards), ...Object.keys(pc.cards)]).size,
+  plusRecente: compte2.cards.w01.last === [tel.cards.w01, pc.cards.w01].map(c => c.last).sort().pop(),
+  ordre: JSON.stringify(compte2) === JSON.stringify(autreOrdre),
+  stable: JSON.stringify(mergeProgress(compte2, compte2)) === JSON.stringify(compte2) && JSON.stringify(mergeProgress(tel, compte2)) === JSON.stringify(compte2)
+};
+S.cards = {}; S.days = {}; S.log = [];
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -138,6 +155,8 @@ assert.deepStrictEqual(r.voc, ["essai", true, 1, 1, true], "seuls les correction
 assert.deepStrictEqual(r.vocDefait, [true, true, true], "retirer une correction ou un mot remet le contenu d'origine");
 assert.strictEqual(r.listeRepliee, 4, "sans progression, la liste ne déroule que le premier groupe de lettres");
 assert.ok(r.rechercheAr && r.rechercheFr, "la recherche trouve un mot sans ses voyelles ni ses accents");
+assert.deepStrictEqual(r.fusion, { rienPerdu: true, cartes: true, plusRecente: true, ordre: true, stable: true },
+  "deux appareils hors ligne qui se synchronisent ne perdent aucune réponse, dans n'importe quel ordre");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

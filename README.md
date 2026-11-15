@@ -51,6 +51,7 @@ Le test joue une leçon, une révision avec une erreur et plusieurs révisions d
 | `outils/icones.py` | Fabrique les fichiers d'icône à partir d'une image carrée |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Installation sur téléphone et fonctionnement hors ligne |
 | `supabase/0001_schema_initial.sql` | Schéma de la base pour l'alpha 1 (comptes, synchronisation, voix partagées) |
+| `supabase/0004_sauvegarde.sql` | Copie de la progression dans le compte, fusionnée entre appareils (bouton « Synchroniser avec mon compte ») |
 
 ## Installer l'application sur un téléphone
 
