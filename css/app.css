@@ -80,7 +80,8 @@ h3 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 600; text-tra
 .unit-banner { background: var(--primary); color: var(--on-primary); border-radius: 18px; padding: 14px 18px; display: flex; flex-direction: column; box-shadow: 0 4px 0 var(--primary-deep); }
 .unit-banner .ub-n { font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
 .unit-banner b { font-size: 21px; }
-.unit-banner .ar { font-size: 26px; line-height: 1.5; align-self: flex-end; margin-top: -30px; }
+.unit-banner .ub-t { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 14px; }
+.unit-banner .ar { font-size: 26px; line-height: 1.5; margin-left: auto; }
 .path { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 14px 0 10px; }
 .stop { display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(var(--x)); position: relative; }
 .ring { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center;
@@ -211,3 +212,15 @@ button.unit-banner { font: inherit; border: 0; width: 100%; text-align: left; cu
 .path .linkbtn { text-decoration: underline; }
 /* Boutons discrets, en simple texte */
 .linkbtn { font: inherit; font-size: 15px; font-weight: 500; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 8px 4px; min-height: 44px; text-decoration: underline; }
+/* Écoute et choix de la voix ; lignes de l'onglet Voix qui passent à la ligne sur petit écran */
+.listen { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.vrow { flex-wrap: wrap; }
+.stop-txt b, .ask, h2, .unit-banner b { overflow-wrap: anywhere; }
+/* Suivi des voix */
+.arow { padding: 8px 0; border-bottom: 2px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.arow:last-child { border-bottom: 0; }
+.ahead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ahead .ar { font-size: 26px; }
+.avoice { display: flex; align-items: center; gap: 8px; }
+.avoice span { flex: 1; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
+select.field { appearance: auto; }

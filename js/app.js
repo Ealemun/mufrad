@@ -41,6 +41,9 @@ function blankState() {
     days: {},        // jour -> { done, answers, newIds }
     sfx: true,       // bruitages activés
     shared: {},      // enregistrements déjà envoyés au serveur : id -> emplacement du fichier
+    readers: [],     // lecteurs choisis dans les réglages (vide = tous)
+    voiceIdx: {},    // voix choisie pour chaque élément qui en a plusieurs : id -> rang
+    mic: "",         // micro choisi pour enregistrer (vide = celui par défaut)
     fold: {},        // unités pliées ou dépliées à la main dans le parcours : numéro -> true si pliée
     offset: 0        // décalage de test, en jours
   };
@@ -260,7 +263,7 @@ function finishSession() {
 //  1) Si un enregistrement validé existe pour l'élément (table AUDIO), c'est lui qui est joué, toujours le même.
 //  2) Sinon, la voix arabe installée sur l'appareil lit le texte.
 //  3) Sans enregistrement ni voix arabe, les boutons d'écoute et l'exercice d'écoute sont masqués.
-const AUDIO = {}; // id -> adresse d'un enregistrement (rempli au démarrage par les fichiers ajoutés dans l'onglet Voix)
+const AUDIO = {}; // id -> adresse de la voix actuellement choisie pour cet élément (voir voicesFor)
 
 // Texte donné à la voix quand il doit différer du texte affiché.
 // La hamzat al-waṣl ne se prononce pas en milieu de phrase : on l'écrit ٱ pour que la voix fasse la liaison.
@@ -297,11 +300,37 @@ function speak(id) {
 // --- Enregistrements fournis par l'utilisateur : gardés dans ce navigateur (IndexedDB), jamais envoyés ailleurs.
 // Ils remplissent la table AUDIO au démarrage ; dès qu'un élément a son enregistrement, c'est lui qu'on entend.
 let idb = null;
-// Enregistrements déposés sur cet appareil : id -> { orig, cut, a, b }
+// Enregistrements déposés sur cet appareil : id -> { orig, cut, a, b, url }
 //   orig = fichier d'origine, gardé pour pouvoir reprendre le rognage plus tard ;
-//   cut  = passage gardé, celui qu'on entend et qu'on partage ; a, b = début et fin gardés, en secondes.
+//   cut  = passage gardé, celui qu'on entend et qu'on partage ; a, b = début et fin gardés, en secondes ;
+//   url  = adresse locale du passage gardé, pour l'écouter.
 const CLIPS = {};
-const SHARED = {};   // enregistrements publiés pour tous : id -> adresse du fichier (rempli par la partie « compte et partage »)
+// Voix publiées pour tous : id -> liste { vid, url, auteur, chemin }, une par lecteur, dans l'ordre des lecteurs
+const SHARED = {};
+const READERS = [];        // identifiants des lecteurs publiés, dans l'ordre de leur première contribution
+const READER_NAME = {};    // identifiant du lecteur -> nom choisi par lui (s'il en a donné un)
+const readerLabel = a => READER_NAME[a] || "Voix " + (READERS.indexOf(a) + 1);
+
+// Les voix qu'on peut entendre pour un élément, dans un ordre fixe (jamais au hasard) :
+// d'abord sa propre voix sur cet appareil, puis celles des lecteurs choisis dans les réglages
+// (ou tous les lecteurs si aucun n'est choisi, ou si aucun des lecteurs choisis n'a enregistré cet élément).
+function voicesFor(id) {
+  const list = [];
+  if (CLIPS[id]) list.push({ vid: "local", url: CLIPS[id].url, auteur: "local", label: "Ma voix" });
+  let sh = SHARED[id] || [];
+  if (CLIPS[id] && typeof me !== "undefined" && me) sh = sh.filter(v => v.auteur !== me.id); // ma voix partagée ferait doublon
+  const want = (S.readers || []).filter(r => READERS.includes(r));
+  const kept = want.length ? sh.filter(v => want.includes(v.auteur)) : sh;
+  return list.concat(kept.length || list.length ? kept : sh);
+}
+// Rang de la voix actuellement choisie pour cet élément (le bouton « autre voix » le fait avancer)
+const voiceIndex = id => { const n = voicesFor(id).length; return n ? ((S.voiceIdx || {})[id] || 0) % n : 0; };
+// Met à jour ce qu'on entend pour un élément
+function refreshAudio(id) {
+  const list = voicesFor(id);
+  if (list.length) AUDIO[id] = list[voiceIndex(id)].url; else delete AUDIO[id];
+}
+
 function openClipDb() {
   return new Promise(res => {
     try {
@@ -313,13 +342,12 @@ function openClipDb() {
   });
 }
 // Les premières versions rangeaient directement le fichier : on le lit alors comme un enregistrement non rogné
-const asClip = v => (v && v.cut ? v : { orig: v, cut: v, a: 0, b: null });
-// Ce qu'on entend pour un élément : sa propre voix si elle existe, sinon la voix partagée
-function refreshAudio(id) {
-  if (AUDIO[id] && AUDIO[id].startsWith("blob:")) URL.revokeObjectURL(AUDIO[id]);
-  if (CLIPS[id]) AUDIO[id] = URL.createObjectURL(CLIPS[id].cut);
-  else if (SHARED[id]) AUDIO[id] = SHARED[id];
-  else delete AUDIO[id];
+const asClip = v => (v && v.cut ? { orig: v.orig, cut: v.cut, a: v.a, b: v.b } : { orig: v, cut: v, a: 0, b: null });
+function setClip(id, clip) {
+  if (CLIPS[id] && CLIPS[id].url) URL.revokeObjectURL(CLIPS[id].url);
+  CLIPS[id] = { ...asClip(clip) };
+  CLIPS[id].url = URL.createObjectURL(CLIPS[id].cut);
+  refreshAudio(id);
 }
 async function loadClips() {
   idb = await openClipDb();
@@ -327,18 +355,18 @@ async function loadClips() {
   await new Promise(res => {
     try {
       const rq = idb.transaction("clips").objectStore("clips").openCursor();
-      rq.onsuccess = () => { const c = rq.result; if (c) { CLIPS[c.key] = asClip(c.value); refreshAudio(c.key); c.continue(); } else res(); };
+      rq.onsuccess = () => { const c = rq.result; if (c) { setClip(c.key, c.value); c.continue(); } else res(); };
       rq.onerror = () => res();
     } catch (e) { res(); }
   });
   audioReady();
 }
 function saveClip(id, clip) {
-  CLIPS[id] = asClip(clip);
-  refreshAudio(id);
-  try { if (idb) idb.transaction("clips", "readwrite").objectStore("clips").put(CLIPS[id], id); } catch (e) {}
+  setClip(id, clip);
+  try { if (idb) idb.transaction("clips", "readwrite").objectStore("clips").put(asClip(CLIPS[id]), id); } catch (e) {}
 }
 function deleteClip(id) {
+  if (CLIPS[id] && CLIPS[id].url) URL.revokeObjectURL(CLIPS[id].url);
   delete CLIPS[id];
   refreshAudio(id);
   try { if (idb) idb.transaction("clips", "readwrite").objectStore("clips").delete(id); } catch (e) {}
@@ -371,7 +399,12 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 const AR = (txt, cls) => `<span class="ar ${cls || ""}" lang="ar" dir="rtl">${esc(txt)}</span>`;
 const ICON_SPEAK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const ICON_FLAME = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 3.5 5 5.5 5 10.5A5 5 0 0 1 12 18a5 5 0 0 1-5-5.5c0-1.8.8-3.2 1.8-4.3.3 1.6 1 2.5 2 3C10.300 8.500 10.800 5 12 2z"/><path d="M6 20.500h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-const speakBtn = (id, label) => canSpeak(id) ? `<button class="speak" data-act="speak" data-id="${id}">${ICON_SPEAK}${label || "Écouter"}</button>` : "";
+const speakBtn = (id, label) => {
+  if (!canSpeak(id)) return "";
+  const n = voicesFor(id).length;
+  return `<span class="listen"><button class="speak" data-act="speak" data-id="${id}">${ICON_SPEAK}${label || "Écouter"}</button>` +
+    (n > 1 ? `<button class="mini txt" data-act="voice-next" data-id="${id}" aria-label="Écouter une autre voix">↻ ${voiceIndex(id) + 1}/${n}</button>` : "") + `</span>`;
+};
 const translit = it => S.translit && it.tr ? `<span class="tr">${esc(it.tr)}</span>` : "";
 // Libellé d'une leçon pour l'affichage, titre isolé du reste de la ligne (sens d'écriture)
 const lessonHtml = l => esc(isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l) + " · <bdi>" + esc(LESSON_TITLE[l]) + "</bdi>";
@@ -440,7 +473,7 @@ function viewHome() {
     const its = ITEMS.filter(it => it.u === u.n), uk = its.filter(isKnown).length, us = its.filter(isSeen).length, ud = its.filter(isDue).length;
     const open = isOpen(u, next);
     const banner = `<button class="unit-banner ${us === 0 ? "todo" : ""}" data-act="fold" data-u="${u.n}" aria-expanded="${open}">
-        <span class="ub-n">${unitName(u)} <i class="chev">${open ? "▾" : "▸"}</i></span><b>${esc(u.fr)}</b>${AR(u.ar)}
+        <span class="ub-n">${unitName(u)} <i class="chev">${open ? "▾" : "▸"}</i></span><span class="ub-t"><b>${esc(u.fr)}</b>${AR(u.ar)}</span>
         <span class="ub-s">${uk} / ${its.length} acquis${ud ? " · " + ud + " à revoir" : ""}${us === its.length ? "" : " · " + (its.length - us) + " à découvrir"}${u.relu ? "" : " · contenu à relire"}</span></button>`;
     if (!open) return banner;
     let k = 0;
@@ -731,7 +764,10 @@ const canRecord = () => Boolean(typeof navigator !== "undefined" && navigator.me
 async function toggleRecord(id) {
   if (rec) { rec.recorder.stop(); return; }          // second appui : on arrête, l'enregistrement part en liste d'attente
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: S.mic ? { deviceId: { exact: S.mic } } : true }); }
+    catch (e) { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }   // micro choisi débranché : on prend celui par défaut
+    if (!mics.length) loadMics().then(() => { if (route() === "voix") render(); });      // les noms des micros sont maintenant connus
     const recorder = new MediaRecorder(stream), chunks = [];
     recorder.ondataavailable = e => chunks.push(e.data);
     recorder.onstop = () => {
@@ -746,6 +782,18 @@ async function toggleRecord(id) {
   }
 }
 
+// Micros disponibles (leurs noms ne sont connus qu'une fois le micro autorisé)
+let mics = [];
+async function loadMics() {
+  try { mics = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput" && d.label); } catch (e) { mics = []; }
+}
+// Demande l'autorisation du micro sans enregistrer, pour pouvoir afficher la liste
+async function askMics() {
+  try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach(t => t.stop()); await loadMics(); uiMsg = mics.length ? "" : "Aucun micro trouvé."; }
+  catch (e) { uiMsg = "Micro refusé ou indisponible."; }
+  render();
+}
+
 function viewVoices() {
   const its = itemsOf(voiceLesson), have = its.filter(it => AUDIO[it.id]).length;
   const total = ITEMS.filter(it => AUDIO[it.id]).length, micro = canRecord();
@@ -753,6 +801,10 @@ function viewVoices() {
     const n = itemsOf(l).filter(it => AUDIO[it.id]).length, t = itemsOf(l).length;
     return `<button class="chip" data-act="voice-lesson" data-l="${l}" aria-pressed="${l === voiceLesson}">${lessonShort(l)} · ${n}/${t}</button>`;
   }).join("") + `</div>`).join("");
+  // Choix du micro : utile sur ordinateur, où il y en a souvent plusieurs
+  const micUi = !micro ? "" : mics.length
+    ? `<label for="mic">Micro utilisé</label><select id="mic" class="field" data-mic="1">${mics.map(d => `<option value="${esc(d.deviceId)}" ${d.deviceId === S.mic ? "selected" : ""}>${esc(d.label)}</option>`).join("")}</select>`
+    : `<button class="btn small ghost" data-act="mic-list">Choisir le micro</button>`;
   // Liste d'attente : on écoute chaque enregistrement, on écarte ceux qui ne conviennent pas, puis on dépose le reste
   const wait = pending.length ? `<section class="panel attente"><h3>À écouter avant de déposer · ${pending.length}</h3>
       <p class="muted">Écoutez chaque enregistrement. Réglez le début et la fin pour couper les bruits autour du mot : seul le passage en couleur est gardé. Écartez ceux qui ne vont pas, puis déposez les autres.</p>
@@ -766,20 +818,23 @@ function viewVoices() {
       <button class="btn good" data-act="pend-ok">Déposer ${plural(pending.length, "enregistrement")}</button>
       <button class="btn ghost" data-act="pend-none">Tout écarter</button></section>` : "";
   const rows = its.map(it => {
-    const waiting = pending.some(p => p.id === it.id), on = rec && rec.id === it.id;
+    const waiting = pending.some(p => p.id === it.id), on = rec && rec.id === it.id, nb = voicesFor(it.id).length;
+    // Ma voix partagée pour cet élément, si elle existe : je peux la retirer du partage
+    const mine = typeof voixRows !== "undefined" && me ? voixRows.find(v => v.element === it.id && v.auteur === me.id && (v.etat === "publie" || v.etat === "recommande")) : null;
     return `<div class="vrow">${AR(it.ar)}
       <div class="vact">
-        ${waiting ? `<span class="pill learn">en attente</span>` : AUDIO[it.id] ? `<button class="mini" data-act="speak" data-id="${it.id}" aria-label="Écouter">${ICON_SPEAK}</button>` : `<span class="pill">sans voix</span>`}
+        ${waiting ? `<span class="pill learn">en attente</span>` : nb ? `<button class="mini" data-act="speak" data-id="${it.id}" aria-label="Écouter">${ICON_SPEAK}</button>${nb > 1 ? `<button class="mini txt" data-act="voice-next" data-id="${it.id}" aria-label="Écouter une autre voix">↻ ${voiceIndex(it.id) + 1}/${nb}</button>` : ""}` : `<span class="pill">sans voix</span>`}
         ${micro ? `<button class="mini txt ${on ? "rec" : ""}" data-act="rec" data-id="${it.id}" ${rec && !on ? "disabled" : ""}>${on ? "Arrêter" : "Enregistrer"}</button>` : ""}
         <label class="mini txt" for="f-${it.id}">Fichier</label>
         <input class="vh" type="file" accept="audio/*" id="f-${it.id}" data-clip="${it.id}">
-        ${CLIPS[it.id] ? `<button class="mini txt" data-act="clip-edit" data-id="${it.id}">Rogner</button><button class="mini txt" data-act="clip-del" data-id="${it.id}">Retirer</button>` : ""}
+        ${CLIPS[it.id] ? `<button class="mini txt" data-act="clip-edit" data-id="${it.id}">Rogner</button><button class="mini txt" data-act="clip-del" data-id="${it.id}">Supprimer de l'appareil</button>` : ""}
+        ${mine ? `<button class="mini txt" data-act="voice-del" data-vid="${mine.id}">Retirer du partage</button>` : ""}
       </div></div>`;
   }).join("");
   return `<section class="panel"><h3>Ma voix</h3>
       <p><b>${total} / ${ITEMS.length}</b> éléments ont un enregistrement. Dès qu'un élément en a un, c'est lui qu'on entend, à la place de la voix de l'appareil.</p>
       <p class="muted">${micro ? "Enregistrez directement ici, ou ajoutez un fichier." : "Enregistrez avec le dictaphone du téléphone, puis ajoutez le fichier ici."}</p>
-      ${chips}</section>
+      ${micUi}${chips}</section>
     ${viewShare()}
     ${wait}
     <section class="panel"><h3>${lessonHtml(voiceLesson)} · ${have} / ${its.length}</h3>
@@ -787,7 +842,8 @@ function viewVoices() {
       <label class="btn ghost" for="f-bulk">Ajouter les ${its.length} fichiers de la leçon, dans l'ordre</label>
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">
       ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
-      <div>${rows}</div></section>`;
+      <div>${rows}</div></section>
+    ${viewAdmin()}`;
 }
 
 // --- Réglages : objectif, translittération, sauvegarde, outils de test
@@ -796,6 +852,7 @@ function viewSettings() {
   const seg = [5, 10, 15].map(g => `<button data-act="goal" data-g="${g}" aria-pressed="${S.goal === g}">${g} min</button>`).join("");
   return `
     ${viewAccount()}
+    ${viewReaders()}
     <section class="panel"><h3>Objectif quotidien</h3><div class="seg">${seg}</div>
       <p class="muted">Fixe le nombre maximal d'éléments dans la révision du jour (${GOALS[S.goal]}).</p></section>
     <section class="panel"><h3>Affichage</h3>
@@ -821,7 +878,7 @@ function viewSettings() {
 /* ---------- 9. COMPTE ET PARTAGE ---------- */
 
 // Base de données du projet. La clé ci-dessous est la clé publique : elle est faite pour figurer dans le code du site.
-// Ce qu'elle permet est limité par les règles d'accès de la base (voir supabase/0001_schema_initial.sql).
+// Ce qu'elle permet est limité par les règles d'accès de la base (voir le dossier supabase/).
 const SB_URL = "https://zhbomrkicxhifbnimvat.supabase.co";
 const SB_KEY = "sb_publishable_9_sMwX5_kGMS0OuyRbK7HQ_SVGUWisj";
 const ACCORD_VERSION = "alpha-1";
@@ -830,7 +887,9 @@ let sb = null;                 // client de la base ; reste null si la biblioth�
 let me = null;                 // personne connectée, ou null
 let myLevel = "utilisateur";   // utilisateur, contributeur ou administrateur
 let hasConsent = false;        // accord de partage de la voix signé et non retiré
+let voixRows = [];             // toutes les voix que j'ai le droit de voir (publiées ; les miennes ; toutes pour un contributeur)
 let recos = [];                // recommandations en attente, visibles des contributeurs
+const LEVELS = {};             // identifiant -> niveau, connu des contributeurs seulement
 let sbMsg = "";                // dernier message de cette partie (envoi, erreur)
 const isContributor = () => myLevel === "contributeur" || myLevel === "administrateur";
 const publicUrl = chemin => SB_URL + "/storage/v1/object/public/voix/" + chemin;
@@ -842,40 +901,66 @@ function initCloud() {
     sb = supabase.createClient(SB_URL, SB_KEY);
     // À chaque connexion ou déconnexion ; le délai évite d'appeler la base depuis l'intérieur de son propre signal
     sb.auth.onAuthStateChange((evt, session) => { setTimeout(() => onSession(session), 0); });
-    loadShared();
+    loadVoices();
   } catch (e) { sb = null; }
 }
 
-// Met à jour ce qu'on sait de la personne connectée : niveau, accord, recommandations à traiter
+// Met à jour ce qu'on sait de la personne connectée : niveau, accord, puis les voix qu'elle a le droit de voir
 async function onSession(session) {
-  me = session ? session.user : null; myLevel = "utilisateur"; hasConsent = false; recos = [];
+  me = session ? session.user : null; myLevel = "utilisateur"; hasConsent = false;
   if (me) {
     try {
       const p = await sb.from("profils").select("niveau").eq("id", me.id).maybeSingle();
       if (p.data) myLevel = p.data.niveau;
       const a = await sb.from("accords").select("id").eq("utilisateur", me.id).is("retire_le", null).limit(1);
       hasConsent = Boolean(a.data && a.data.length);
-      if (isContributor()) await loadRecos();
     } catch (e) {}
   }
+  await loadVoices();
   refresh();
 }
 
-// Voix publiées pour tous : pour chaque élément, la plus récente l'emporte
-async function loadShared() {
+// Lit les voix et prépare, pour chaque élément, la liste des lecteurs qui l'ont enregistré
+async function loadVoices() {
   if (!sb) return;
   try {
-    const q = await sb.from("voix").select("element,chemin,cree_le").eq("etat", "publie").order("cree_le", { ascending: true });
+    const q = await sb.from("voix").select("id,element,auteur,chemin,etat,cree_le").order("cree_le", { ascending: true });
     if (q.error) return;
+    voixRows = q.data.filter(v => BY_ID[v.element]);
+    const pub = voixRows.filter(v => v.etat === "publie");
+    READERS.length = 0;
+    pub.forEach(v => { if (!READERS.includes(v.auteur)) READERS.push(v.auteur); });
     Object.keys(SHARED).forEach(k => { delete SHARED[k]; });
-    q.data.forEach(v => { if (BY_ID[v.element]) SHARED[v.element] = publicUrl(v.chemin); });
+    // Une voix par lecteur et par élément : son envoi le plus récent remplace les précédents
+    pub.forEach(v => {
+      const list = SHARED[v.element] || (SHARED[v.element] = []), i = list.findIndex(x => x.auteur === v.auteur);
+      const e = { vid: v.id, url: publicUrl(v.chemin), auteur: v.auteur, chemin: v.chemin };
+      if (i >= 0) list[i] = e; else list.push(e);
+    });
+    Object.values(SHARED).forEach(l => l.sort((a, b) => READERS.indexOf(a.auteur) - READERS.indexOf(b.auteur)));
+    recos = isContributor() ? voixRows.filter(v => v.etat === "recommande") : [];
+    await loadNames();
     ITEMS.forEach(it => refreshAudio(it.id));
     refresh();
   } catch (e) {}
 }
-async function loadRecos() {
-  const q = await sb.from("voix").select("id,element,chemin,cree_le").eq("etat", "recommande").order("cree_le", { ascending: true });
-  recos = q.error ? [] : q.data.filter(v => BY_ID[v.element]);
+// Noms des lecteurs (demande supabase/0002_noms_lecteurs.sql ; sans lui, les lecteurs s'appellent « Voix 1 », « Voix 2 »…)
+async function loadNames() {
+  try {
+    const r = await sb.rpc("lecteurs");
+    if (!r.error && r.data) r.data.forEach(p => { if (p.nom) READER_NAME[p.id] = p.nom; });
+    if (isContributor()) {
+      const p = await sb.from("profils").select("id,nom,niveau");
+      if (!p.error && p.data) p.data.forEach(x => { LEVELS[x.id] = x.niveau; if (x.nom) READER_NAME[x.id] = x.nom; });
+    }
+  } catch (e) {}
+}
+async function setName(nom) {
+  if (!sb || !me) return;
+  const r = await sb.rpc("definir_nom", { nouveau: nom });
+  sbMsg = r.error ? "Nom non enregistré : la base n'a pas encore reçu le fichier supabase/0002_noms_lecteurs.sql." : "Nom de lecteur enregistré.";
+  if (!r.error) READER_NAME[me.id] = nom;
+  refresh();
 }
 
 // Connexion par lien reçu par courriel : pas de mot de passe
@@ -902,7 +987,7 @@ async function withdrawConsent() {
     if (l.data && l.data.length) await sb.storage.from("voix").remove(l.data.map(f => me.id + "/" + f.name));
     hasConsent = false; S.shared = {}; saveState();
     sbMsg = "Accord retiré : vos enregistrements ne sont plus partagés. Ils restent sur cet appareil.";
-    await loadShared();
+    await loadVoices();
   } catch (e) { sbMsg = "Retrait incomplet : réessayez avec du réseau."; }
   refresh();
 }
@@ -915,10 +1000,13 @@ async function shareClip(id) {
   if (!sb || !me || !hasConsent || !clip) return null;
   const type = (clip.cut.type || "audio/wav").split(";")[0];
   const chemin = me.id + "/" + id + "-" + Date.now() + "." + (EXT[type] || "wav");
+  // Mes envois précédents pour cet élément sont retirés : une seule voix par lecteur et par élément
+  const old = voixRows.filter(v => v.element === id && v.auteur === me.id && (v.etat === "publie" || v.etat === "recommande"));
   const up = await sb.storage.from("voix").upload(chemin, clip.cut, { contentType: type });
   if (up.error) throw new Error(up.error.message);
   const row = await sb.from("voix").insert({ element: id, chemin }).select("etat").single();
   if (row.error) throw new Error(row.error.message);
+  for (const v of old) { await sb.from("voix").update({ etat: "retire" }).eq("id", v.id); await sb.storage.from("voix").remove([v.chemin]); }
   S.shared = S.shared || {}; S.shared[id] = chemin; saveState();
   return row.data.etat;
 }
@@ -931,14 +1019,24 @@ async function shareMany(ids) {
   for (const id of ids) { try { etat = await shareClip(id); ok++; } catch (e) { err = e.message; } }
   sbMsg = ok ? plural(ok, "enregistrement") + (etat === "publie" ? " : disponible pour tous les utilisateurs." : " : envoyé en recommandation, en attente d'un contributeur.") : "";
   if (err) sbMsg += " Échec pour " + (ids.length - ok) + " : " + err;
-  await loadShared(); if (isContributor()) await loadRecos();
-  refresh();
+  await loadVoices();
 }
 // Traitement d'une recommandation par un contributeur
 async function decide(recoId, accept) {
   const r = await sb.from("voix").update({ etat: accept ? "publie" : "refuse", traite_par: me.id, traite_le: new Date().toISOString() }).eq("id", recoId);
   sbMsg = r.error ? "Action refusée : " + r.error.message : (accept ? "Recommandation acceptée." : "Recommandation refusée.");
-  await loadRecos(); await loadShared(); refresh();
+  await loadVoices();
+}
+// Retire une voix du partage et supprime son fichier : la sienne pour chacun, n'importe laquelle pour un contributeur
+async function removeVoice(vid) {
+  const v = voixRows.find(x => x.id === vid);
+  if (!sb || !me || !v) return;
+  const r = await sb.from("voix").update({ etat: "retire" }).eq("id", vid);
+  if (r.error) { sbMsg = "Suppression refusée : " + r.error.message; refresh(); return; }
+  await sb.storage.from("voix").remove([v.chemin]);
+  if (v.auteur === me.id && S.shared) { delete S.shared[v.element]; saveState(); }
+  sbMsg = "Voix retirée du partage.";
+  await loadVoices();
 }
 
 // Encadré de l'onglet Voix : où en est le partage
@@ -951,7 +1049,7 @@ function viewShare() {
       <label class="check" for="c-train"><input type="checkbox" id="c-train"> J'accepte aussi qu'ils servent à entraîner les modèles de prononciation de Mufrad (facultatif).</label>
       <button class="btn" data-act="consent">Je signe l'accord</button>${msg}</section>`;
   const n = unsharedIds().length;
-  const recoRows = recos.map(v => `<div class="vrow">${AR(BY_ID[v.element].ar)}<div class="vact">
+  const recoRows = recos.map(v => `<div class="vrow">${AR(BY_ID[v.element].ar)}<div class="vact"><span class="pill">${esc(readerLabel(v.auteur))}</span>
       <button class="mini" data-act="reco-play" data-url="${esc(publicUrl(v.chemin))}" aria-label="Écouter la recommandation">${ICON_SPEAK}</button>
       <button class="mini txt" data-act="reco-ok" data-id="${v.id}">Accepter</button><button class="mini txt" data-act="reco-no" data-id="${v.id}">Refuser</button></div></div>`).join("");
   return `<section class="panel"><h3>Partage</h3>
@@ -960,12 +1058,61 @@ function viewShare() {
       ${msg}<button class="btn small ghost" data-act="consent-off">Retirer mon accord de partage</button></section>
     ${recoRows ? `<section class="panel"><h3>Recommandations à traiter · ${recos.length}</h3><div>${recoRows}</div></section>` : ""}`;
 }
+
+// Suivi des voix, pour les contributeurs et les administrateurs : qui a enregistré quoi, ce qui manque, avec des filtres
+let adminState = "all";    // all, none (sans voix), some (avec voix), multi (plusieurs voix)
+let adminReader = null;    // ne montrer que les voix de ce lecteur
+let adminAll = false;      // tout le contenu, ou seulement la leçon choisie plus haut
+const jour = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+function viewAdmin() {
+  if (!sb || !me || !isContributor()) return "";
+  const pub = voixRows.filter(v => v.etat === "publie");
+  const couverts = ITEMS.filter(it => (SHARED[it.id] || []).length).length;
+  // Un lecteur par ligne : ce qu'il a publié, ce qui attend, sa dernière contribution
+  const auteurs = [...new Set(voixRows.filter(v => v.etat === "publie" || v.etat === "recommande").map(v => v.auteur))];
+  const lecteurs = auteurs.map(a => {
+    const rows = voixRows.filter(v => v.auteur === a);
+    const p = new Set(rows.filter(v => v.etat === "publie").map(v => v.element)).size, r = rows.filter(v => v.etat === "recommande").length;
+    return `<button class="chip" data-act="admin-reader" data-a="${a}" aria-pressed="${adminReader === a}"><b>${esc(readerLabel(a))}</b>${LEVELS[a] && LEVELS[a] !== "utilisateur" ? " · " + esc(LEVELS[a]) : ""}<br>${p} publiés${r ? " · " + r + " en attente" : ""} · dernier le ${jour(rows[rows.length - 1].cree_le)}</button>`;
+  }).join("");
+  const count = it => (SHARED[it.id] || []).filter(v => !adminReader || v.auteur === adminReader).length;
+  const keep = { all: () => true, none: n => n === 0, some: n => n > 0, multi: n => n > 1 }[adminState];
+  const scope = (adminAll ? ITEMS : itemsOf(voiceLesson)).filter(it => keep(count(it)));
+  const etats = [["all", "Tout"], ["none", "Sans voix"], ["some", "Avec voix"], ["multi", "Plusieurs voix"]]
+    .map(([k, t]) => `<button class="chip" data-act="admin-state" data-k="${k}" aria-pressed="${adminState === k}">${t}</button>`).join("");
+  const rows = scope.map(it => {
+    const vs = (SHARED[it.id] || []).filter(v => !adminReader || v.auteur === adminReader);
+    return `<div class="arow"><div class="ahead">${AR(it.ar)}<span class="pill">${lessonShort(it.l)}</span></div>
+      ${vs.length ? vs.map(v => `<div class="avoice"><span>${esc(readerLabel(v.auteur))}</span>
+          <button class="mini" data-act="reco-play" data-url="${esc(v.url)}" aria-label="Écouter cette voix">${ICON_SPEAK}</button>
+          <button class="mini txt" data-act="voice-del" data-vid="${v.vid}">Supprimer</button></div>`).join("") : `<span class="pill">sans voix</span>`}</div>`;
+  }).join("");
+  return `<section class="panel"><h3>Suivi des voix</h3>
+      <p><b>${couverts} / ${ITEMS.length}</b> éléments ont au moins une voix publiée · ${plural(pub.length, "enregistrement")} · ${plural(READERS.length, "lecteur")}</p>
+      <div class="tri"><span class="a" style="width:${100 * couverts / ITEMS.length}%"></span></div>
+      ${lecteurs ? `<p class="muted">Lecteurs (touchez-en un pour ne voir que ses voix)</p><div class="chips">${lecteurs}</div>` : ""}
+      <p class="muted">Afficher</p><div class="chips">${etats}</div>
+      <div class="seg"><button data-act="admin-scope" data-all="0" aria-pressed="${!adminAll}">${lessonShort(voiceLesson)} seulement</button><button data-act="admin-scope" data-all="1" aria-pressed="${adminAll}">Tout le contenu</button></div>
+      <p class="muted">${plural(scope.length, "élément")} affiché${scope.length > 1 ? "s" : ""}</p>
+      <div>${rows}</div></section>`;
+}
+
+// Encadré des réglages : quelles voix entendre, quand plusieurs lecteurs ont enregistré
+function viewReaders() {
+  if (READERS.length < 2) return "";
+  const sel = S.readers || [];
+  return `<section class="panel"><h3>Voix que j'entends</h3>
+      <p class="muted">Cochez les lecteurs que vous voulez entendre. Sans choix, tous sont utilisés, toujours dans le même ordre. Quand un mot a plusieurs voix, le bouton ↻ à côté de « Écouter » passe à la suivante.</p>
+      <div class="chips">${READERS.map(a => `<button class="chip" data-act="reader-toggle" data-a="${a}" aria-pressed="${sel.includes(a)}">${esc(readerLabel(a))}</button>`).join("")}</div></section>`;
+}
 // Encadré des réglages : connexion
 function viewAccount() {
   if (!sb) return "";
   const msg = sbMsg ? `<p role="status"><b>${esc(sbMsg)}</b></p>` : "";
   if (me) return `<section class="panel"><h3>Compte</h3><p>Connecté : <b>${esc(me.email || "")}</b> · niveau ${esc(myLevel)}</p>
-      <button class="btn small ghost" data-act="signout">Se déconnecter</button></section>`;
+      <label for="sb-nom">Mon nom de lecteur (affiché à côté de mes enregistrements)</label>
+      <input type="text" id="sb-nom" class="field" maxlength="40" value="${esc(READER_NAME[me.id] || "")}">
+      <div class="row"><button class="btn small" data-act="setname">Enregistrer ce nom</button><button class="btn small ghost" data-act="signout">Se déconnecter</button></div>${msg}</section>`;
   return `<section class="panel"><h3>Compte</h3>
       <p class="muted">Le compte sert à partager ses enregistrements. Aucun mot de passe : vous recevez un lien de connexion par courriel.</p>
       <label for="sb-email">Adresse électronique</label>
@@ -1049,6 +1196,22 @@ document.addEventListener("click", e => {
     // Voix
     case "voice-lesson": voiceLesson = Number(el.dataset.l); break;
     case "clip-del": deleteClip(el.dataset.id); break;
+    case "voice-next": {                                                   // passer à la voix suivante pour cet élément, et l'écouter
+      const id = el.dataset.id, n = voicesFor(id).length;
+      if (n > 1) { S.voiceIdx = S.voiceIdx || {}; S.voiceIdx[id] = (voiceIndex(id) + 1) % n; saveState(); refreshAudio(id); speak(id); }
+      break;
+    }
+    case "mic-list": askMics(); return;
+    case "voice-del": removeVoice(el.dataset.vid); return;
+    case "admin-state": adminState = el.dataset.k; break;
+    case "admin-reader": adminReader = adminReader === el.dataset.a ? null : el.dataset.a; break;
+    case "admin-scope": adminAll = el.dataset.all === "1"; break;
+    case "reader-toggle": {                                                // choisir les lecteurs qu'on veut entendre
+      const a = el.dataset.a; S.readers = S.readers || [];
+      S.readers = S.readers.includes(a) ? S.readers.filter(x => x !== a) : [...S.readers, a];
+      saveState(); ITEMS.forEach(it => refreshAudio(it.id)); break;
+    }
+    case "setname": { const f = document.getElementById("sb-nom"); setName(f ? f.value.trim() : ""); return; }
     case "rec": toggleRecord(el.dataset.id); return;                       // démarre ou arrête le micro
     case "pend-play": {                                                    // écoute d'un enregistrement en attente
       const p = pending.find(x => x.id === el.dataset.id);
@@ -1101,6 +1264,7 @@ document.addEventListener("click", e => {
 // Fichiers audio choisis dans l'onglet Voix : ils vont en liste d'attente, jamais directement en dépôt
 document.addEventListener("change", e => {
   const el = e.target;
+  if (el.dataset && el.dataset.mic) { S.mic = el.value; saveState(); return; }   // choix du micro
   if (!el.files || !el.files.length) return;
   if (el.dataset.clip) {                       // un fichier pour un élément
     addPending(el.dataset.clip, el.files[0]); uiMsg = "";

@@ -77,6 +77,13 @@ dropPending("w02"); out.deposes = confirmPending(); out.apresDepot = Boolean(AUD
 // Reprise du rognage : l'enregistrement déposé garde son fichier d'origine et peut repasser en liste d'attente
 out.origine = Boolean(CLIPS.w01 && CLIPS.w01.orig && CLIPS.w01.cut);
 addPending("w01", CLIPS.w01.orig, { a: 0.1, b: 0.4 }); out.reprise = pending.length === 1 && pending[0].preset.b === 0.4; dropPending("w01");
+// Plusieurs voix pour un même élément : ordre fixe, bouton « autre voix », choix des lecteurs dans les réglages
+READERS.push("A", "B"); SHARED.w05 = [{ vid: "1", url: "u-A", auteur: "A" }, { vid: "2", url: "u-B", auteur: "B" }];
+refreshAudio("w05"); out.voix1 = AUDIO.w05; S.voiceIdx = { w05: 1 }; refreshAudio("w05"); out.voix2 = AUDIO.w05;
+S.voiceIdx = {}; S.readers = ["B"]; refreshAudio("w05"); out.voixChoisie = [voicesFor("w05").length, AUDIO.w05];
+S.readers = ["Z"]; out.voixRepli = voicesFor("w05").length; S.readers = [];
+out.maVoixDabord = voicesFor("w01")[0].vid; out.boutonAutre = speakBtn("w05").includes("voice-next") && !speakBtn("w01").includes("voice-next");
+delete SHARED.w05; READERS.length = 0; refreshAudio("w05");
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -111,6 +118,10 @@ assert.ok(r.acquis > 0, "des éléments doivent devenir acquis après plusieurs 
 assert.ok(r.attente === 2 && r.avantDepot === false && r.vueAttente, "un fichier choisi attend en liste, sans être déposé");
 assert.ok(r.deposes === 1 && r.apresDepot, "seuls les enregistrements gardés sont déposés à la confirmation");
 assert.ok(r.origine && r.reprise, "un enregistrement déposé peut être rogné de nouveau à partir de son fichier d'origine");
+assert.ok(r.voix1 === "u-A" && r.voix2 === "u-B", "les voix se suivent dans un ordre fixe");
+assert.deepStrictEqual(r.voixChoisie, [1, "u-B"], "seuls les lecteurs choisis sont entendus");
+assert.strictEqual(r.voixRepli, 2, "si aucun lecteur choisi n'a enregistré l'élément, on entend quand même les autres");
+assert.ok(r.maVoixDabord === "local" && r.boutonAutre, "sa propre voix passe d'abord ; le bouton « autre voix » n'apparaît que s'il y en a plusieurs");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
