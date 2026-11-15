@@ -13,7 +13,7 @@ UNITES.push({
   relu: false,   // passe à true quand un relecteur arabophone a validé toutes les lignes
   lecons: [[28, "Le matin"], [29, "Les tâches de la maison"], [30, "Le jour de congé"], [31, "Premier, deuxième… cinquième"]],
   mots: [
-    // Leçon 28 : page de vocabulaire illustré, puis les mots-outils et les formes verbales du dialogue
+    // Leçon 28 : page de vocabulaire illustré, puis les mots-outils du dialogue
     { id: "u4-01", l: 28, ar: "يَنام", tr: "yanām", fr: "il dort", note: "" },
     { id: "u4-02", l: 28, ar: "يَسْتَيْقِظ", tr: "yastayqiẓ", fr: "il se réveille", note: "" },
     { id: "u4-03", l: 28, ar: "يَذْهَب", tr: "yadhhab", fr: "il va, il part", note: "" },
@@ -25,14 +25,6 @@ UNITES.push({
     { id: "u4-09", l: 28, ar: "عِنْدَ", tr: "ʿinda", fr: "à, au moment de, chez", note: "relevé dans le dialogue" },
     { id: "u4-10", l: 28, ar: "بَعْدَ", tr: "baʿda", fr: "après", note: "relevé dans le dialogue" },
     { id: "u4-11", l: 28, ar: "الصَّلاة", tr: "aṣ-ṣalāh", fr: "la prière", note: "relevé dans le dialogue" },
-    { id: "u4-12", l: 28, ar: "تَسْتَيْقِظُ", tr: "tastayqiẓu", fr: "tu te réveilles (à un homme)", note: "relevé dans le dialogue" },
-    { id: "u4-13", l: 28, ar: "أسْتَيقِظُ", tr: "astayqiẓu", fr: "je me réveille", note: "relevé dans le dialogue ; imprimé ainsi, sans voyelle sur le alif ni sukūn sur le ي" },
-    { id: "u4-14", l: 28, ar: "تُصَلّي", tr: "tuṣallī", fr: "tu pries (à un homme)", note: "relevé dans le dialogue" },
-    { id: "u4-15", l: 28, ar: "أُصَلّي", tr: "uṣallī", fr: "je prie", note: "relevé dans le dialogue" },
-    { id: "u4-16", l: 28, ar: "تَفْعَلُ", tr: "tafʿalu", fr: "tu fais (à un homme)", note: "relevé dans le dialogue" },
-    { id: "u4-17", l: 28, ar: "أَقْرَأُ", tr: "aqraʾu", fr: "je lis", note: "relevé dans le dialogue" },
-    { id: "u4-18", l: 28, ar: "تَذْهَبُ", tr: "tadhhabu", fr: "tu vas (à un homme)", note: "relevé dans le dialogue" },
-    { id: "u4-19", l: 28, ar: "أَذْهَبُ", tr: "adhhabu", fr: "je vais", note: "relevé dans le dialogue" },
     // Leçon 29 : page de vocabulaire illustré, puis un mot-outil du dialogue
     { id: "u4-20", l: 29, ar: "يَوْمُ العَمَل", tr: "yawmu l-ʿamal", fr: "jour de travail", note: "" },
     { id: "u4-21", l: 29, ar: "يَوْمُ العُطْلَة", tr: "yawmu l-ʿuṭla", fr: "jour de congé", note: "" },
@@ -58,6 +50,9 @@ UNITES.push({
     { id: "u4-39", l: 31, ar: "الثّاني", tr: "ath-thānī", fr: "le deuxième", note: "" },
     { id: "u4-40", l: 31, ar: "الثّالِث", tr: "ath-thālith", fr: "le troisième", note: "" },
     { id: "u4-41", l: 31, ar: "الرّابِع", tr: "ar-rābiʿ", fr: "le quatrième", note: "" },
-    { id: "u4-42", l: 31, ar: "الخامِس", tr: "al-khāmis", fr: "le cinquième", note: "" }
+    { id: "u4-42", l: 31, ar: "الخامِس", tr: "al-khāmis", fr: "le cinquième", note: "" },
+    // Verbes : seule la forme de base (il …) est gardée ; la conjugaison fera l'objet de leçons dédiées.
+    // Les identifiants u4-12 à u4-19 (formes conjuguées retirées avant publication) ne sont pas réutilisés.
+    { id: "u4-43", l: 28, ar: "يَفْعَل", tr: "yafʿal", fr: "il fait", note: "forme de base de تَفْعَلُ (dialogue), imprimée يَفْعَلُ dans l'exercice de la même leçon" }
   ]
 });
