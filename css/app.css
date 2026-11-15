@@ -209,3 +209,5 @@ button.unit-banner { font: inherit; border: 0; width: 100%; text-align: left; cu
 .row.between { justify-content: space-between; align-items: center; }
 .row.center { justify-content: center; }
 .path .linkbtn { text-decoration: underline; }
+/* Boutons discrets, en simple texte */
+.linkbtn { font: inherit; font-size: 15px; font-weight: 500; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 8px 4px; min-height: 44px; text-decoration: underline; }
