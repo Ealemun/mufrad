@@ -91,6 +91,11 @@ applyContent([{ element: "w01", champ: "traduction", valeur: "essai", etat: "pub
 out.voc = [BY_ID.w01.fr, BY_ID.w02.fr !== "ignoré", ITEMS.length - nbAvant, itemsOf(1).length - nbLecon, Boolean(BY_ID["m-abc"])];
 viewWords(); viewHome();
 applyContent([], []); out.vocDefait = [BY_ID.w01.fr === frAvant, ITEMS.length === nbAvant, !BY_ID["m-abc"]];
+// Liste des mots : seule la leçon en cours est dépliée ; la recherche ignore voyelles, accents et majuscules
+S.cards = {}; S.fold = {}; listOpen = {};
+out.listeRepliee = (wordList().match(/class="wrow"/g) || []).length;
+wordQuery = "سلام"; out.rechercheAr = (wordList().match(/class="wrow"/g) || []).length > 0;
+wordQuery = "FRERE"; out.rechercheFr = (wordList().match(/class="wrow"/g) || []).length > 0; wordQuery = "";
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -131,6 +136,8 @@ assert.strictEqual(r.voixRepli, 2, "si aucun lecteur choisi n'a enregistré l'é
 assert.ok(r.maVoixDabord === "local" && r.boutonAutre, "sa propre voix passe d'abord ; le bouton « autre voix » n'apparaît que s'il y en a plusieurs");
 assert.deepStrictEqual(r.voc, ["essai", true, 1, 1, true], "seuls les corrections et les mots publiés s'appliquent, dans une leçon qui existe");
 assert.deepStrictEqual(r.vocDefait, [true, true, true], "retirer une correction ou un mot remet le contenu d'origine");
+assert.strictEqual(r.listeRepliee, 4, "sans progression, la liste ne déroule que le premier groupe de lettres");
+assert.ok(r.rechercheAr && r.rechercheFr, "la recherche trouve un mot sans ses voyelles ni ses accents");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

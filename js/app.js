@@ -624,23 +624,55 @@ function stateOf(it) {
 }
 let drillSel = {}; // leçons cochées (numéro de leçon -> true)
 function drillItems() { return ITEMS.filter(it => drillSel[it.l]); }
+let listOpen = {};   // leçons dépliées à la main dans la liste des mots : numéro -> true ou false
+let wordQuery = "";  // texte cherché dans la liste des mots
+// Pour chercher sans se soucier des voyelles arabes, des accents ni des majuscules
+const plain = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f\u064B-\u0652\u0670\u0640]/g, "").replace(/[أإآٱ]/g, "ا").toLowerCase();
+// Une ligne de la liste : le mot, sa traduction, son état, et le bouton de correction pour qui est connecté
+function wordRow(it) {
+  const [cls, label] = stateOf(it);
+  const txt = it.type === "letter" ? `<b>${esc(it.name)}</b>` : `${esc(it.fr)}${S.translit ? `<br><span class="tr">${esc(it.tr)}</span>` : ""}`;
+  const edit = me && it.type === "word" ? `<button class="mini txt" data-act="voc-edit" data-id="${it.id}">Modifier</button>` : "";
+  return `<div class="wrow">${AR(it.ar)}<div class="txt">${txt}</div><span class="pill ${cls}">${label}</span>${edit}</div>`;
+}
+// La liste des mots. Avec une recherche : les résultats, toutes leçons confondues.
+// Sans recherche : les unités pliables comme dans le parcours, et dans chaque unité une ligne par leçon,
+// dépliée seulement pour la leçon en cours (ou celles ouvertes à la main).
+function wordList() {
+  const q = plain(wordQuery.trim());
+  if (q) {
+    const hits = ITEMS.filter(it => plain(it.ar).includes(q) || plain(it.fr).includes(q) || plain(it.tr).includes(q) || plain(it.name).includes(q));
+    return `<section class="panel"><h3>${plural(hits.length, "résultat")}</h3><div>${hits.slice(0, 60).map(it => wordRow(it)).join("")}</div>
+      ${hits.length > 60 ? `<p class="muted">Seuls les 60 premiers sont affichés : précisez la recherche.</p>` : ""}</section>`;
+  }
+  const next = nextLesson();
+  return UNITS.map(u => {
+    const open = isOpen(u, next), its = ITEMS.filter(it => it.u === u.n);
+    const head = `<button class="unit-banner todo slim" data-act="fold" data-u="${u.n}" aria-expanded="${open}">
+        <span class="ub-n">${unitName(u)} <i class="chev">${open ? "▾" : "▸"}</i></span><span class="ub-t"><b>${esc(u.fr)}</b></span>
+        <span class="ub-s">${plural(its.length, "élément")} · ${its.filter(isKnown).length} acquis</span></button>`;
+    if (!open) return head;
+    return head + u.lessons.map(([l]) => {
+      const s = lessonStats(l), lo = l in listOpen ? listOpen[l] : l === next;
+      return `<section class="panel"><button class="lhead" data-act="list-toggle" data-l="${l}" aria-expanded="${lo}">
+          <span>${lessonHtml(l)}</span><span class="muted">${s.known} / ${s.total} ${lo ? "▾" : "▸"}</span></button>
+        ${lo ? `<div>${s.its.map(it => wordRow(it)).join("")}</div>${me && !isAlpha(l) && motsOk ? `<button class="btn small ghost" data-act="voc-add" data-l="${l}">Ajouter un mot</button>` : ""}` : ""}</section>`;
+    }).join("");
+  }).join("");
+}
 function viewWords() {
-  const row = it => {
-    const [cls, label] = stateOf(it);
-    const txt = it.type === "letter" ? `<b>${esc(it.name)}</b>` : `${esc(it.fr)}${S.translit ? `<br><span class="tr">${esc(it.tr)}</span>` : ""}`;
-    const edit = me && it.type === "word" ? `<button class="mini txt" data-act="voc-edit" data-id="${it.id}">Modifier</button>` : "";
-    return `<div class="wrow">${AR(it.ar)}<div class="txt">${txt}</div><span class="pill ${cls}">${label}</span>${edit}</div>`;
-  };
   const chips = UNITS.map(u => `<p class="muted">${unitName(u)} · ${esc(u.fr)}</p><div class="chips">` +
     u.lessons.map(([l, title]) => `<button class="chip" data-act="drill-toggle" data-l="${l}" aria-pressed="${Boolean(drillSel[l])}">${lessonShort(l)} · ${esc(title)}</button>`).join("") + `</div>`).join("");
   const n = drillItems().length, hard = hardItems().length;
-  const groups = UNITS.map(u => u.lessons.map(([l]) => `<section class="panel"><h3>${lessonHtml(l)}</h3><div>${itemsOf(l).map(row).join("")}</div>${me && !isAlpha(l) && motsOk ? `<button class="btn small ghost" data-act="voc-add" data-l="${l}">Ajouter un mot</button>` : ""}</section>`).join("")).join("");
   return `<section class="panel"><h3>Réviser ce que je veux</h3>
       <p>Cochez une ou plusieurs leçons. Les questions s'enchaînent jusqu'à ce que chaque élément soit réussi deux fois de suite.</p>
       ${chips}
       <div class="row"><button class="btn small ghost" data-act="drill-all">Tout cocher</button><button class="btn small ghost" data-act="drill-none">Tout décocher</button></div>
       <button class="btn" data-act="drill-start" ${n ? "" : "disabled"}>${n ? "Réviser " + plural(n, "élément") : "Choisissez une leçon"}</button>
-      ${hard ? `<button class="btn ghost" data-act="drill-hard">Reprendre mes ${plural(hard, "élément")} en difficulté</button>` : ""}</section>` + viewContentRecos() + groups + viewEditForm();
+      ${hard ? `<button class="btn ghost" data-act="drill-hard">Reprendre mes ${plural(hard, "élément")} en difficulté</button>` : ""}</section>` + viewContentRecos() +
+    `<div class="row between"><h3>Tous les mots</h3><button class="linkbtn" data-act="${UNITS.some(u => isOpen(u, nextLesson())) ? "fold-all" : "unfold-all"}">${UNITS.some(u => isOpen(u, nextLesson())) ? "Tout replier" : "Tout déplier"}</button></div>
+    <label class="vh" for="wq">Chercher un mot</label><input type="search" id="wq" class="field" placeholder="Chercher un mot, en arabe ou en français" value="${esc(wordQuery)}" data-wq="1">
+    <div id="wlist">${wordList()}</div>` + viewEditForm();
 }
 
 // --- Voix : enregistrer soi-même les lettres et les mots, à la place de la voix de l'appareil.
@@ -1384,6 +1416,9 @@ document.addEventListener("click", e => {
     case "voc-edit": editForm = { id: el.dataset.id }; vocMsg = ""; break;
     case "voc-add": editForm = { l: Number(el.dataset.l) }; vocMsg = ""; break;
     case "voc-close": editForm = null; vocMsg = ""; break;
+    case "list-toggle": {                                  // plier ou déplier une leçon dans la liste des mots
+      const l = Number(el.dataset.l); listOpen[l] = !(l in listOpen ? listOpen[l] : l === nextLesson()); break;
+    }
     case "voc-save": if (editForm.id) saveEdit(editForm.id); else addWord(editForm.l); return;
     case "voc-ok": setContentState(el.dataset.t, el.dataset.id, "publie"); return;
     case "voc-no": setContentState(el.dataset.t, el.dataset.id, "refuse"); return;
@@ -1435,6 +1470,8 @@ document.addEventListener("change", e => {
 });
 
 document.addEventListener("input", e => {
+  // Recherche dans la liste des mots : on ne redessine que la liste, pour garder le curseur dans le champ
+  if (e.target.dataset && e.target.dataset.wq) { wordQuery = e.target.value; const box = document.getElementById("wlist"); if (box) box.innerHTML = wordList(); return; }
   const el = e.target;
   if (!el.dataset || !el.dataset.trim) return;
   const p = pending.find(x => x.id === el.dataset.id); if (!p || !p.data) return;
