@@ -51,6 +51,14 @@ S.cards = {}; S.days = {}; S.log = [];
 const faux = new Float32Array(16000); for (let i = 4000; i < 8000; i++) faux[i] = Math.sin(i / 5) * 0.5;
 const [ta, tb] = autoTrim(faux, 16000); out.rognage = [ta, tb];
 out.wav = wavBytes(faux, 16000, ta, tb).byteLength; out.pics = peaksOf(faux, 8).map(v => v > 0.1);
+// Valider sans faire : les éléments entrent en révision dès aujourd'hui, et une révision réussie les rend acquis
+out.valides = markKnown(itemsOf(13)); out.dusValides = itemsOf(13).filter(isDue).length;
+startDaily(); run(false); out.acquisValides = itemsOf(13).filter(isKnown).length;
+S.cards = {}; S.days = {}; S.log = [];
+// Pliage : par défaut seule l'unité en cours est dépliée ; un choix fait à la main l'emporte
+out.ouvertes = UNITS.filter(x => isOpen(x, nextLesson())).map(x => x.n);
+S.fold = { 0: true, 2: false }; out.ouvertesChoix = UNITS.filter(x => isOpen(x, nextLesson())).map(x => x.n); S.fold = {};
+viewHome();
 startLearn(1); run(false);
 out.apresLecon = Object.keys(S.cards).length;
 out.echeanceReussi = diffDays(today(), S.cards.w01.due);
@@ -89,6 +97,9 @@ assert.ok(Math.abs(r.rognage[0] - 0.19) < 0.02 && Math.abs(r.rognage[1] - 0.58) 
 assert.strictEqual(r.wav, 44 + 2 * (Math.ceil(r.rognage[1] * 16000) - Math.floor(r.rognage[0] * 16000)), "taille du fichier rogné");
 assert.deepStrictEqual(r.pics, [false, false, true, true, false, false, false, false], "la piste montre le son au bon endroit");
 assert.ok(r.options.every(n => n === 3), "chaque question doit proposer trois mauvaises réponses");
+assert.ok(r.valides === 5 && r.dusValides === 5 && r.acquisValides === 5, "une leçon validée sans la faire passe en révision, puis en acquis après une révision réussie");
+assert.deepStrictEqual(r.ouvertes, [0], "au départ, seul l'alphabet est déplié");
+assert.deepStrictEqual(r.ouvertesChoix, [2], "le pliage choisi à la main l'emporte");
 assert.strictEqual(r.apresLecon, 6, "une séance d'apprentissage introduit 6 mots");
 assert.strictEqual(r.echeanceReussi, 3, "un mot nouveau réussi revient dans 3 jours");
 assert.strictEqual(r.echeanceRate, 1, "un mot raté revient le lendemain");

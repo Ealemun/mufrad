@@ -41,6 +41,7 @@ function blankState() {
     days: {},        // jour -> { done, answers, newIds }
     sfx: true,       // bruitages activés
     shared: {},      // enregistrements déjà envoyés au serveur : id -> emplacement du fichier
+    fold: {},        // unités pliées ou dépliées à la main dans le parcours : numéro -> true si pliée
     offset: 0        // décalage de test, en jours
   };
 }
@@ -392,45 +393,91 @@ function render() {
       <span class="alpha">alpha</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     $view.innerHTML = r === "mots" ? viewWords() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : viewHome();
     if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
+    if (wantScroll && !sheet && r !== "mots" && r !== "voix" && r !== "reglages") {
+      wantScroll = false;
+      const go = document.querySelector ? document.querySelector(".go") : null;
+      if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
+    }
     $foot.innerHTML = `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "accueil" && !TABS.some(t => t[0] === r)) ? 'aria-current="page"' : ""}>${label}</a>`).join("") + `</nav>`;
   }
 }
 
-// --- Parcours : maîtrise globale, révision du jour, puis une pastille par leçon du manuel
+// --- Parcours : maîtrise globale, révision du jour, puis une pastille par leçon du manuel.
+// Quand les unités sont nombreuses, on ne déroule que celle où l'on en est : les autres sont pliées en une ligne.
+let askKnown = null;    // unité pour laquelle on demande confirmation de « je connais déjà »
+let wantScroll = true;  // au prochain affichage du parcours, amener la leçon en cours à l'écran
+
+// Première leçon pas encore vue en entier : c'est « là où j'en suis »
+function nextLesson() {
+  return UNITS.flatMap(u => u.lessons.map(x => x[0])).find(l => { const s = lessonStats(l); return s.seen < s.total; });
+}
+// Une unité est dépliée si l'apprenant l'a demandé ; sinon, seule l'unité de la leçon en cours l'est
+function isOpen(u, next) {
+  if (S.fold && u.n in S.fold) return !S.fold[u.n];
+  if (next === undefined) return u === UNITS[UNITS.length - 1];   // tout est vu : on montre la dernière unité
+  return u.lessons.some(([l]) => l === next);
+}
+// Valider sans faire : les éléments jamais vus entrent directement dans le calendrier, à réviser dès aujourd'hui.
+// Ils partent avec la note « facile » : une première révision réussie les fait passer en « acquis »,
+// une erreur les ramène au rythme d'un mot en cours d'apprentissage.
+function markKnown(items) {
+  const t = today(); let n = 0;
+  items.filter(it => !isSeen(it)).forEach(it => { S.cards[it.id] = { ...schedule(undefined, 4, t), due: t }; n++; });
+  if (n) saveState();
+  return n;
+}
+
 function viewHome() {
   const all = ITEMS.length, known = ITEMS.filter(isKnown).length, seen = ITEMS.filter(isSeen).length, due = ITEMS.filter(isDue).length;
-  const order = UNITS.flatMap(u => u.lessons.map(x => x[0]));
-  const next = order.find(l => { const s = lessonStats(l); return s.seen < s.total; }); // première leçon pas encore vue en entier
+  const next = nextLesson();
   const daily = due
     ? `<p><b>${plural(due, "élément")} à revoir aujourd'hui.</b></p><button class="btn gold" data-act="daily">Révision du jour</button>`
-    : `<p class="muted">${seen ? "Aucune révision due aujourd'hui. Vous pouvez avancer dans une leçon ou réviser celle de votre choix." : "Touchez la première leçon pour commencer."}</p>`;
+    : `<p class="muted">${seen ? "Aucune révision due aujourd'hui." : "Touchez la première leçon pour commencer."}</p>`;
+  // Raccourci vers la leçon en cours : pas besoin de faire défiler le parcours
+  const resume = next !== undefined ? `<button class="btn ${due ? "ghost" : ""}" data-act="node" data-l="${next}">${lessonStats(next).seen ? "Continuer" : "Commencer"} : ${lessonHtml(next)}</button>` : "";
   const OFF = [0, 46, 70, 46, 0, -46, -70, -46]; // décalages qui font serpenter le parcours
-  let k = 0;
-  const path = UNITS.map(u => `<div class="unit-banner"><span class="ub-n">${unitName(u)}</span><b>${esc(u.fr)}</b>${AR(u.ar)}</div><div class="path">` +
-    u.lessons.map(([l, title]) => {
+  const path = UNITS.map(u => {
+    const its = ITEMS.filter(it => it.u === u.n), uk = its.filter(isKnown).length, us = its.filter(isSeen).length, ud = its.filter(isDue).length;
+    const open = isOpen(u, next);
+    const banner = `<button class="unit-banner ${us === 0 ? "todo" : ""}" data-act="fold" data-u="${u.n}" aria-expanded="${open}">
+        <span class="ub-n">${unitName(u)} <i class="chev">${open ? "▾" : "▸"}</i></span><b>${esc(u.fr)}</b>${AR(u.ar)}
+        <span class="ub-s">${uk} / ${its.length} acquis${ud ? " · " + ud + " à revoir" : ""}${us === its.length ? "" : " · " + (its.length - us) + " à découvrir"}</span></button>`;
+    if (!open) return banner;
+    let k = 0;
+    const stops = u.lessons.map(([l, title]) => {
       const s = lessonStats(l), state = s.known === s.total ? "gold" : s.seen > 0 ? "on" : "off";
       return `<div class="stop" style="--x:${OFF[k++ % OFF.length]}px">
         ${l === next ? `<span class="go">${s.seen ? "Continuer" : "Commencer"}</span>` : ""}
         <span class="ring" style="--a:${100 * s.known / s.total};--b:${100 * s.seen / s.total}">
           <button class="node ${state}" data-act="node" data-l="${l}" aria-label="${esc(lessonLabel(l))} : ${s.known} acquis sur ${s.total}${s.due ? ", " + s.due + " à revoir" : ""}">${isAlpha(l) ? AR(itemsOf(l)[0].ar) : l}${s.due ? `<i class="badge">${s.due}</i>` : ""}</button></span>
-        <div class="stop-txt"><b>${esc(title)}</b><span>${s.known} / ${s.total} acquis</span></div></div>`;
-    }).join("") + `</div>`).join("");
+        <div class="stop-txt"><b><bdi>${esc(title)}</bdi></b><span>${s.known} / ${s.total} acquis</span></div></div>`;
+    }).join("");
+    // Valider toute l'unité d'un coup, avec une confirmation pour éviter le geste involontaire
+    const skip = us === its.length ? "" : askKnown === u.n
+      ? `<div class="row center"><button class="btn small" data-act="known-unit-yes" data-u="${u.n}">Oui, tout passer en révision</button><button class="btn small ghost" data-act="known-no">Annuler</button></div>`
+      : `<button class="linkbtn" data-act="known-unit" data-u="${u.n}">Je connais déjà ${u.n === 0 ? "l'alphabet" : "cette unité"}</button>`;
+    return banner + `<div class="path">${stops}${skip}</div>`;
+  }).join("");
+  const anyOpen = UNITS.some(u => isOpen(u, next));
   return `<section class="card"><h3>Ce que je connais</h3>
       <div class="tri" role="img" aria-label="${known} acquis, ${seen - known} en cours, ${all - seen} à découvrir"><span class="a" style="width:${100 * known / all}%"></span><span class="b" style="width:${100 * (seen - known) / all}%"></span></div>
       <div class="legend"><span class="a"><i></i>${known} acquis</span><span class="b"><i></i>${seen - known} en cours</span><span><i></i>${all - seen} à découvrir</span></div>
-      ${daily}</section>${path}${sheet ? viewSheet(sheet) : ""}`;
+      ${daily}${resume}</section>
+    <div class="row between"><h3>Parcours</h3><button class="linkbtn" data-act="${anyOpen ? "fold-all" : "unfold-all"}">${anyOpen ? "Tout replier" : "Tout déplier"}</button></div>
+    ${path}${sheet ? viewSheet(sheet) : ""}`;
 }
 
-// Panneau d'une leçon : où j'en suis, et les deux actions possibles
+// Panneau d'une leçon : où j'en suis, et les actions possibles
 function viewSheet(l) {
   const s = lessonStats(l), unseen = s.total - s.seen;
   const chunk = Math.min(unseen, s.its[0].type === "letter" ? CHUNK_LETTERS : CHUNK_WORDS);
   return `<button class="scrim" data-act="sheet-close" aria-label="Fermer"></button>
     <div class="sheet" role="dialog" aria-label="${esc(lessonLabel(l))}">
-      <h3>${isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l}</h3><h2>${esc(LESSON_TITLE[l])}</h2>
+      <h3>${isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l}</h3><h2><bdi>${esc(LESSON_TITLE[l])}</bdi></h2>
       <div class="tiles"><div><b>${s.known}</b>acquis</div><div><b>${s.seen - s.known}</b>en cours</div><div><b>${unseen}</b>à découvrir</div></div>
       ${unseen ? `<button class="btn" data-act="learn" data-l="${l}">Apprendre ${plural(chunk, "nouveauté")}</button>` : ""}
       ${s.seen ? `<button class="btn ${unseen ? "ghost" : ""}" data-act="review" data-l="${l}">Réviser ce que j'ai vu (${s.seen})</button>` : ""}
+      ${unseen ? `<button class="btn ghost" data-act="known-lesson" data-l="${l}">Je connais déjà : passer en révision</button>` : ""}
       <button class="btn ghost" data-act="cram" data-l="${l}">Tout réviser d'un coup (${s.total})</button></div>`;
 }
 
@@ -936,6 +983,19 @@ document.addEventListener("click", e => {
     // Parcours
     case "node": sheet = Number(el.dataset.l); break;
     case "sheet-close": sheet = null; break;
+    case "fold": {                                         // plier ou déplier une unité
+      const u = UNITS.find(x => x.n === Number(el.dataset.u));
+      S.fold = S.fold || {}; S.fold[u.n] = isOpen(u, nextLesson()); saveState(); break;
+    }
+    case "fold-all": S.fold = {}; UNITS.forEach(u => { S.fold[u.n] = true; }); saveState(); break;
+    case "unfold-all": S.fold = {}; UNITS.forEach(u => { S.fold[u.n] = false; }); saveState(); break;
+    case "known-lesson": {                                 // valider une leçon sans la faire
+      const n = markKnown(itemsOf(Number(el.dataset.l)));
+      sheet = null; sfx("ok"); uiMsg = ""; if (n) wantScroll = true; break;
+    }
+    case "known-unit": askKnown = Number(el.dataset.u); break;
+    case "known-no": askKnown = null; break;
+    case "known-unit-yes": markKnown(ITEMS.filter(it => it.u === Number(el.dataset.u))); askKnown = null; sfx("ok"); wantScroll = true; break;
     case "daily": startDaily(); return;
     case "learn": sheet = null; startLearn(Number(el.dataset.l)); return;
     case "review": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l).filter(isSeen), lessonLabel(l)); return; }
@@ -948,7 +1008,7 @@ document.addEventListener("click", e => {
     case "drill-hard": startDrill(hardItems(), "Éléments en difficulté"); location.hash = "#accueil"; return;
     // Séance
     case "speak": speak(el.dataset.id); return;
-    case "quit": case "home": sess = null; break;          // les réponses déjà données sont conservées
+    case "quit": case "home": sess = null; wantScroll = true; break;          // les réponses déjà données sont conservées
     case "next":                                            // on garde la carte faite pour pouvoir la relire
       sess.hist.push({ task: sess.tasks[sess.i], cur: sess.cur }); sess.i++; showTask(); return;
     case "back": sess.peek = sess.peek === null ? sess.hist.length - 1 : Math.max(0, sess.peek - 1); break;
@@ -1064,7 +1124,7 @@ document.addEventListener("input", e => {
   if (tl) tl.textContent = "Gardé : " + sec(p.b - p.a) + " sur " + sec(p.dur);
 });
 
-window.addEventListener("hashchange", () => { sheet = null; render(); });
+window.addEventListener("hashchange", () => { sheet = null; wantScroll = true; render(); });
 render();
 initAudio();
 loadClips();
