@@ -259,3 +259,4 @@ a.linkbtn { display: inline-flex; align-items: center; }
 .mini.ok { color: var(--good); border-color: var(--good); }
 .arow > .pill { align-self: flex-start; }   /* « sans voix » garde sa taille au lieu de s'étirer */
 .filters select { min-width: 0; text-overflow: ellipsis; }
+@media (max-width: 420px) { .filters { grid-template-columns: 1fr; } }   /* téléphone : un filtre par ligne, libellés entiers */
