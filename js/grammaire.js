@@ -8,10 +8,12 @@
 const GRAMMAIRE = [];   // chapitres, inscrits par js/grammaire/chapitre-NN.js
 const NAZM = [];        // vers du poème, inscrits par js/grammaire/nazm.js, dans l'ordre du texte
 const GLOSSAIRE = [];   // termes arabes de la rubrique, inscrits par js/grammaire/glossaire.js
+const SOURCES = [];     // éditions de référence consultables dans l'application, inscrites par js/grammaire/sources.js
 
 let gs = null;          // séance de grammaire en cours (en mémoire seulement)
 let gOpen = {};         // encadrés dépliés à la main dans l'onglet : nom -> true ou false
 let gTerm = null;       // terme dont la définition est ouverte
+let gSrc = null;        // édition ouverte dans la visionneuse : { id, p (image affichée), zoom }
 let gSeen = {};         // termes déjà traduits dans l'écran en cours (on ne répète pas la traduction à chaque ligne)
 
 const NATURES = [["ism", "اِسْم", "nom"], ["fil", "فِعْل", "verbe"], ["harf", "حَرْف", "particule"]];
@@ -92,6 +94,25 @@ function gVerseQuestion(v, kind) {
 }
 const gVerseHtml = v => `<div class="verse"><span class="ar" lang="ar" dir="rtl">${esc(v.a)}</span><span class="ar" lang="ar" dir="rtl">${esc(v.b)}</span></div>`;
 
+// --- Visionneuse : une page de l'édition de référence, par-dessus l'écran, sans quitter l'application.
+// Comme dans le livre, la page suivante est à gauche. Un appui sur la page l'agrandit.
+function gSourceView() {
+  const s = gSrc && SOURCES.find(x => x.id === gSrc.id); if (!s) return "";
+  const p = gSrc.p, file = s.dossier + "p-" + String(p).padStart(2, "0") + ".webp";
+  return `<div class="gsrc" role="dialog" aria-label="Édition de référence">
+    <div class="gsrc-bar"><button class="icon" data-act="g-src-close" aria-label="Fermer l'édition">✕</button>
+      <span><b>${esc(s.titre)}</b><small>${esc(s.edition)}</small></span></div>
+    <div class="gsrc-page ${gSrc.zoom ? "zoom" : ""}"><img src="${file}" alt="Page ${p} sur ${s.pages} de l'édition" data-act="g-src-zoom"></div>
+    <div class="gsrc-nav"><button class="btn small ghost" data-act="g-src-go" data-d="1" ${p >= s.pages ? "disabled" : ""}>‹ Page suivante</button>
+      <span>${p} / ${s.pages}</span>
+      <button class="btn small ghost" data-act="g-src-go" data-d="-1" ${p <= 1 ? "disabled" : ""}>Page précédente ›</button></div></div>`;
+}
+// Bouton qui ouvre l'édition à la page d'un bab (ou au début du texte)
+function gSourceBtn(bab, label) {
+  const s = SOURCES.find(x => x.id === "nazm"); if (!s) return "";
+  return `<button class="linkbtn" data-act="g-src" data-id="nazm" data-p="${(bab && s.babs[bab]) || s.debut}">${label}</button>`;
+}
+
 // --- Séances
 function gStartLesson(id) {
   const l = gLessons().find(x => x.id === id); if (!l) return;
@@ -153,7 +174,8 @@ function gramRender(r) {
   } else if (st.t === "verses") {
     $view.innerHTML = `<article class="gpage"><p class="ask"><small>${gText("Le {{nazm}}", true)}</small>${gText(st.verses.length > 1 ? "Les {{bayt:pl}} de cette leçon" : "Le {{bayt}} de cette leçon")}</p>
       <p class="muted">${gText("Lisez à voix haute plusieurs fois, le {{sadr}} puis le {{ajuz}}. Ces lignes résument ce que vous venez de voir et reviendront en révision.")}</p>
-      ${st.verses.map(v => `<div class="gverse">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("")}</article>`;
+      ${st.verses.map(v => `<div class="gverse">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("")}
+      ${gSourceBtn(st.verses[0].bab, "Voir ces lignes dans l'édition")}</article>`;
     $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-next">Continuer</button></div>`;
   } else {
     const q = st.q;
@@ -170,7 +192,7 @@ function gramRender(r) {
         <button class="btn ${ok ? "good" : "bad"}" data-act="g-next">Continuer</button></div>`;
     } else $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-check" ${gs.picked === null ? "disabled" : ""}>Vérifier</button></div>`;
   }
-  $view.innerHTML += gTermSheet();
+  $view.innerHTML += gTermSheet() + gSourceView();
   return true;
 }
 // Un bloc d'explication : paragraphe, citation du texte de référence, exemples, ou règle à retenir
@@ -189,7 +211,7 @@ function viewGrammar() {
   const next = lessons.find(l => !gDone(l));
   const learned = NAZM.filter(v => gCard(v.id)).length;
   const chapters = GRAMMAIRE.slice().sort((a, b) => a.n - b.n).map(c => `<section class="panel"><h3>${gText("{{bab}}", true)} ${c.n} · ${gText(c.titre, true)}</h3>
-      <div class="row between"><span class="muted">${esc(c.conseil || "")}</span>${AR(c.ar)}</div>
+      <div class="row between"><span class="muted">${esc(c.conseil || "")}</span><span class="ar gbabname" lang="ar" dir="rtl">${esc(c.ar)}</span></div>
       ${c.lecons.map(l => { const qs = gQuestions(l), ok = qs.filter(q => gIsKnown(q.id)).length, d = gDone(l);
         return `<button class="glesson ${d ? "done" : ""}" data-act="g-lesson" data-id="${l.id}"><span><b>${gText(l.titre, true)}</b><small>${gText(l.resume, true)}</small></span>
           <span class="pill ${d ? "known" : next && next.id === l.id ? "learn" : ""}">${d ? ok + " / " + qs.length + " acquis" : next && next.id === l.id ? "à faire" : "à venir"}</span></button>`; }).join("")}
@@ -198,10 +220,11 @@ function viewGrammar() {
   const poem = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="poem" aria-expanded="${showPoem}"><span>${gText("Le {{nazm}}", true)} · ${learned} / ${NAZM.length} ${gText("{{bayt:pl}}", true)} appris</span><span class="muted">${showPoem ? "▾" : "▸"}</span></button>
       <p class="muted">Nazm al-Ājurrūmiyya, de ’Ubayd Rabbih Muhammad b. Ābbah ash-Shinqiti : la grammaire d'Ibn Ājurrūm mise en vers pour être retenue. Les vers s'apprennent au fil des leçons.</p>
       <div class="seg"><button data-act="g-nazm" data-on="1" aria-pressed="${gNazmOn()}">Je l'apprends</button><button data-act="g-nazm" data-on="0" aria-pressed="${!gNazmOn()}">Sans le ${gText("{{nazm}}", true)}</button></div>
-      ${showPoem ? NAZM.map((v, k) => `${k === 0 || NAZM[k - 1].bab !== v.bab ? `<p class="gbab">${AR(v.babAr)}</p>` : ""}<div class="gverse ${gCard(v.id) ? "" : "todo"}">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("") : ""}</section>`;
+      ${showPoem ? NAZM.map((v, k) => `${k === 0 || NAZM[k - 1].bab !== v.bab ? `<p class="gbab">${AR(v.babAr)}${gSourceBtn(v.bab, "dans l'édition")}</p>` : ""}<div class="gverse ${gCard(v.id) ? "" : "todo"}">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("") : ""}</section>`;
   const showSrc = gOpen.src === true;
   const sources = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="src" aria-expanded="${showSrc}"><span>Sources</span><span class="muted">${showSrc ? "▾" : "▸"}</span></button>
-      ${showSrc ? `<p>Le plan et les définitions suivent <b>al-Ājurrūmiyya</b> d'Ibn Ājurrūm (m. 723 H), cité en arabe dans chaque leçon. Les vers sont ceux du <b>nazm</b> de ’Ubayd Rabbih ash-Shinqiti, recopiés de l'édition établie sur manuscrits par ’Abdallah al-Hakami (1427 H). Les explications en français sont rédigées pour Mufrad à partir des commentaires classiques du texte ; les exemples viennent du vocabulaire des unités.</p>` : ""}</section>`;
+      ${showSrc ? `<p>Le plan et les définitions suivent <b>al-Ājurrūmiyya</b> d'Ibn Ājurrūm (m. 723 H), cité en arabe dans chaque leçon. Les vers sont ceux du <b>nazm</b> de ’Ubayd Rabbih ash-Shinqiti, recopiés de l'édition établie sur manuscrits par ’Abdallah al-Hakami (1427 H). Les explications en français sont rédigées pour Mufrad à partir des commentaires classiques du texte ; les exemples viennent du vocabulaire des unités.</p>
+        ${SOURCES.map(x => `<button class="glesson" data-act="g-src" data-id="${x.id}" data-p="${x.debut}"><span><b>${esc(x.titre)} ${AR(x.ar)}</b><small>${esc(x.auteur)} — ${esc(x.edition)}</small></span><span class="pill learn">ouvrir</span></button>`).join("")}` : ""}</section>`;
   // Glossaire : les termes arabes, leur définition, et le réglage de leur traduction
   const showGlo = gOpen.glo === true, mode = gTermMode();
   const terms = grp => GLOSSAIRE.filter(t => t.groupe === grp).map(t => `<div class="gterm"><span class="ar" lang="ar" dir="rtl">${t.ar}</span><span><b>${esc(t.fr)}</b><small>${gText(t.def, true)}</small></span></div>`).join("");
@@ -213,7 +236,7 @@ function viewGrammar() {
       <div class="tiles"><div><b>${done} / ${lessons.length}</b>leçons faites</div><div><b>${due}</b>à revoir</div><div><b>${learned}</b>${gText("{{bayt:pl}}", true)} appris</div></div>
       ${due ? `<button class="btn gold" data-act="g-review">Réviser ${due > 15 ? "15 cartes sur " + due : plural(due, "carte")}</button>` : ""}
       ${next ? `<button class="btn ${due ? "ghost" : ""}" data-act="g-lesson" data-id="${next.id}">${done ? "Leçon suivante" : "Commencer"} : ${gText(next.titre, true)}</button>` : `<p class="muted">Toutes les leçons disponibles sont faites. La suite arrive.</p>`}</section>
-    ${chapters}${poem}${glossary}${sources}${gTermSheet()}`;
+    ${chapters}${poem}${glossary}${sources}${gTermSheet()}${gSourceView()}`;
 }
 
 // --- Clics de l'onglet et des séances de grammaire (appelé par l'application pour les actions « g-… »)
@@ -221,13 +244,17 @@ function gramClick(act, el) {
   switch (act) {
     case "g-lesson": gStartLesson(el.dataset.id); break;
     case "g-review": gStartReview(); break;
-    case "g-quit": gs = null; gTerm = null; break;
+    case "g-quit": gs = null; gTerm = null; gSrc = null; break;
     case "g-back": if (gs && gs.i > 0) { gs.i--; gs.picked = null; gs.checked = false; } break;
     case "g-next": gNext(); break;
     case "g-pick": { const k = Number(el.dataset.k); gs.picked = gs.picked === k ? null : k; sfx("tap"); break; }
     case "g-check": if (gs.picked !== null) gCheck(); break;
     case "g-fold": gOpen[el.dataset.k] = !(gOpen[el.dataset.k] === true); break;
     case "g-nazm": S.nazm = el.dataset.on === "1"; saveState(); break;
+    case "g-src": gSrc = { id: el.dataset.id, p: Number(el.dataset.p) || 1, zoom: false }; break;
+    case "g-src-close": gSrc = null; break;
+    case "g-src-zoom": gSrc.zoom = !gSrc.zoom; break;
+    case "g-src-go": { const s = SOURCES.find(x => x.id === gSrc.id); gSrc.p = Math.max(1, Math.min(s.pages, gSrc.p + Number(el.dataset.d))); gSrc.zoom = false; break; }
     case "g-term": gTerm = el.dataset.id; break;
     case "g-term-close": gTerm = null; break;
     case "g-mode": S.termes = el.dataset.m; saveState(); break;

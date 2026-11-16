@@ -57,7 +57,7 @@ jobs:
           node-version: 20
       # On ne publie que les fichiers du site, pas les tests ni les outils
       - name: Rassembler les fichiers du site
-        run: mkdir _site && cp -r index.html confidentialite.html manifest.webmanifest sw.js css js icons _site/
+        run: mkdir _site && cp -r index.html confidentialite.html manifest.webmanifest sw.js css js icons sources _site/
       # Chaque autre branche non fusionnée dont le test passe est publiée dans essai/<nom>/ ; fusionnée ou supprimée, elle disparaît
       - name: Ajouter les versions d'essai des autres branches
         run: |
@@ -71,7 +71,7 @@ jobs:
             if (cd "/tmp/essai-$nom" && node tests/simulation.js > /dev/null 2>&1); then
               mkdir -p "_site/essai/$nom"
               # On copie ce qui existe dans cette branche : une branche ancienne peut ne pas avoir tous les fichiers
-              for f in index.html confidentialite.html manifest.webmanifest sw.js css js icons; do
+              for f in index.html confidentialite.html manifest.webmanifest sw.js css js icons sources; do
                 if [ -e "/tmp/essai-$nom/$f" ]; then cp -r "/tmp/essai-$nom/$f" "_site/essai/$nom/"; fi
               done
               liste="$liste<li><a href=\"$nom/\">$nom</a> — $(git log -1 --format='%s (%cd)' --date=format:'%d/%m %H:%M' "$ref" | sed 's/&/\&amp;/g; s/</\&lt;/g')</li>"

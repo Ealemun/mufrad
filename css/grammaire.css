@@ -67,3 +67,18 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 .gloss { white-space: nowrap; }
 /* Chaque mot arabe est isolé : dans une phrase française, une suite de mots arabes garde l'ordre de la phrase (de gauche à droite) */
 .gi { unicode-bidi: isolate; }
+
+/* Nom arabe du bab, à droite du conseil */
+.gbabname { font-size: 32px; line-height: 1.5; color: var(--gold-ink); }
+.gbab { display: flex; flex-direction: column; align-items: center; }
+
+/* Visionneuse de l'édition de référence : plein écran, la page défile, un appui l'agrandit */
+.gsrc { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column; }
+.gsrc-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 2px solid var(--line); }
+.gsrc-bar span { display: flex; flex-direction: column; min-width: 0; font-size: 15px; }
+.gsrc-bar small { color: var(--muted); font-size: 12px; }
+.gsrc-page { flex: 1; overflow: auto; background: #fff; text-align: center; }
+.gsrc-page img { display: block; margin: 0 auto; width: 100%; max-width: 880px; height: auto; cursor: zoom-in; }
+.gsrc-page.zoom img { width: 200%; max-width: none; cursor: zoom-out; }
+.gsrc-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); border-top: 2px solid var(--line); font-variant-numeric: tabular-nums; }
+.gsrc-nav .btn { width: auto; flex: 0 1 auto; }

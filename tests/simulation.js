@@ -128,6 +128,11 @@ out.mesure = { file: fileAvant.slice(0, 2), stable: Boolean(id1) && id1 === id2,
 choisirMesure(true); fileMesure = []; sess = null;
 // Grammaire : cohérence du contenu, puis une leçon et une révision jouées jusqu'au bout, chaque écran affiché
 const gq = gLessons().flatMap(l => l.questions), gids = [...gq.map(x => x.id), ...NAZM.map(v => v.id), ...gLessons().map(l => l.id)];
+// Édition de référence : chaque page annoncée existe, chaque bab du poème y a sa page, et la visionneuse s'affiche
+const srcN = SOURCES.find(x => x.id === "nazm");
+out.srcPages = Array.from({ length: srcN.pages }, (x, k) => srcN.dossier + "p-" + String(k + 1).padStart(2, "0") + ".webp");
+out.srcBabs = [...new Set(NAZM.map(v => v.bab))].filter(b => !srcN.babs[b]);
+gSrc = { id: "nazm", p: srcN.debut, zoom: false }; out.srcVue = gSourceView().includes("p-07.webp"); gSrc = null;
 // Le premier vers, tel qu'il figure dans l'édition de référence
 out.premierVers = NAZM[0].a;
 out.gramDoubles = gids.filter((id, i) => gids.indexOf(id) !== i);
@@ -199,6 +204,9 @@ assert.deepStrictEqual(r.fusion, { rienPerdu: true, cartes: true, plusRecente: t
   "deux appareils hors ligne qui se synchronisent ne perdent aucune réponse, dans n'importe quel ordre");
 assert.deepStrictEqual(r.mesure, { file: ["clic/learn:3", "seance_debut/learn"], stable: true, renouvele: true, refus: true, reglage: true },
   "statistiques : file d'événements, identifiant stable puis renouvelé, refus respecté");
+assert.deepStrictEqual(r.srcPages.filter(f => !fs.existsSync(path.join(__dirname, "..", f))), [], "édition de référence : image de page absente");
+assert.deepStrictEqual(r.srcBabs, [], "édition de référence : un bab du poème n'a pas de page");
+assert.ok(r.srcVue, "la visionneuse affiche la page demandée");
 assert.strictEqual(r.premierVers, "قَالَ عُبَيْدُ رَبِّهِ مُحَمَّدُ", "le premier vers doit être celui de l'édition de référence");
 assert.deepStrictEqual(r.gramDoubles, [], "grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
