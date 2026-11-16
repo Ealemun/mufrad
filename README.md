@@ -16,6 +16,8 @@ encore entièrement relu.
   où l'on coche une ou plusieurs leçons, pour enchaîner les questions jusqu'à tout réussir deux fois de suite.
 - **Glossaire** : tous les mots, leçon par leçon, avec recherche, corrections et ajouts.
 - **Voix** : chacun peut ajouter ses propres enregistrements ; ils remplacent alors la voix de l'appareil.
+  La roue dentée en haut de l'onglet ouvre « Partage des voix » : l'accord, mes envois (publiés, en attente, refusés)
+  et, pour les contributeurs, les recommandations à traiter, le suivi des voix et des lecteurs.
 - **Révision espacée** : algorithme FSRS-4.5, calculé dans le navigateur.
 
 ## Lancer l'application chez soi

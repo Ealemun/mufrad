@@ -466,16 +466,16 @@ function render() {
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">${ESSAI ? "essai · " + esc(ESSAI) : "alpha"}</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     const sh = document.querySelector ? document.querySelector(".sheet") : null, shTop = sh ? sh.scrollTop : 0;
-    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "admin" ? viewAdminPage() : viewHome();
+    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
     if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
-    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "admin") {
+    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage") {
       wantScroll = false;
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
     }
-    $foot.innerHTML = `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "admin") ? 'aria-current="page"' : ""}>${label}</a>`).join("") + `</nav>`;
+    $foot.innerHTML = `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && r === "partage") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
   }
 }
 
@@ -927,11 +927,10 @@ function viewVoices() {
         ${mine ? `<button class="mini txt" data-act="voice-del" data-vid="${mine.id}">Retirer du partage</button>` : ""}
       </div></div>`;
   }).join("");
-  return `<section class="panel"><h3>Ma voix</h3>
+  return `<section class="panel"><div class="row between"><h3>Ma voix</h3>${gearLink()}</div>
       <p><b>${total} / ${ITEMS.length}</b> éléments ont un enregistrement. Dès qu'un élément en a un, c'est lui qu'on entend, à la place de la voix de l'appareil.</p>
       <p class="muted">${micro ? "Enregistrez directement ici, ou ajoutez un fichier." : "Enregistrez avec le dictaphone du téléphone, puis ajoutez le fichier ici."}</p>
       ${micUi}${chips}</section>
-    ${viewShare()}
     ${wait}
     <section class="panel"><h3>${lessonHtml(voiceLesson)} · ${have} / ${its.length}</h3>
       <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup. Vous les écouterez avant de les déposer.</p>
@@ -1194,29 +1193,51 @@ function viewShare() {
   return `<section class="panel"><h3>Partage</h3>
       <p>${isContributor() ? "Niveau " + esc(myLevel) + " : vos enregistrements sont disponibles pour tous dès leur dépôt." : "Vos enregistrements sont envoyés en recommandation ; un contributeur les écoute avant de les rendre disponibles pour tous."}</p>
       ${n ? `<button class="btn" data-act="share-all">Partager ${plural(n, "enregistrement")} de cet appareil</button>` : `<p class="muted">Tout ce qui est déposé sur cet appareil a été envoyé.</p>`}
-      ${msg}${adminLink()}<button class="btn small ghost" data-act="consent-off">Retirer mon accord de partage</button></section>`;
+      ${msg}<button class="btn small ghost" data-act="consent-off">Retirer mon accord de partage</button></section>`;
 }
 
-// --- Page « Gestion des voix » (#admin), pour les contributeurs et les administrateurs.
-// Tout ce qui sert à gérer les voix quitte l'onglet Voix et vient ici, en trois vues qu'on choisit en haut :
+// --- Page « Partage des voix » (#partage), ouverte par la roue dentée de l'onglet Voix.
+// Pour chacun : l'accord de partage et « Mes envois » (ce que j'ai proposé : publié, en attente ou refusé).
+// En plus, pour les contributeurs et les administrateurs, trois vues de gestion :
 //   « À traiter » : les recommandations à écouter, accepter ou refuser ;
 //   « Voix »      : élément par élément, qui l'a enregistré, avec des filtres (leçon, état, lecteur) ;
 //   « Lecteurs »  : une ligne par lecteur ; en toucher un montre ses voix.
-let adminTab = "attente";  // attente, voix, lecteurs
+let adminTab = null;       // envois, attente, voix, lecteurs ; null : choisi à l'ouverture (« À traiter » s'il y a du travail)
 let adminState = "all";    // all, none (sans voix), some (avec voix), multi (plusieurs voix)
 let adminReader = null;    // ne montrer que les voix de ce lecteur
 let adminLesson = "all";   // numéro de leçon, ou "all" pour tout le contenu
 const jour = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7);
-function viewAdminPage() {
-  if (!sb || !me || !isContributor()) return `<section class="panel"><h3>Gestion des voix</h3><p>Cette page est réservée aux contributeurs. Connectez-vous avec un compte contributeur.</p><a class="btn ghost" href="#reglages">Réglages</a></section>`;
+// Nombre de recommandations qui attendent un contributeur : pastille rouge sur la roue dentée et sur l'onglet Voix
+const aTraiter = () => (sb && me && isContributor() ? recos.length : 0);
+const ICON_GEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+// Roue dentée en haut de l'onglet Voix, avec sa pastille
+const gearLink = () => `<a class="gear" href="#partage" aria-label="Partage des voix${aTraiter() ? ", " + aTraiter() + " à traiter" : ""}">${ICON_GEAR}${aTraiter() ? `<i class="tbadge">${aTraiter()}</i>` : ""}</a>`;
+// Ce que j'ai proposé, avec son état : publié, en attente d'un contributeur, ou refusé (les versions remplacées ne sont pas montrées)
+const ETAT_ENVOI = { publie: ["publié", "known"], recommande: ["en attente", "learn"], refuse: ["refusé", "due"] };
+function viewEnvois() {
+  if (!sb || !me) return "";
+  const mine = voixRows.filter(v => v.auteur === me.id && ETAT_ENVOI[v.etat]).slice().reverse();   // les plus récents d'abord
+  const n = k => mine.filter(v => v.etat === k).length;
+  return `<section class="panel"><h3>Mes envois</h3>
+      ${mine.length ? `<p>${["publie", "recommande", "refuse"].filter(n).map(k => `<span class="pill ${ETAT_ENVOI[k][1]}">${n(k)} ${ETAT_ENVOI[k][0]}</span>`).join(" ")}</p>
+      <div>${mine.map(v => `<div class="avoice">${AR(BY_ID[v.element].ar)}<span class="muted">${lessonShort(BY_ID[v.element].l)} · ${jour(v.cree_le)}</span>
+          <span class="pill ${ETAT_ENVOI[v.etat][1]}">${ETAT_ENVOI[v.etat][0]}</span>
+          <button class="mini" data-act="reco-play" data-url="${esc(publicUrl(v.chemin))}" aria-label="Écouter">${ICON_SPEAK}</button></div>`).join("")}</div>`
+      : `<p class="muted">Vous n'avez encore rien envoyé.</p>`}</section>`;
+}
+function viewPartage() {
+  const titre = `<div class="row between"><h2>Partage des voix</h2><a class="btn small ghost" href="#voix">‹ Voix</a></div>`;
+  if (!sb || !me || !isContributor()) return titre + viewShare() + viewEnvois();
+  if (!adminTab) adminTab = recos.length ? "attente" : "envois";
   const pub = voixRows.filter(v => v.etat === "publie");
   const couverts = ITEMS.filter(it => (SHARED[it.id] || []).length).length;
   const auteurs = [...new Set(voixRows.filter(v => v.etat === "publie" || v.etat === "recommande").map(v => v.auteur))];
   const msg = sbMsg ? `<p role="status"><b>${esc(sbMsg)}</b></p>` : "";
-  const tabs = [["attente", "À traiter" + (recos.length ? " · " + recos.length : "")], ["voix", "Voix"], ["lecteurs", "Lecteurs · " + auteurs.length]]
+  const tabs = [["envois", "Mes envois"], ["attente", "À traiter" + (recos.length ? " · " + recos.length : "")], ["voix", "Voix"], ["lecteurs", "Lecteurs · " + auteurs.length]]
     .map(([k, t]) => `<button data-act="admin-tab" data-k="${k}" aria-pressed="${adminTab === k}">${t}</button>`).join("");
   let body = "";
-  if (adminTab === "attente") {
+  if (adminTab === "envois") body = null;   // vue de chacun : accord et envois, sans encadré autour
+  else if (adminTab === "attente") {
     // Recommandations : on écoute, puis on accepte (la voix devient disponible pour tous) ou on refuse
     body = recos.length ? `<div>${recos.map(v => `<div class="arow"><div class="ahead">${AR(BY_ID[v.element].ar)}<span class="pill">${lessonShort(BY_ID[v.element].l)}</span></div>
         <div class="avoice"><span>${esc(readerLabel(v.auteur))} · ${jour(v.cree_le)}</span>
@@ -1253,15 +1274,13 @@ function viewAdminPage() {
               <button class="mini txt" data-act="voice-del" data-vid="${v.vid}">Supprimer</button></div>`).join("") : `<span class="pill">sans voix</span>`}</div>`;
       }).join("")}</div>`;
   }
-  return `<div class="row between"><h2>Gestion des voix</h2><a class="btn small ghost" href="#voix">‹ Voix</a></div>
-    <section class="panel"><p><b>${couverts} / ${ITEMS.length}</b> éléments ont au moins une voix · ${plural(pub.length, "enregistrement")} publié${pub.length > 1 ? "s" : ""}</p>
+  return titre + `<section class="panel"><p><b>${couverts} / ${ITEMS.length}</b> éléments ont au moins une voix · ${plural(pub.length, "enregistrement")} publié${pub.length > 1 ? "s" : ""}</p>
       <div class="tri"><span class="a" style="width:${100 * couverts / ITEMS.length}%"></span></div></section>
-    <div class="seg">${tabs}</div>${msg}
-    <section class="panel">${body}</section>`;
+    <div class="seg quatre">${tabs}</div>${body === null ? viewShare() + viewEnvois() : msg + `<section class="panel">${body}</section>`}`;
 }
-// Lien vers la page de gestion, depuis l'onglet Voix et les réglages (contributeurs seulement)
-const adminLink = () => sb && me && isContributor()
-  ? `<a class="btn ghost" href="#admin">Gestion des voix${recos.length ? " · " + recos.length + " à traiter" : ""}</a>` : "";
+// Lien vers la page de partage, depuis les réglages
+const adminLink = () => sb && me
+  ? `<a class="btn ghost" href="#partage">Partage des voix${aTraiter() ? " · " + aTraiter() + " à traiter" : ""}</a>` : "";
 
 // Encadré des réglages : quelles voix entendre, quand plusieurs lecteurs ont enregistré
 function viewReaders() {

@@ -169,24 +169,31 @@ out.reviser = { unitesRepliees: deplies === 1 && (vide.match(/data-act="drill-un
   boutonParcours: viewHome().includes('data-act="pick-open"'), panneau: accueil.includes('aria-label="Réviser au choix"'),
   glossaire: !viewWords().includes("drill-toggle") };
 drillSel = {};
-// Gestion des voix (#admin) : réservée aux contributeurs ; l'onglet Voix n'y montre plus qu'un lien.
-// On simule une base et un administrateur, avec une recommandation en attente.
+// Partage des voix (#partage) : ouverte par la roue dentée de l'onglet Voix ; chacun y voit l'accord et ses envois,
+// les contributeurs y gèrent en plus les voix ; une pastille rouge compte ce qui est à traiter.
+// On simule une base et un administrateur, avec une recommandation en attente et trois envois à lui.
 {
   const sauf = { sb, me, myLevel, hasConsent, recos, voixRows };
   const idA = ITEMS.find(it => it.type === "word").id;
   sb = {}; me = { id: "adm" }; myLevel = "administrateur"; hasConsent = true;
-  recos = [{ id: "r1", element: idA, auteur: "lect", chemin: "lect/x.wav", etat: "recommande", cree_le: "2026-11-16T10:00:00Z" }]; voixRows = recos.slice();
-  adminTab = "attente"; const attente = viewAdminPage();
-  adminTab = "lecteurs"; const lect = viewAdminPage();
-  adminTab = "voix"; adminLesson = String(BY_ID[idA].l); adminState = "none"; const voix = viewAdminPage();
+  recos = [{ id: "r1", element: idA, auteur: "lect", chemin: "lect/x.wav", etat: "recommande", cree_le: "2026-11-16T10:00:00Z" }];
+  voixRows = recos.concat(["publie", "refuse", "retire"].map((e, i) => ({ id: "m" + i, element: idA, auteur: "adm", chemin: "adm/" + i + ".wav", etat: e, cree_le: "2026-11-1" + i + "T10:00:00Z" })));
+  adminTab = null; const ouverture = viewPartage();
+  adminTab = "lecteurs"; const lect = viewPartage();
+  adminTab = "voix"; adminLesson = String(BY_ID[idA].l); adminState = "none"; const voix = viewPartage();
+  adminTab = "envois"; const envois = viewPartage();
   const ongletVoix = viewVoices();
-  out.admin = { attente: attente.includes('data-act="reco-ok" data-id="r1"'), lecteurs: lect.includes('data-act="admin-reader" data-a="lect"'),
-    filtres: voix.includes('data-adm="lesson"') && voix.includes("sans voix"), lien: ongletVoix.includes('href="#admin">Gestion des voix · 1 à traiter'),
-    plusDansVoix: !ongletVoix.includes("Suivi des voix") && !ongletVoix.includes("reco-ok") };
+  out.admin = { attente: adminTab && ouverture.includes('data-act="reco-ok" data-id="r1"'), lecteurs: lect.includes('data-act="admin-reader" data-a="lect"'),
+    filtres: voix.includes('data-adm="lesson"') && voix.includes("sans voix"),
+    envois: envois.includes(">publié<") && envois.includes(">refusé<") && !envois.includes("adm/2.wav"),
+    roue: ongletVoix.includes('class="gear" href="#partage"') && ongletVoix.includes('<i class="tbadge">1</i>'),
+    plusDansVoix: !ongletVoix.includes("Suivi des voix") && !ongletVoix.includes("reco-ok") && !ongletVoix.includes('data-act="consent-off"') };
+  // Un simple utilisateur : pas de vues de gestion, pas de pastille
+  myLevel = "utilisateur"; recos = [];
+  const simple = viewPartage();
+  out.adminSimple = !simple.includes('data-act="admin-tab"') && simple.includes("Mes envois") && !viewVoices().includes("tbadge");
   ({ sb, me, myLevel, hasConsent, recos, voixRows } = sauf);
-  adminTab = "attente"; adminLesson = "all"; adminState = "all";
-  me = null; myLevel = "utilisateur"; out.adminFerme = viewAdminPage().includes("réservée aux contributeurs");
-  ({ me, myLevel } = sauf);
+  adminTab = null; adminLesson = "all"; adminState = "all";
 }
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
@@ -249,8 +256,9 @@ assert.ok(r.gramDues > 0 && r.gramRevues === Math.min(15, r.gramDues), "les cart
 assert.ok(r.gramSansPoeme, "sans le poème, la leçon ne montre ni vers ni question de mémorisation");
 assert.deepStrictEqual(r.reviser, { unitesRepliees: true, inactif: true, actif: true, boutonParcours: true, panneau: true, glossaire: true },
   "Réviser au choix : panneau du parcours, unités repliées, bouton de départ ; le glossaire n'a plus ce choix");
-assert.deepStrictEqual(r.admin, { attente: true, lecteurs: true, filtres: true, lien: true, plusDansVoix: true }, "Gestion des voix : trois vues, filtres, lien depuis l'onglet Voix");
-assert.ok(r.adminFerme, "Gestion des voix fermée sans compte contributeur");
+assert.deepStrictEqual(r.admin, { attente: true, lecteurs: true, filtres: true, envois: true, roue: true, plusDansVoix: true },
+  "Partage des voix : vues de gestion, mes envois, roue dentée et pastille ; l'onglet Voix allégé");
+assert.ok(r.adminSimple, "Partage des voix : un utilisateur voit seulement l'accord et ses envois");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

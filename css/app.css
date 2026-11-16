@@ -260,3 +260,13 @@ a.linkbtn { display: inline-flex; align-items: center; }
 .arow > .pill { align-self: flex-start; }   /* « sans voix » garde sa taille au lieu de s'étirer */
 .filters select { min-width: 0; text-overflow: ellipsis; }
 @media (max-width: 420px) { .filters { grid-template-columns: 1fr; } }   /* téléphone : un filtre par ligne, libellés entiers */
+/* Roue dentée de l'onglet Voix (vers la page Partage des voix) et pastilles rouges « à traiter » */
+.gear { position: relative; width: 44px; height: 44px; display: grid; place-items: center; color: var(--muted); border-radius: 12px; }
+.gear svg { width: 24px; height: 24px; }
+.tbadge { position: absolute; top: 2px; right: 0; min-width: 20px; height: 20px; border-radius: 10px; background: var(--bad); color: #fff; font-size: 12px; font-style: normal; font-weight: 600; display: grid; place-items: center; padding: 0 5px; }
+.tabs a { position: relative; }
+.tabs .tbadge { top: 8px; right: 6px; }
+/* Quatre vues sur la page Partage : deux par ligne */
+.seg.quatre { display: grid; grid-template-columns: 1fr 1fr; }
+/* Mes envois : une ligne par envoi */
+.avoice .ar { font-size: 24px; }
