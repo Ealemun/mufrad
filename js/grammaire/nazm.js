@@ -35,17 +35,19 @@ NAZM.push(
   { id: "n012", bab: "kalam", babAr: "بَابُ الْكَلَامِ", a: "وَالْحَرْفُ يُعْرَفُ بِأَلَّا يَقْبَلَا", b: "لِاسْمٍ وَلَا فِعْلٍ دَلِيلًا كَـ«بَلَى»",
     fr: "La particule se reconnaît à ce qu'elle n'accepte aucun signe du nom ni du verbe, comme bala." },
 
-  // بَابُ الإِعْرَابِ : image 8 de l'édition (page ٢). Dans les traductions, {{id}} affiche un terme du glossaire.
-  // n013 : l'édition marque d'un petit نَ rouge le tanwin de تَقْدِيرًا et d'un signe de waṣl l'alif de أَوْ :
-  // on lit « taqdīrana w-lafẓan », la hamza de أَوْ tombe pour le mètre. On l'écrit avec l'alif waṣla (ٱ).
-  { id: "n013", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "الإِعْرَابُ تَغْيِيرُ أَوَاخِرِ الْكَلِمْ", b: "تَقْدِيرًا ٱوْ لَفْظًا فَذَا الْحَدَّ اغْتَنِمْ",
+  // بَابُ الْإِعْرَابِ : image 8 de l'édition (page ٢), relue sur le PDF original à 600 et 1200 dpi.
+  // Dans les traductions, {{id}} affiche un terme du glossaire.
+  // L'alif marqué d'un ص rouge (waṣl) est écrit ٱ. Pour le mètre, l'édition fait passer la voyelle de la hamza
+  // sur la consonne d'avant : ٱلِاعْرَابُ se lit « liʿrābu » ; تَقْدِيرًا ٱوْ se lit « taqdīrana w » (petit نَ rouge
+  // sur le tanwin, que le texte ne peut pas reproduire). Le petit wāw de أَقْسَامُهُۥ allonge le هُ en « hū ».
+  { id: "n013", bab: "irab", babAr: "بَابُ الْإِعْرَابِ", a: "ٱلِاعْرَابُ تَغْيِيرُ أَوَاخِرِ الْكَلِمْ", b: "تَقْدِيرًا ٱوْ لَفْظًا فَذَا الْحَدَّ اغْتَنِمْ",
     fr: "Le {{irab}} est le changement de la fin des mots, sous-entendu ou prononcé : cette définition, saisis-la." },
-  { id: "n014", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "وَذَلِكَ التَّغْيِيرُ لِاضْطِرَابِ", b: "عَوَامِلٍ تَدْخُلُ لِلإِعْرَابِ",
+  { id: "n014", bab: "irab", babAr: "بَابُ الْإِعْرَابِ", a: "وَذَلِكَ التَّغْيِيرُ لِاضْطِرَابِ", b: "عَوَامِلٍ تَدْخُلُ لِلْإِعْرَابِ",
     fr: "Ce changement vient de ce que des {{amil:pl}} différents se succèdent sur le mot pour y produire le {{irab}}." },
-  { id: "n015", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "أَقْسَامُهُ: أَرْبَعَةٌ تُؤَمْ", b: "رَفْعٌ، وَنَصْبٌ، ثُمَّ خَفْضٌ، جَزْمُ",
+  { id: "n015", bab: "irab", babAr: "بَابُ الْإِعْرَابِ", a: "أَقْسَامُهُۥ: أَرْبَعَةٌ تُؤَمُّ", b: "رَفْعٌ، وَنَصْبٌ، ثُمَّ خَفْضٌ، جَزْمُ",
     fr: "Ses sortes, que l'on vise, sont quatre : le {{raf}}, le {{nasb}}, puis le {{khafd}}, et le {{jazm}}." },
-  { id: "n016", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "فَالْأَوَّلَانِ دُونَ رَيْبٍ وَقَعَا", b: "فِي الِاسْمِ وَالْفِعْلِ الْمُضَارِعِ مَعَا",
+  { id: "n016", bab: "irab", babAr: "بَابُ الْإِعْرَابِ", a: "فَالْأَوَّلَانِ دُونَ رَيْبٍ وَقَعَا", b: "فِي الِاسْمِ وَالْفِعْلِ الْمُضَارِعِ مَعَا",
     fr: "Les deux premières se trouvent, sans aucun doute, à la fois dans le {{ism}} et dans le {{fil}} {{mudari}}." },
-  { id: "n017", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "وَالِاسْمُ قَدْ خُصِّصَ بِالْخَفْضِ كَمَا", b: "قَدْ خُصِّصَ الْفِعْلُ بِجَزْمٍ فَاعْلَمَا",
+  { id: "n017", bab: "irab", babAr: "بَابُ الْإِعْرَابِ", a: "وَالِاسْمُ قَدْ خُصِّصَ بِالْخَفْضِ كَمَا", b: "قَدْ خُصِّصَ الْفِعْلُ بِجَزْمٍ فَاعْلَمَا",
     fr: "Le {{ism}} a reçu en propre le {{khafd}}, comme le {{fil}} a reçu en propre le {{jazm}} : sache-le." }
 );
