@@ -142,7 +142,7 @@ out.gramFautes = [
   ...gLessons().flatMap(l => (l.vers || []).filter(v => !gVerse(v)).map(v => l.id + " -> " + v)),
   ...NAZM.filter(v => !(v.a && v.b && v.fr && v.bab && v.babAr)).map(v => v.id)];
 // Tout {{terme}} cité existe dans le glossaire ; aucune translittération savante ne reste dans les textes
-const gTxt = JSON.stringify(GRAMMAIRE) + JSON.stringify(GLOSSAIRE.map(t => t.def));
+const gTxt = JSON.stringify(GRAMMAIRE) + JSON.stringify(GLOSSAIRE.map(t => t.def)) + JSON.stringify(NAZM.map(v => v.fr));
 out.gramTermes = [...gTxt.matchAll(/\{\{([a-z-]+)(:pl)?\}\}/g)].filter(m => !gTermOf(m[1]) || (m[2] && !gTermOf(m[1]).pl)).map(m => m[0]);
 // Un terme est traduit tant que sa leçon n'est pas terminée, puis reste seul ; les réglages forcent l'un ou l'autre
 S.connus = {}; S.termes = "auto"; gSeen = {}; out.termeAvant = gText("{{ism}}").includes("gloss");
@@ -153,6 +153,11 @@ S.cards = {}; S.days = {}; location.hash = "#grammaire"; viewGrammar(); gOpen = 
 const gJoue = rate => { let n = 0; while (gs && !gs.over && n < 500) { n++; render(); const st = gs.steps[gs.i];
   if (st.t === "q") { if (st.q.type === "ecrit") gs.typed = rate && n % 3 === 0 ? "خطا" : gBare(st.q.answer); else gs.picked = rate && n % 3 === 0 ? (st.q.bon + 1) % st.q.opts.length : st.q.bon; gCheck(); render(); } gNext(); } render(); return gs.asked; };
 gStartLesson("g1a"); out.gramEtapes = gs.steps.map(s => s.t[0]).join(""); out.gramPosees = gJoue(false); gs = null;
+// Toutes les autres leçons se jouent aussi jusqu'au bout : autant de réponses que de questions et de vers
+out.leconsJouees = gLessons().slice(1).filter(l => { gStartLesson(l.id); const n = gJoue(false); gs = null; return n !== gQuestions(l).length + (l.vers || []).length; }).map(l => l.id);
+// Format des leçons : 2 à 4 pages, 7 à 9 questions (le chapitre 1, écrit avant cette règle, en a parfois moins)
+out.leconsFormat = gLessons().filter(l => l.chap.n > 1 && !(l.pages.length >= 2 && l.pages.length <= 4 && l.questions.length >= 7 && l.questions.length <= 9)).map(l => l.id);
+S.cards = {}; S.days = {}; S.connus = {}; gStartLesson("g1a"); gJoue(false); gs = null;
 out.termesAppris = ["ism", "fil", "harf", "kalam", "bayt", "ajuz"].every(id => S.connus[id]) && !S.connus.tanwin;
 out.gramFaite = gDone(gLessons()[0]); out.gramCartes = Object.keys(S.cards).filter(k => /^[gn]/.test(k)).length; out.gramSerie = streak();
 S.offset = (S.offset || 0) + 3; out.gramDues = gramDue().length; gStartReview(); out.gramRevues = gJoue(true); gs = null; S.offset -= 3;
@@ -168,7 +173,7 @@ out.clavierVoyelles = gKeyboard().includes("fatha"); S.harakat = false; out.clav
 out.clavier = ["classique", "alpha"].map(l => G_KEYS.every(k => G_ROWS[l].flat().includes(k)));
 // « Je connais déjà ce bab » : tout entre en révision aujourd'hui, les termes sont connus
 const gardeCartes = S.cards, gardeConnus = S.connus; S.cards = {}; S.connus = {}; gMarkKnown(1);
-out.babConnu = [gLessons().every(gDone), gramDueQ().length, gramDueV().length, Boolean(S.connus.tanwin)]; S.cards = gardeCartes; S.connus = gardeConnus;
+out.babConnu = [GRAMMAIRE.find(c => c.n === 1).lecons.every(gDone), gramDueQ().length, gramDueV().length, Boolean(S.connus.tanwin)]; S.cards = gardeCartes; S.connus = gardeConnus;
 // Questions fabriquées : sur un grand nombre de tirages, chacune a un seul bon choix et des choix tous différents.
 // « Lequel de ces mots est un … ? » : un seul des mots proposés est de la sorte demandée.
 out.ambigues = [];
@@ -182,6 +187,11 @@ NAZM.forEach(v => { for (let k = 0; k < 12; k++) ["trou", "ajuz", "suite"].forEa
   const g = gVerseQuestion(v, kind), txt = g.opts.map(o => gNorm(o.html));
   if (new Set(txt).size !== txt.length || g.bon < 0 || g.bon >= txt.length) out.ambigues.push(v.id + " " + kind);
 }); });
+// Questions écrites à la main : leurs choix restent tous différents une fois les voyelles retirées
+// (un mot et son jumeau, comme مِنْ et مَنْ, ne peuvent pas départager deux choix)
+// Seule exception : une question dont le sujet est la voyelle elle-même (g1b-05 : الطَّبيبُ ou الطَّبيبٌ).
+const SUR_VOYELLES = ["g1b-05"];
+gq.filter(x => x.choix && !SUR_VOYELLES.includes(x.id)).forEach(x => { const txt = x.choix.map(c => gNorm(c.replace(/\{\{([a-z-]+)(:pl)?\}\}/g, "$1"))); if (new Set(txt).size !== txt.length) out.ambigues.push(x.id); });
 // Deux mots du vocabulaire qui s'écrivent pareil ne doivent pas être de sortes différentes
 out.homographes = WORDS.filter(a => gNatureOf(a) && WORDS.some(b => b !== a && gNatureOf(b) && gNorm(b.ar) === gNorm(a.ar) && gNatureOf(b) !== gNatureOf(a))).map(w => w.id);
 // Sorte des mots : identifiants valables, aucun mot dans deux listes ; l'entraînement libre ne crée ni ne déplace aucune carte
@@ -354,6 +364,8 @@ assert.ok(r.termesAppris, "les termes d'une leçon terminée sont tenus pour con
 assert.ok(/^p+vq+$/.test(r.gramEtapes), "une leçon enchaîne les pages, les vers, puis les questions");
 assert.ok(r.gramPosees === 11 && r.gramFaite && r.gramCartes === 11 && r.gramSerie === 1, "la leçon faite crée une carte par question et par vers, et compte pour la série");
 assert.ok(r.gramDues > 0 && r.gramRevues === Math.min(15, r.gramDues), "les cartes de grammaire reviennent en révision");
+assert.deepStrictEqual(r.leconsJouees, [], "une leçon ne se joue pas jusqu'au bout");
+assert.deepStrictEqual(r.leconsFormat, [], "une leçon doit avoir 2 à 4 pages et 7 à 9 questions");
 assert.deepStrictEqual(r.trous, [], "mot manquant : question mal formée pour ce vers");
 assert.ok(r.ecritOk && r.ecritFaux, "un mot écrit sans voyelles est accepté, un mot faux est refusé");
 assert.ok(r.vocalOk && r.vocalFaux && r.vocalShadda, "avec les voyelles : l'écriture courante est acceptée, une voyelle fausse est refusée");
