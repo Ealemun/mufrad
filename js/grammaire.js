@@ -56,7 +56,8 @@ function gText(t, plain) {
 // Termes employés dans une leçon (pages et questions) : ils sont tenus pour connus une fois la leçon terminée
 function gTermsOf(l) {
   const found = new Set(l.termes || []);
-  JSON.stringify([l.titre, l.pages, l.questions]).replace(/\{\{([a-z-]+)(:pl)?\}\}/g, (m, id) => { found.add(id); return m; });
+  // On lit aussi la traduction des vers de la leçon, qui peut citer des termes
+  JSON.stringify([l.titre, l.pages, l.questions, (l.vers || []).map(id => (gVerse(id) || {}).fr)]).replace(/\{\{([a-z-]+)(:pl)?\}\}/g, (m, id) => { found.add(id); return m; });
   if (l.questions.some(q => q.nature)) ["ism", "fil", "harf"].forEach(id => found.add(id));
   return [...found].filter(gTermOf);
 }
@@ -272,7 +273,7 @@ function gramRender(r) {
   } else if (st.t === "verses") {
     $view.innerHTML = `<article class="gpage"><p class="ask"><small>${gText("Le {{nazm}}", true)}</small>${gText(st.verses.length > 1 ? "Les {{bayt:pl}} de cette leçon" : "Le {{bayt}} de cette leçon")}</p>
       <p class="muted">${gText("Lisez à voix haute plusieurs fois, le {{sadr}} puis le {{ajuz}}. Ces lignes résument ce que vous venez de voir et reviendront en révision.")}</p>
-      ${st.verses.map(v => `<div class="gverse">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("")}
+      ${st.verses.map(v => `<div class="gverse">${gVerseHtml(v)}<p>${gText(v.fr)}</p></div>`).join("")}
       ${gSourceBtn(st.verses[0].bab, "Voir ces lignes dans l'édition")}</article>`;
     $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-next">Continuer</button></div>`;
   } else {
@@ -358,7 +359,7 @@ function viewGrammar() {
         <div class="seg"><button data-act="g-write" data-m="non" aria-pressed="${!gWrite()}">Choix seulement</button><button data-act="g-write" data-m="lettres" aria-pressed="${gWrite() && !gHarakat()}">Sans voyelles</button><button data-act="g-write" data-m="voyelles" aria-pressed="${gWrite() && gHarakat()}">Avec voyelles</button></div>
         <p class="muted">Clavier</p>
         <div class="seg"><button data-act="g-layout" data-m="classique" aria-pressed="${gLayout() === "classique"}">Clavier arabe classique</button><button data-act="g-layout" data-m="alpha" aria-pressed="${gLayout() === "alpha"}">Ordre de l'alphabet</button></div>` : ""}
-      ${showPoem ? NAZM.map((v, k) => `${k === 0 || NAZM[k - 1].bab !== v.bab ? `<p class="gbab">${AR(v.babAr)}${gSourceBtn(v.bab, "dans l'édition")}</p>` : ""}<div class="gverse ${gCard(v.id) ? "" : "todo"}">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("") : ""}</section>`;
+      ${showPoem ? NAZM.map((v, k) => `${k === 0 || NAZM[k - 1].bab !== v.bab ? `<p class="gbab">${AR(v.babAr)}${gSourceBtn(v.bab, "dans l'édition")}</p>` : ""}<div class="gverse ${gCard(v.id) ? "" : "todo"}">${gVerseHtml(v)}<p>${gText(v.fr)}</p></div>`).join("") : ""}</section>`;
   const showSrc = gOpen.src === true;
   const sources = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="src" aria-expanded="${showSrc}"><span>Sources</span><span class="muted">${showSrc ? "▾" : "▸"}</span></button>
       ${showSrc ? `<p>Le plan et les définitions suivent <b>al-Ājurrūmiyya</b> d'Ibn Ājurrūm (m. 723 H), cité en arabe dans chaque leçon. Les vers sont ceux du <b>nazm</b> de ’Ubayd Rabbih ash-Shinqiti, recopiés de l'édition établie sur manuscrits par ’Abdallah al-Hakami (1427 H). Les explications en français sont rédigées pour Mufrad à partir des commentaires classiques du texte ; les exemples viennent du vocabulaire des unités.</p>
