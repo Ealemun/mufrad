@@ -283,5 +283,5 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 .vrow .vstat + .ar { margin-right: auto; }
 .dot-moi { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--gold); margin-right: 6px; vertical-align: middle; }
 .vlegend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 14px; color: var(--muted); }
-.vlegend span { display: inline-flex; align-items: center; gap: 6px; }
+.vlegend > span { display: inline-flex; align-items: center; gap: 6px; }   /* chaque entrée, pas la pastille qu'elle contient */
 .vlegend .vstat { width: 26px; height: 26px; } .vlegend .vstat svg { width: 14px; height: 14px; }
