@@ -101,7 +101,7 @@ function tableauOpen() {
   if (tbMemo.owner !== tbOwner() || tbMemo.pas !== tbStep()) tbMemo = { owner: tbOwner(), pas: tbStep(), items: {} };
   const memo = tbMemo.items[ctx.cle];
   tbl = { root, ctx, forme: "isolee", modele: ctx.montre, fleches: true, traits: memo ? memo.traits.map(t => t.slice()) : [], envoye: memo ? memo.envoye : 0,
-    cur: null, t0: 0, appareil: "", anim: 0, path: null, mask: null, guide: root.querySelector(".tb-guide"), ink: root.querySelector(".tb-ink") };
+    cur: null, t0: 0, appareil: "", anim: 0, path: null, guide: root.querySelector(".tb-guide"), ink: root.querySelector(".tb-ink") };
   root.addEventListener("click", tbClick);
   tbl.ink.addEventListener("pointerdown", tbDown); tbl.ink.addEventListener("pointermove", tbMove);
   ["pointerup", "pointercancel", "pointerleave"].forEach(ev => tbl.ink.addEventListener(ev, tbUp));
@@ -126,7 +126,7 @@ function tbResize() {
   const w = Math.max(240, Math.min(dispo, (window.innerHeight * (large ? 0.62 : 0.4)) / TB_RATIO, large ? 860 : 640)), h = w * TB_RATIO;
   stage.style.width = w + "px"; stage.style.height = h + "px";
   [tbl.guide, tbl.ink].forEach(c => { c.width = Math.round(w * d); c.height = Math.round(h * d); c.getContext("2d").setTransform(d, 0, 0, d, 0, 0); });
-  tbl.w = w; tbl.h = h; tbl.d = d; tbl.path = null; tbl.mask = null;
+  tbl.w = w; tbl.h = h; tbl.d = d; tbl.path = null;
   tbDrawGuide(); tbDrawInk();
 }
 const tbColor = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888";
@@ -192,46 +192,240 @@ function tbMeasure(path) {
   return path;
 }
 
+// --- Carte d'allumage : à chaque pixel de la lettre, l'instant où il s'allume (une distance le long du chemin).
+// Le principe : au lieu d'éclairer tout ce qui tombe sous un gros pinceau qui suit le chemin (ce qui allumait des zones
+// voisines trop tôt, et les points d'un coup dès que le pinceau passait près d'eux), on calcule une fois pour toutes,
+// pour chaque pixel d'encre, à quel moment du chemin la main l'atteint. L'animation n'a plus qu'à allumer, image par
+// image, les pixels dont le moment est venu : la lettre s'éclaire en suivant le tracé, au pixel près, sans à-coups.
+// - Le corps de la lettre : chaque morceau d'encre prend le moment du passage du chemin le plus proche EN RESTANT DANS
+//   L'ENCRE (on se propage à l'intérieur de la lettre, jamais à travers le vide). Une partie voisine mais séparée ne
+//   s'allume donc pas en avance ; là où le chemin repasse (boucle de ه, dent de س), c'est le premier passage qui compte.
+// - Les points : chaque point de la police (les petites taches détachées du corps) est rattaché à un trait d'un seul point
+//   du chemin ; quand deux ou trois points se touchent dans la police, la tache est partagée entre eux. Chaque point
+//   s'allume seul, du centre vers le bord, au moment de son trait, et reste allumé.
+// Calculée une fois par ouverture ou par taille du tableau (quelques dizaines de millisecondes), puis réutilisée.
+const TB_DOUX = 16;   // largeur du bord adouci du front d'allumage, en unités de chemin (un peu moins de deux images)
+function tbCarte(path) {
+  if (path.carte) return path.carte;
+  const w = Math.ceil(tbl.w), h = Math.ceil(tbl.h), k = tbl.w / 1000, d = tbl.d, N = w * h;
+  // 1. La lettre en pixels de l'écran (CSS) : opacité de l'encre, et taches d'encre séparées (corps, points)
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d", { willReadFrequently: true }); g.fillStyle = "#000"; tbGlyph(g, tbl.ctx.text, tbl.w, tbl.h);
+  const px = g.getImageData(0, 0, w, h).data, A = new Uint8Array(N);
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let i = 0; i < N; i++) if ((A[i] = px[i * 4 + 3])) { const x = i % w, y = (i / w) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const T = new Float32Array(N).fill(-1);           // moment d'allumage de chaque pixel (-1 : pas encore connu)
+  const pris = new Uint8Array(N);                   // pixel réservé à un point de la lettre
+  const voisins = (i, f) => { const x = i % w, y = (i / w) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue; const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h) f(yy * w + xx, dx && dy ? 1.4142 : 1); } };
+  const taches = [], tache = new Int32Array(N).fill(-1);
+  for (let i = 0; i < N; i++) if (A[i] > 60 && tache[i] < 0) {
+    const id = taches.length, liste = [i], t = { px: liste, x: 0, y: 0 }; tache[i] = id;
+    for (let n = 0; n < liste.length; n++) voisins(liste[n], j => { if (A[j] > 60 && tache[j] < 0) { tache[j] = id; liste.push(j); } });
+    liste.forEach(j => { t.x += j % w; t.y += (j / w) | 0; }); t.x /= liste.length; t.y /= liste.length; taches.push(t);
+  }
+  const taille = Math.max(1, x1 - x0, y1 - y0), plusGrande = Math.max(1, ...taches.map(t => t.px.length));
+  // Début de chaque trait sur le chemin (en unités de chemin)
+  const debut = []; path.longueurs.reduce((s, l, n) => ((debut[n] = s), s + l), 0);
+  // 2. Les points de la lettre : traits d'un seul point, rattachés aux petites taches proches
+  const pts = path.traits.map((tr, n) => (tr.length === 1 ? { n, x: tr[0][0] * k, y: tr[0][1] * k } : null)).filter(Boolean);
+  const centres = {};
+  if (pts.length) {
+    const petites = taches.filter(t => t.px.length < plusGrande * 0.25 && pts.some(p => Math.hypot(t.x - p.x, t.y - p.y) < taille * 0.35));
+    // Combien de points chaque tache peut porter (deux points qui se touchent font une seule tache, deux fois plus grande)
+    const unite = petites.reduce((s, t) => s + t.px.length, 0) / pts.length;
+    petites.forEach(t => { t.place = Math.max(1, Math.round(t.px.length / Math.max(1, unite))); });
+    // On essaie toutes les façons de répartir les points (trois au plus : peu de cas). Le chemin peut être un peu décalé
+    // par rapport à la police : on juge surtout la forme de la répartition, un peu la distance.
+    let mieux = null, coutMin = Infinity;
+    const essai = (j, choix) => {
+      if (j === pts.length) {
+        const ec = choix.map((t, m) => [t.x - pts[m].x, t.y - pts[m].y]), mx = ec.reduce((s, e) => s + e[0], 0) / ec.length, my = ec.reduce((s, e) => s + e[1], 0) / ec.length;
+        const cout = ec.reduce((s, e) => s + (e[0] - mx) ** 2 + (e[1] - my) ** 2, 0) + 0.25 * (mx * mx + my * my) * ec.length;
+        if (cout < coutMin) { coutMin = cout; mieux = choix.slice(); } return;
+      }
+      petites.forEach(t => { if (choix.filter(x => x === t).length < t.place) { choix.push(t); essai(j + 1, choix); choix.pop(); } });
+    };
+    essai(0, []);
+    if (mieux) new Set(mieux).forEach(t => {
+      // Les points portés par cette tache, et leur part de la tache : on la partage en autant de morceaux (k-moyennes),
+      // en partant de la disposition des points du chemin recentrée sur la tache : chaque morceau garde son point.
+      const miens = pts.filter((p, m) => mieux[m] === t), mx = miens.reduce((s, p) => s + p.x, 0) / miens.length, my = miens.reduce((s, p) => s + p.y, 0) / miens.length;
+      const cs = miens.map(p => [p.x - mx + t.x, p.y - my + t.y]), part = new Int32Array(t.px.length);
+      for (let it = 0; it < 10 && miens.length > 1; it++) {
+        const som = cs.map(() => [0, 0, 0]);
+        t.px.forEach((i, q) => { const x = i % w, y = (i / w) | 0; let b = 0, bd = Infinity; cs.forEach((cc, m) => { const dd = (x - cc[0]) ** 2 + (y - cc[1]) ** 2; if (dd < bd) { bd = dd; b = m; } }); part[q] = b; som[b][0] += x; som[b][1] += y; som[b][2]++; });
+        som.forEach((s, m) => { if (s[2]) cs[m] = [s[0] / s[2], s[1] / s[2]]; });
+      }
+      miens.forEach((p, m) => {
+        const mes = t.px.filter((i, q) => part[q] === m), r = Math.max(1, ...mes.map(i => Math.hypot(i % w - cs[m][0], ((i / w) | 0) - cs[m][1])));
+        // Le point s'allume du centre vers le bord, dans le temps de pose de son trait, puis reste allumé
+        const L = path.longueurs[p.n], t0 = debut[p.n] + L * 0.15;
+        mes.forEach(i => { T[i] = t0 + Math.hypot(i % w - cs[m][0], ((i / w) | 0) - cs[m][1]) / r * L * 0.55; pris[i] = 1; });
+        centres[p.n] = cs[m];
+      });
+    });
+    // Le bord adouci des points (pixels à peine teintés autour) suit son point
+    for (let passe = 0; passe < 2; passe++) for (let i = 0; i < N; i++) if (A[i] && !pris[i]) voisins(i, j => { if (pris[j] === 1 && !pris[i]) { T[i] = T[j]; pris[i] = 2; } });
+    for (let i = 0; i < N; i++) if (pris[i] === 2) pris[i] = 1;
+  }
+  // 3. Le corps : le chemin (déjà arrondi) est parcouru tous les 1,5 pixel ; chaque position est posée sur l'encre la plus
+  // proche (le chemin dessiné peut passer un peu à côté de la lettre), puis le moment se propage dans l'encre.
+  const R = Math.max(10, taille * 0.12), file = [];   // file : [distance, moment, pixel], la plus courte d'abord
+  const dist = new Float32Array(N).fill(Infinity);
+  const pousser = e => { file.push(e); let i = file.length - 1; while (i) { const p = (i - 1) >> 1; if (file[p][0] < e[0] || (file[p][0] === e[0] && file[p][1] <= e[1])) break; file[i] = file[p]; i = p; } file[i] = e; };
+  const sortir = () => { const top = file[0], e = file.pop(); if (file.length) { let i = 0; for (;;) { let l = 2 * i + 1, b = i; const r = l + 1;
+    const plus = (a, z) => a[0] < z[0] || (a[0] === z[0] && a[1] < z[1]);
+    if (l < file.length && plus(file[l], b === i ? e : file[b])) b = l; if (r < file.length && plus(file[r], b === i ? e : file[b])) b = r;
+    if (b === i) break; file[i] = file[b]; i = b; } file[i] = e; } return top; };
+  // Distance de chaque pixel à l'encre du corps (calcul en deux passes), pour recaler chaque trait sur la lettre
+  const loin = new Float32Array(N);
+  for (let i = 0; i < N; i++) loin[i] = A[i] > 60 && !pris[i] ? 0 : 1e6;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; let v = loin[i];
+    if (x) v = Math.min(v, loin[i - 1] + 1); if (y) { v = Math.min(v, loin[i - w] + 1); if (x) v = Math.min(v, loin[i - w - 1] + 1.4142); if (x < w - 1) v = Math.min(v, loin[i - w + 1] + 1.4142); } loin[i] = v; }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) { const i = y * w + x; let v = loin[i];
+    if (x < w - 1) v = Math.min(v, loin[i + 1] + 1); if (y < h - 1) { v = Math.min(v, loin[i + w] + 1); if (x < w - 1) v = Math.min(v, loin[i + w + 1] + 1.4142); if (x) v = Math.min(v, loin[i + w - 1] + 1.4142); } loin[i] = v; }
+  // Épaisseur du trait de la police : deux fois la distance au bord, prise dans les parties épaisses de la lettre
+  const dedans = new Float32Array(N);
+  for (let i = 0; i < N; i++) dedans[i] = A[i] > 60 ? 1e6 : 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; if (!dedans[i]) continue; let v = dedans[i];
+    v = Math.min(v, x ? dedans[i - 1] + 1 : 1, y ? dedans[i - w] + 1 : 1); dedans[i] = v; }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) { const i = y * w + x; if (!dedans[i]) continue;
+    dedans[i] = Math.min(dedans[i], x < w - 1 ? dedans[i + 1] + 1 : 1, y < h - 1 ? dedans[i + w] + 1 : 1); }
+  const prof = []; for (let i = 0; i < N; i++) if (dedans[i]) prof.push(dedans[i]); prof.sort((a, b) => a - b);
+  const epais = Math.max(3, 2 * (prof[Math.floor(prof.length * 0.95)] || 2));
+  const ecart = (x, y) => { const xx = Math.round(x), yy = Math.round(y); return xx < 0 || yy < 0 || xx >= w || yy >= h ? 30 : Math.min(30, loin[yy * w + xx]); };
+  const corps = [];   // positions du chemin du corps, pour les morceaux d'encre que la propagation n'atteint pas
+  path.traits.forEach((tr, n) => {
+    if (tr.length < 2) return;
+    const cu = path.cumul[n];
+    // Recalage du trait : le chemin dessiné à la main n'épouse pas exactement la police (le trait vertical de ط passe
+    // un peu à côté du sien, par exemple). On cherche le petit décalage qui pose le trait le mieux sur l'encre ; sans lui,
+    // ce trait laisserait sa partie de la lettre s'allumer avec le trait d'avant. Le chemin affiché, lui, ne change pas.
+    const ech = []; for (let q = 0; q < tr.length; q += 3) ech.push([tr[q][0] * k, tr[q][1] * k]);
+    const cout = (dx, dy) => ech.reduce((s, p) => s + ecart(p[0] + dx, p[1] + dy), 0) / ech.length + 0.04 * Math.hypot(dx, dy);
+    let tx = 0, ty = 0, cMin = cout(0, 0); const lim = Math.round(taille * 0.2);
+    for (let dy = -lim; dy <= lim; dy += 2) for (let dx = -lim; dx <= lim; dx += 2) { const c = cout(dx, dy); if (c < cMin - 1e-6) { cMin = c; tx = dx; ty = dy; } }
+    const ici = [];   // positions du trait recalé, tous les 1,5 pixel : [x, y, moment, distance à l'encre]
+    for (let q = 1; q < tr.length; q++) {
+      const ax = tr[q - 1][0] * k + tx, ay = tr[q - 1][1] * k + ty, bx = tr[q][0] * k + tx, by = tr[q][1] * k + ty, nb = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 1.5));
+      for (let u = q === 1 ? 0 : 1; u <= nb; u++) {
+        const f = u / nb, x = ax + (bx - ax) * f, y = ay + (by - ay) * f; ici.push([x, y, debut[n] + cu[q - 1] + (cu[q] - cu[q - 1]) * f, ecart(x, y)]);
+      }
+    }
+    // Faux croisements : là où le chemin sort de l'encre, traverse un autre trait de la lettre sur à peine son épaisseur, puis
+    // ressort (le corps de ط qui coupe la hampe parce que le chemin n'a pas tout à fait la forme de la police), il ne
+    // l'écrit pas : ces positions ne comptent pas, sinon une bande de l'autre trait s'allumerait en avance.
+    const ignore = new Uint8Array(ici.length), dehors = q => ici[q][3] > epais * 0.35;
+    for (let q = 0; q < ici.length; q++) {
+      if (ici[q][3] > 0.5) continue;
+      let f = q; while (f + 1 < ici.length && ici[f + 1][3] <= 0.5) f++;
+      const lg = (f - q) * 1.5;
+      if (lg < epais * 1.8) {
+        let a = q - 1; while (a >= 0 && !dehors(a) && (q - a) * 1.5 < epais) a--;
+        let b = f + 1; while (b < ici.length && !dehors(b) && (b - f) * 1.5 < epais) b++;
+        // Les positions voisines, encore assez près pour être posées sur ce trait-là, sont écartées aussi
+        if (a >= 0 && b < ici.length && dehors(a) && dehors(b)) {
+          while (a > 0 && ici[a][3] < R && (q - a) * 1.5 < epais * 2.2) a--;
+          while (b < ici.length - 1 && ici[b][3] < R && (b - f) * 1.5 < epais * 2.2) b++;
+          for (let z = a; z <= b; z++) ignore[z] = 1;
+        }
+      }
+      q = f;
+    }
+    ici.forEach(([x, y, s], q) => {
+      corps.push([x, y, s]);
+      if (ignore[q]) return;
+      // L'encre la plus proche, dans un rayon R
+      let best = -1, bd = R * R; const cx = Math.round(x), cy = Math.round(y), r = Math.ceil(R);
+      for (let yy = Math.max(0, cy - r); yy <= Math.min(h - 1, cy + r); yy++) for (let xx = Math.max(0, cx - r); xx <= Math.min(w - 1, cx + r); xx++) {
+        const i = yy * w + xx; if (A[i] <= 60 || pris[i]) continue; const dd = (xx - x) ** 2 + (yy - y) ** 2; if (dd < bd) { bd = dd; best = i; } }
+      if (best >= 0) pousser([0, s, best]);
+    });
+  });
+  // Propagation dans l'encre, de proche en proche : chaque pixel prend le moment du passage le plus proche par l'intérieur
+  // de la lettre ; à égalité, le passage le plus ancien. Un pixel un peu à l'écart du chemin (bord d'un trait épais, bout
+  // arrondi d'un trait) s'allume un tout petit peu après : le front a la forme arrondie d'une pointe de pinceau, et le
+  // bout d'un trait ne s'allume pas d'un bloc.
+  while (file.length) {
+    const [dd, s, i] = sortir();
+    if (T[i] >= 0) continue; T[i] = s + dd / k * 0.5; dist[i] = dd;
+    voisins(i, (j, pas) => { if (A[j] && !pris[j] && T[j] < 0 && dd + pas < dist[j]) { dist[j] = dd + pas; pousser([dd + pas, s, j]); } });
+  }
+  // Un morceau d'encre que le chemin n'approche pas (rare) : le moment du point du chemin le plus proche à vol d'oiseau
+  for (let i = 0; i < N; i++) if (A[i] && T[i] < 0) { const x = i % w, y = (i / w) | 0; let bs = path.total, bd = Infinity; corps.forEach(p => { const dd = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (dd < bd) { bd = dd; bs = p[2]; } }); T[i] = bs; }
+  // 4. La même lettre à la netteté de l'écran (pixels réels) : chaque pixel réel reprend le moment de son pixel CSS.
+  const bx = Math.max(0, Math.floor(x0 * d) - 2), by = Math.max(0, Math.floor(y0 * d) - 2);
+  const bw = Math.min(tbl.guide.width, Math.ceil((x1 + 1) * d) + 2) - bx, bh = Math.min(tbl.guide.height, Math.ceil((y1 + 1) * d) + 2) - by;
+  const toile = document.createElement("canvas"); toile.width = Math.max(1, bw); toile.height = Math.max(1, bh);
+  const tg = toile.getContext("2d", { willReadFrequently: true });
+  tg.fillStyle = tbColor("--gold"); tg.fillRect(0, 0, 1, 1); const or = tg.getImageData(0, 0, 1, 1).data; tg.clearRect(0, 0, 1, 1);
+  tg.setTransform(d, 0, 0, d, -bx, -by); tg.fillStyle = "#000"; tbGlyph(tg, tbl.ctx.text, tbl.w, tbl.h); tg.setTransform(1, 0, 0, 1, 0, 0);
+  const img = tg.getImageData(0, 0, toile.width, toile.height), D = img.data, liste = [];   // la lettre noire sert de patron, puis la toile est vidée
+  for (let y = 0; y < toile.height; y++) for (let x = 0; x < toile.width; x++) {
+    const o = y * toile.width + x, a = D[o * 4 + 3]; D[o * 4] = or[0]; D[o * 4 + 1] = or[1]; D[o * 4 + 2] = or[2]; D[o * 4 + 3] = 0;
+    if (!a) continue;
+    const cx = Math.min(w - 1, Math.floor((x + bx + 0.5) / d)), cy = Math.min(h - 1, Math.floor((y + by + 0.5) / d));
+    let s = T[cy * w + cx];
+    if (s < 0) for (let dy = -1; dy <= 1 && s < 0; dy++) for (let dx = -1; dx <= 1 && s < 0; dx++) { const xx = cx + dx, yy = cy + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h) s = T[yy * w + xx]; }
+    liste.push([s < 0 ? path.total : s, o, a]);
+  }
+  tg.putImageData(img, 0, 0);   // toile vide (or, transparent) : rien n'est allumé au départ
+  // Rangés par moment : à chaque image, on ne touche qu'aux pixels qui s'allument à cet instant
+  liste.sort((p, q) => p[0] - q[0]);
+  const carte = { bx, by, toile, tg, img, temps: Float32Array.from(liste, p => p[0]), pos: Uint32Array.from(liste, p => p[1]), opa: Uint8Array.from(liste, p => p[2]),
+    fait: 0, haut: 0, S: -Infinity, centres, fond: null };
+  // Moment où le dernier pixel est tout à fait allumé : la fin de l'animation (un peu après la fin du chemin, à cause des bords)
+  carte.fin = Math.max(path.total, liste.length ? liste[liste.length - 1][0] : 0) + TB_DOUX;
+  return (path.carte = carte);
+}
+// Allume la lettre jusqu'au moment S (en unités de chemin). Ne retouche que les pixels qui changent depuis l'image d'avant.
+function tbAllume(carte, S) {
+  const D = carte.img.data, W = carte.toile.width, n = carte.temps.length;
+  if (S < carte.S) { for (let i = 0; i < carte.haut; i++) D[carte.pos[i] * 4 + 3] = 0; carte.fait = carte.haut = 0; carte.tg.putImageData(carte.img, 0, 0); }   // on rejoue depuis le début
+  carte.S = S;
+  let x0 = W, y0 = Infinity, x1 = -1, y1 = -1, i = carte.fait;
+  for (; i < n && carte.temps[i] <= S; i++) {
+    // Bord adouci : un pixel atteint par le front s'allume en un peu moins de deux images, pas d'un coup
+    const v = (S - carte.temps[i]) / TB_DOUX, p = carte.pos[i];
+    D[p * 4 + 3] = v >= 1 ? carte.opa[i] : Math.round(carte.opa[i] * v);
+    const x = p % W, y = (p / W) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  carte.haut = Math.max(carte.haut, i);
+  while (carte.fait < n && carte.temps[carte.fait] <= S - TB_DOUX) carte.fait++;
+  if (x1 >= 0) carte.tg.putImageData(carte.img, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);   // seulement la partie qui a changé
+}
+
 // --- Calque du dessous : ligne d'écriture, modèle en filigrane, numéros et flèches du sens d'écriture.
 // part (pendant l'animation) : fraction du chemin déjà parcourue, de 0 à 1 ; la lettre s'allume sur cette partie.
-function tbDrawGuide(part) {
-  const g = tbl.guide.getContext("2d"), w = tbl.w, h = tbl.h, k = w / 1000, gold = tbColor("--gold");
-  g.clearRect(0, 0, w, h);
+function tbFond(g, w, h) {
   g.strokeStyle = tbColor("--line"); g.lineWidth = 2; g.setLineDash([6, 8]);
   g.beginPath(); g.moveTo(12, h * 0.66); g.lineTo(w - 12, h * 0.66); g.stroke(); g.setLineDash([]);
   if (!tbl.ctx.text || !tbl.modele) return;
   g.globalAlpha = 0.22; g.fillStyle = tbColor("--ink"); tbGlyph(g, tbl.ctx.text, w, h); g.globalAlpha = 1;
-  const path = tbPath(); if (!path) return;
-  if (part != null) {
-    // La lettre elle-même s'allume : on trace la partie parcourue du chemin en très gros trait, au bord adouci, sur un
-    // calque à part, puis on n'en garde que ce qui tombe sur la lettre. À la fin, toute la lettre est allumée.
-    const c = tbl.mask || (tbl.mask = document.createElement("canvas")); c.width = tbl.guide.width; c.height = tbl.guide.height;
-    const m = c.getContext("2d"); m.setTransform(tbl.d, 0, 0, tbl.d, 0, 0);
-    if (part >= 1) { m.fillStyle = gold; tbGlyph(m, tbl.ctx.text, w, h); }
-    else {
-      const b = path.boite || [0, 0, 1000, 600], gros = Math.max(26, Math.max(b[2] - b[0], b[3] - b[1]) * k * 0.3);
-      m.strokeStyle = m.fillStyle = m.shadowColor = "#fff"; m.shadowBlur = gros * 0.35 * tbl.d; m.lineCap = "round"; m.lineJoin = "round"; m.lineWidth = gros;
-      let reste = part * path.total;
-      path.traits.forEach((tr, n) => {
-        if (reste <= 0) return;
-        const fait = Math.min(reste, path.longueurs[n]); reste -= path.longueurs[n];
-        if (tr.length === 1) { m.globalAlpha = Math.min(1, fait / 70); m.beginPath(); m.arc(tr[0][0] * k, tr[0][1] * k, gros * 0.55, 0, 7); m.fill(); m.globalAlpha = 1; return; }
-        // On avance jusqu'à la distance parcourue, en s'arrêtant entre deux points s'il le faut : pas de saut d'un point à l'autre
-        const cu = path.cumul[n]; let i = 1; m.beginPath(); m.moveTo(tr[0][0] * k, tr[0][1] * k);
-        for (; i < tr.length && cu[i] <= fait; i++) m.lineTo(tr[i][0] * k, tr[i][1] * k);
-        if (i < tr.length) { const t = (fait - cu[i - 1]) / Math.max(1e-6, cu[i] - cu[i - 1]); m.lineTo((tr[i - 1][0] + (tr[i][0] - tr[i - 1][0]) * t) * k, (tr[i - 1][1] + (tr[i][1] - tr[i - 1][1]) * t) * k); }
-        m.stroke();
-      });
-      m.shadowBlur = 0; m.globalCompositeOperation = "source-in"; m.fillStyle = gold; tbGlyph(m, tbl.ctx.text, w, h);
-    }
-    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(c, 0, 0); g.restore();
+}
+function tbDrawGuide(part) {
+  const g = tbl.guide.getContext("2d"), w = tbl.w, h = tbl.h, k = w / 1000, gold = tbColor("--gold");
+  const path = tbl.ctx.text && tbl.modele ? tbPath() : null;
+  if (part != null && path) {
+    // Pendant l'animation : le fond (ligne et filigrane) est dessiné une fois et gardé ; à chaque image, on le recopie
+    // et on pose par-dessus la lettre allumée jusqu'où la main est arrivée.
+    const carte = tbCarte(path);
+    if (!carte.fond) { carte.fond = document.createElement("canvas"); carte.fond.width = tbl.guide.width; carte.fond.height = tbl.guide.height;
+      const f = carte.fond.getContext("2d"); f.setTransform(tbl.d, 0, 0, tbl.d, 0, 0); tbFond(f, w, h); }
+    tbAllume(carte, Math.min(1, part) * carte.fin);   // à la fin (part = 1), tout est allumé en plein
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, tbl.guide.width, tbl.guide.height);
+    g.drawImage(carte.fond, 0, 0); g.drawImage(carte.toile, carte.bx, carte.by); g.restore();
     return;
   }
-  if (!tbl.fleches) return;
-  // Au repos : le chemin en trait fin, le numéro de chaque trait à son départ, et une flèche dans le sens de l'écriture
+  g.clearRect(0, 0, w, h); tbFond(g, w, h);
+  if (!path || !tbl.fleches) return;
+  // Au repos : le chemin en trait fin, le numéro de chaque trait à son départ, et une flèche dans le sens de l'écriture.
+  // Le numéro d'un point de la lettre est posé à côté du point tel qu'il est dans la police.
+  const centres = tbCarte(path).centres;
   path.traits.forEach((tr, n) => {
     const a = tr[0];
-    if (tr.length === 1) { g.fillStyle = gold; g.font = "600 13px Fredoka, sans-serif"; g.textAlign = "left"; g.textBaseline = "middle"; g.direction = "ltr"; g.fillText(String(n + 1), a[0] * k + 10, a[1] * k - 10); return; }
+    if (tr.length === 1) { const c = centres[n] || [a[0] * k, a[1] * k]; g.fillStyle = gold; g.font = "600 13px Fredoka, sans-serif"; g.textAlign = "left"; g.textBaseline = "middle"; g.direction = "ltr"; g.fillText(String(n + 1), c[0] + 8, c[1] - 9); return; }
     g.strokeStyle = gold; g.lineWidth = 2; g.lineCap = "round"; g.lineJoin = "round"; g.globalAlpha = 0.6;
     g.beginPath(); tr.forEach((p, i) => (i ? g.lineTo(p[0] * k, p[1] * k) : g.moveTo(p[0] * k, p[1] * k))); g.stroke(); g.globalAlpha = 1;
     const i = Math.min(tr.length - 1, Math.max(1, Math.round(tr.length * 0.3))), b = tr[i], p0 = tr[i - 1], ang = Math.atan2(b[1] - p0[1], b[0] - p0[0]);
@@ -240,13 +434,16 @@ function tbDrawGuide(part) {
     g.save(); g.translate(b[0] * k, b[1] * k); g.rotate(ang); g.fillStyle = gold; g.beginPath(); g.moveTo(9, 0); g.lineTo(-6, -7); g.lineTo(-6, 7); g.closePath(); g.fill(); g.restore();
   });
 }
-// Animation : la lettre s'allume le long du chemin à vitesse régulière, image par image, puis reste allumée un instant
+// Animation : la lettre s'allume le long du chemin à vitesse régulière, image par image, puis reste allumée un instant.
+// La carte d'allumage est préparée avant de lancer l'horloge, et l'horloge part de la première image réellement affichée :
+// pas de bond au départ.
 function tbPlay() {
   const path = tbPath(); if (!path) return;
-  cancelAnimationFrame(tbl.anim); clearTimeout(tbl.fin);
-  const dur = Math.min(5200, Math.max(1800, path.total * 2.4)), start = performance.now();
+  cancelAnimationFrame(tbl.anim); clearTimeout(tbl.fin); tbCarte(path);
+  const dur = Math.min(5200, Math.max(1800, path.total * 2.4)); let start = 0;
   const step = now => {
     if (!tbl) return;
+    if (!start) start = now;
     const f = Math.min(1, (now - start) / dur); tbDrawGuide(f);
     if (f < 1) tbl.anim = requestAnimationFrame(step); else tbl.fin = setTimeout(() => { if (tbl) tbDrawGuide(); }, 1200);
   };
