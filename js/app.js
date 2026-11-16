@@ -902,6 +902,13 @@ function voiceState(id) {
 }
 const VOICE_BADGE = { moi: ["Mon enregistrement", ICON_SPEAK], autre: ["Voix d'une autre personne", ICON_SPEAK], aucun: ["Pas encore enregistré", ICON_MIC] };
 const voiceBadge = st => `<span class="vstat ${st}" role="img" aria-label="${VOICE_BADGE[st][0]}" title="${VOICE_BADGE[st][0]}">${VOICE_BADGE[st][1]}</span>`;
+// Mon enregistrement actuel d'un élément, pour le comparer à un nouveau avant de choisir lequel garder :
+// celui de cet appareil, sinon celui que j'ai partagé (depuis un autre appareil). null s'il n'y en a pas.
+function myCurrentVoice(id) {
+  if (CLIPS[id] && CLIPS[id].url) return CLIPS[id].url;
+  const v = typeof voixRows !== "undefined" && me ? voixRows.slice().reverse().find(x => x.element === id && x.auteur === me.id && (x.etat === "publie" || x.etat === "recommande")) : null;
+  return v ? publicUrl(v.chemin) : null;
+}
 function viewVoices() {
   const its = itemsOf(voiceLesson), have = its.filter(it => AUDIO[it.id]).length;
   const total = ITEMS.filter(it => AUDIO[it.id]).length, micro = canRecord();
@@ -917,13 +924,20 @@ function viewVoices() {
   // Liste d'attente : on écoute chaque enregistrement, on écarte ceux qui ne conviennent pas, puis on dépose le reste
   const wait = pending.length ? `<section class="panel attente"><h3>À écouter avant de déposer · ${pending.length}</h3>
       <p class="muted">Écoutez chaque enregistrement. Réglez le début et la fin pour couper les bruits autour du mot : seul le passage en couleur est gardé. Écartez ceux qui ne vont pas, puis déposez les autres.</p>
-      <div>${pending.map(p => `<div class="pend"><div class="vrow">${AR(BY_ID[p.id].ar)}<div class="vact">
-          <button class="mini" data-act="pend-play" data-id="${p.id}" aria-label="Écouter le passage gardé">${ICON_SPEAK}</button>
-          <button class="mini txt" data-act="pend-drop" data-id="${p.id}">Écarter</button></div></div>
+      <div>${pending.map(p => {
+        // Un nouvel enregistrement pour un mot que j'ai déjà enregistré : on fait écouter les deux et on laisse choisir.
+        // (Pas pour une reprise du rognage, qui est le même enregistrement.)
+        const ancien = p.preset ? null : myCurrentVoice(p.id);
+        return `<div class="pend"><div class="vrow">${AR(BY_ID[p.id].ar)}<div class="vact">
+          ${ancien ? `<button class="mini txt" data-act="reco-play" data-url="${esc(ancien)}">${ICON_SPEAK} Ancien</button>` : ""}
+          <button class="mini${ancien ? " txt" : ""}" data-act="pend-play" data-id="${p.id}" aria-label="Écouter le passage gardé">${ICON_SPEAK}${ancien ? " Nouveau" : ""}</button>
+          ${ancien ? "" : `<button class="mini txt" data-act="pend-drop" data-id="${p.id}">Écarter</button>`}</div></div>
+        ${ancien ? `<div class="seg choix"><button data-act="pend-drop" data-id="${p.id}">Garder l'ancien</button><button aria-pressed="true" disabled>Garder le nouveau</button></div>` : ""}
         ${p.data ? `<canvas class="wave" id="wv-${p.id}" width="600" height="72" role="img" aria-label="Piste de l'enregistrement"></canvas>
           <div class="trim"><label for="ta-${p.id}">Début</label><input type="range" id="ta-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.a / p.dur)}" data-trim="a" data-id="${p.id}">
             <label for="tb-${p.id}">Fin</label><input type="range" id="tb-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.b / p.dur)}" data-trim="b" data-id="${p.id}"></div>
-          <p class="muted" id="tl-${p.id}">Gardé : ${sec(p.b - p.a)} sur ${sec(p.dur)}</p>` : ""}</div>`).join("")}</div>
+          <p class="muted" id="tl-${p.id}">Gardé : ${sec(p.b - p.a)} sur ${sec(p.dur)}</p>` : ""}</div>`;
+      }).join("")}</div>
       <button class="btn good" data-act="pend-ok">Déposer ${plural(pending.length, "enregistrement")}</button>
       <button class="btn ghost" data-act="pend-none">Tout écarter</button></section>` : "";
   const rows = its.map(it => {

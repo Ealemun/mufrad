@@ -285,3 +285,6 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 .vlegend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 14px; color: var(--muted); }
 .vlegend > span { display: inline-flex; align-items: center; gap: 6px; }   /* chaque entrée, pas la pastille qu'elle contient */
 .vlegend .vstat { width: 26px; height: 26px; } .vlegend .vstat svg { width: 14px; height: 14px; }
+/* Choix entre l'ancien et le nouvel enregistrement d'un même mot : le nouveau est choisi d'office (il sera déposé) */
+.seg.choix button:disabled { cursor: default; opacity: 1; }
+.mini.txt svg { width: 18px; height: 18px; vertical-align: -3px; }

@@ -199,6 +199,19 @@ drillSel = {};
 const idV = itemsOf(voiceLesson)[0].id, avantV = voiceState(idV);
 CLIPS[idV] = { url: "blob:essai" }; const pageV = viewVoices(); delete CLIPS[idV];
 out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-moi"'), badge: pageV.includes('class="vstat aucun"'), point: pageV.includes('class="dot-moi"') };
+// Nouvel enregistrement d'un mot déjà enregistré : on peut écouter l'ancien et le nouveau, et garder l'ancien ;
+// sans ancien, seul « Écarter » est proposé ; une reprise du rognage n'est pas un nouvel enregistrement
+{
+  const idC = itemsOf(voiceLesson)[0].id;
+  pending = [{ id: idC, url: "blob:nouveau", data: null, preset: null }];
+  const sansAncien = viewVoices();
+  CLIPS[idC] = { url: "blob:ancien" }; const avecAncien = viewVoices();
+  pending[0].preset = { a: 0, b: 1 }; const rognage = viewVoices();
+  delete CLIPS[idC]; pending = [];
+  out.choixVoix = { sansAncien: sansAncien.includes(">Écarter<") && !sansAncien.includes("Garder l'ancien"),
+    avecAncien: avecAncien.includes('data-url="blob:ancien"') && avecAncien.includes("Garder l'ancien"),
+    rognage: !rognage.includes("Garder l'ancien") };
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -264,6 +277,7 @@ assert.deepStrictEqual(r.admin, { attente: true, lecteurs: true, filtres: true, 
   "Partage des voix : vues de gestion, mes envois, roue dentée et pastille ; l'onglet Voix allégé");
 assert.ok(r.adminSimple, "Partage des voix : un utilisateur voit seulement l'accord et ses envois");
 assert.deepStrictEqual(r.voixEtat, { aucun: true, moi: true, badge: true, point: true }, "Voix : état de chaque élément visible (moi, autre, à enregistrer)");
+assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognage: true }, "Voix : choisir entre l'ancien et le nouvel enregistrement");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
