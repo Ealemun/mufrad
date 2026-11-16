@@ -1219,16 +1219,35 @@ async function decide(recoId, accept) {
   sbMsg = r.error ? "Action refusée : " + r.error.message : (accept ? "Recommandation acceptée." : "Recommandation refusée.");
   await loadVoices();
 }
-// Retire une voix du partage et supprime son fichier : la sienne pour chacun, n'importe laquelle pour un contributeur
+// Retire une voix du partage : la sienne pour chacun, n'importe laquelle pour un contributeur.
+// Retirée par un contributeur, la voix garde son fichier : on pourra la remettre dans le partage (restoreVoice).
+// Retirée par son auteur sans être contributeur, son fichier est supprimé : personne ne pourra la remettre contre son gré.
 async function removeVoice(vid) {
   const v = voixRows.find(x => x.id === vid);
   if (!sb || !me || !v) return;
   const r = await sb.from("voix").update({ etat: "retire" }).eq("id", vid);
   if (r.error) { sbMsg = "Suppression refusée : " + r.error.message; refresh(); return; }
-  await sb.storage.from("voix").remove([v.chemin]);
+  if (!isContributor()) await sb.storage.from("voix").remove([v.chemin]);
   if (v.auteur === me.id && S.shared) { delete S.shared[v.element]; saveState(); }
   sbMsg = "Voix retirée du partage.";
   await loadVoices();
+}
+
+// Remet dans le partage une voix retirée (contributeurs). On vérifie d'abord que son fichier existe encore :
+// les voix retirées avant ce changement, ou retirées par leur auteur, n'ont plus de fichier.
+async function restoreVoice(vid) {
+  const v = voixRows.find(x => x.id === vid);
+  if (!sb || !me || !v || !isContributor()) return;
+  let existe = false;
+  try { existe = (await fetch(publicUrl(v.chemin), { method: "HEAD", cache: "no-store" })).ok; } catch (e) {}
+  if (!existe) { sbMsg = "Le fichier de cette voix a été supprimé : elle ne peut pas être remise."; refresh(); return; }
+  const r = await sb.from("voix").update({ etat: "publie", traite_par: me.id, traite_le: new Date().toISOString() }).eq("id", vid);
+  sbMsg = r.error ? "Action refusée : " + r.error.message : "Voix remise dans le partage.";
+  await loadVoices();
+}
+// Voix retirées qu'on peut remettre : pas celles qu'un envoi plus récent du même lecteur a remplacées
+function retiredVoices() {
+  return voixRows.filter(v => v.etat === "retire" && !voixRows.some(w => w.element === v.element && w.auteur === v.auteur && w.cree_le > v.cree_le && w.etat !== "refuse"));
 }
 
 // Encadré de l'onglet Voix : où en est le partage
@@ -1307,28 +1326,37 @@ function viewPartage() {
   } else {
     // Filtres en listes déroulantes : ils tiennent sur deux lignes, quel que soit le nombre de leçons et de lecteurs
     const count = it => (SHARED[it.id] || []).filter(v => !adminReader || v.auteur === adminReader).length;
-    const keep = { all: () => true, none: n => n === 0, some: n => n > 0, multi: n => n > 1 }[adminState];
+    const keep = { all: () => true, none: n => n === 0, some: n => n > 0, multi: n => n > 1, retire: () => true }[adminState];
     const scope = (adminLesson === "all" ? ITEMS : itemsOf(Number(adminLesson))).filter(it => keep(count(it)));
     const opt = (v, t, cur) => `<option value="${v}" ${String(cur) === String(v) ? "selected" : ""}>${esc(t)}</option>`;
     const lecons = opt("all", "Toutes les leçons", adminLesson) + UNITS.flatMap(u => u.lessons.map(([l, title]) => opt(l, lessonShort(l) + " · " + title, adminLesson))).join("");
-    const etats = [["all", "Avec ou sans voix"], ["none", "Sans voix"], ["some", "Avec voix"], ["multi", "Plusieurs voix"]].map(([k, t]) => opt(k, t, adminState)).join("");
+    const etats = [["all", "Avec ou sans voix"], ["none", "Sans voix"], ["some", "Avec voix"], ["multi", "Plusieurs voix"], ["retire", "Voix retirées"]].map(([k, t]) => opt(k, t, adminState)).join("");
     const lects = opt("", "Tous lecteurs", adminReader || "") + READERS.map(a => opt(a, readerLabel(a), adminReader || "")).join("");
     body = `<div class="filters">
         <label class="vh" for="adm-l">Leçon</label><select id="adm-l" class="field" data-adm="lesson">${lecons}</select>
         <label class="vh" for="adm-e">État</label><select id="adm-e" class="field" data-adm="state">${etats}</select>
         <label class="vh" for="adm-r">Lecteur</label><select id="adm-r" class="field" data-adm="reader">${lects}</select></div>
-      <p class="muted">${plural(scope.length, "élément")} affiché${scope.length > 1 ? "s" : ""}</p>
+      ${adminState === "retire" ? viewRetired() : `<p class="muted">${plural(scope.length, "élément")} affiché${scope.length > 1 ? "s" : ""}</p>
       <div>${scope.map(it => {
         const vs = (SHARED[it.id] || []).filter(v => !adminReader || v.auteur === adminReader);
         return `<div class="arow"><div class="ahead">${AR(it.ar)}<span class="pill">${lessonShort(it.l)}</span></div>
           ${vs.length ? vs.map(v => `<div class="avoice"><span>${esc(readerLabel(v.auteur))}</span>
               <button class="mini" data-act="reco-play" data-url="${esc(v.url)}" aria-label="Écouter cette voix">${ICON_SPEAK}</button>
               <button class="mini txt" data-act="voice-del" data-vid="${v.vid}">Supprimer</button></div>`).join("") : `<span class="pill">sans voix</span>`}</div>`;
-      }).join("")}</div>`;
+      }).join("")}</div>`}`;
   }
   return titre + `<section class="panel"><p><b>${couverts} / ${ITEMS.length}</b> éléments ont au moins une voix · ${plural(pub.length, "enregistrement")} publié${pub.length > 1 ? "s" : ""}</p>
       <div class="tri"><span class="a" style="width:${100 * couverts / ITEMS.length}%"></span></div></section>
     <div class="seg quatre">${tabs}</div>${body === null ? viewShare() + viewEnvois() : msg + `<section class="panel">${body}</section>`}`;
+}
+// Vue « Voix retirées » : chacune avec son lecteur, sa date, l'écoute et « Remettre » (mêmes filtres de leçon et de lecteur)
+function viewRetired() {
+  const list = retiredVoices().filter(v => (adminLesson === "all" || String(BY_ID[v.element].l) === String(adminLesson)) && (!adminReader || v.auteur === adminReader));
+  if (!list.length) return `<p class="muted">Aucune voix retirée.</p>`;
+  return `<p class="muted">${plural(list.length, "voix retirée")}</p><div>${list.map(v => `<div class="arow"><div class="ahead">${AR(BY_ID[v.element].ar)}<span class="pill">${lessonShort(BY_ID[v.element].l)}</span></div>
+      <div class="avoice"><span>${esc(readerLabel(v.auteur))} · ${jour(v.cree_le)}</span>
+        <button class="mini" data-act="reco-play" data-url="${esc(publicUrl(v.chemin))}" aria-label="Écouter cette voix">${ICON_SPEAK}</button>
+        <button class="mini txt ok" data-act="voice-restore" data-vid="${v.id}">Remettre</button></div></div>`).join("")}</div>`;
 }
 // Lien vers la page de partage, depuis les réglages
 const adminLink = () => sb && me
@@ -1642,6 +1670,7 @@ document.addEventListener("click", e => {
     }
     case "mic-list": askMics(); return;
     case "voice-del": removeVoice(el.dataset.vid); return;
+    case "voice-restore": restoreVoice(el.dataset.vid); return;   // remettre une voix retirée dans le partage
     case "admin-state": adminState = el.dataset.k; break;
     case "admin-reader": adminReader = el.dataset.a; adminTab = "voix"; break;   // depuis « Lecteurs » : ses voix
     case "admin-tab": adminTab = el.dataset.k; sbMsg = ""; break;

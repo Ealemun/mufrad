@@ -263,6 +263,21 @@ out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-m
   out.essai = () => ({ refus: [res.update, res.delete, res.remove, res.rpcEcrit].every(m => m === ESSAI_REFUS), lecture: res.select && res.rpcLu && true,
     jamaisAppele: !appels.some(a => /update|delete|remove|noter/.test(a)), auth: ls.auth.essai === true });
 }
+// Voix retirées : un contributeur les retrouve dans la page Partage (filtre « Voix retirées ») et peut les remettre ;
+// une voix retirée puis remplacée par un envoi plus récent du même lecteur n'est pas proposée
+{
+  const sauf = { sb, me, myLevel, voixRows };
+  const [i1, i2] = ITEMS.filter(it => it.type === "word").slice(0, 2).map(it => it.id);
+  sb = {}; me = { id: "adm" }; myLevel = "administrateur";
+  voixRows = [
+    { id: "a", element: i1, auteur: "lect", chemin: "lect/a.wav", etat: "retire", cree_le: "2026-11-10T10:00:00Z" },
+    { id: "b", element: i2, auteur: "lect", chemin: "lect/b.wav", etat: "retire", cree_le: "2026-11-10T10:00:00Z" },
+    { id: "c", element: i2, auteur: "lect", chemin: "lect/c.wav", etat: "publie", cree_le: "2026-11-12T10:00:00Z" }];
+  adminTab = "voix"; adminState = "retire"; adminLesson = "all";
+  const page = viewPartage();
+  out.retirees = { liste: retiredVoices().map(v => v.id).join(), bouton: page.includes('data-act="voice-restore" data-vid="a"') && !page.includes('data-vid="b"') };
+  ({ sb, me, myLevel, voixRows } = sauf); adminTab = null; adminState = "all";
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -342,6 +357,7 @@ assert.deepStrictEqual(r.voixEtat, { aucun: true, moi: true, badge: true, point:
 assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognage: true }, "Voix : choisir entre l'ancien et le nouvel enregistrement");
 // Les réponses de la base factice arrivent après coup (promesses) : on vérifie au tour suivant
 setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true }, "Version d'essai : lecture seule de la vraie base"), 0);
+assert.deepStrictEqual(r.retirees, { liste: "a", bouton: true }, "Voix retirées : seules celles qui n'ont pas été remplacées peuvent être remises");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
