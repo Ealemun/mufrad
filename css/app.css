@@ -265,7 +265,7 @@ a.linkbtn { display: inline-flex; align-items: center; }
 .gear svg { width: 24px; height: 24px; }
 .tbadge { position: absolute; top: 2px; right: 0; min-width: 20px; height: 20px; border-radius: 10px; background: var(--bad); color: #fff; font-size: 12px; font-style: normal; font-weight: 600; display: grid; place-items: center; padding: 0 5px; }
 .tabs a { position: relative; }
-.tabs .tbadge { top: 8px; right: 6px; }
+.tabs .tbadge { top: 4px; right: auto; left: calc(50% + 16px); }   /* au-dessus du libellé, décalée à droite */
 /* Quatre vues sur la page Partage : deux par ligne */
 .seg.quatre { display: grid; grid-template-columns: 1fr 1fr; }
 /* Mes envois : une ligne par envoi */
