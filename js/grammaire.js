@@ -97,10 +97,16 @@ function gVocal(t) {
 // Jumeaux : des mots qui ont les mêmes lettres mais des voyelles différentes, donc un autre sens (مِنْ / مَنْ, نَعَمْ / نِعَم).
 // On les cherche dans tout ce que l'application connaît : le vocabulaire des unités et les mots du poème.
 // Règle : un mot qui a un jumeau n'est jamais demandé là où les voyelles ne comptent pas ou ne se voient pas.
+// La table des mots connus, rangés par leurs lettres seules, est refaite seulement quand le vocabulaire ou le poème change.
+let gTwinTable = null, gTwinStamp = "";
 function gTwins(word) {
-  const sk = gNorm(word), vo = gVocal(word);
-  const known = [...WORDS.map(w => w.ar), ...NAZM.flatMap(v => (v.a + " " + v.b).split(" ").map(gCore))];
-  return [...new Set(known.filter(k => gNorm(k) === sk && gVocal(k) !== vo))];
+  const stamp = WORDS.length + ":" + NAZM.length + ":" + WORDS.map(w => w.ar.length).reduce((a, b) => a + b, 0);
+  if (stamp !== gTwinStamp) {
+    gTwinTable = {}; gTwinStamp = stamp;
+    [...WORDS.map(w => w.ar), ...NAZM.flatMap(v => (v.a + " " + v.b).split(" ").map(gCore))].forEach(k => { (gTwinTable[gNorm(k)] = gTwinTable[gNorm(k)] || new Set()).add(k); });
+  }
+  const vo = gVocal(word);
+  return [...(gTwinTable[gNorm(word)] || [])].filter(k => gVocal(k) !== vo);
 }
 const gCore = w => w.replace(/^[«»،؛:.!؟]+|[«»،؛:.!؟]+$/g, "").replace(/^كَـ«|»$/g, "");   // le mot sans la ponctuation qui l'entoure
 // Les mots d'un vers qu'on peut cacher : au moins trois lettres, pour que le trou ait un intérêt

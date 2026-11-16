@@ -158,7 +158,7 @@ out.gramFaite = gDone(gLessons()[0]); out.gramCartes = Object.keys(S.cards).filt
 S.offset = (S.offset || 0) + 3; out.gramDues = gramDue().length; gStartReview(); out.gramRevues = gJoue(true); gs = null; S.offset -= 3;
 // Mot manquant : pour chaque vers et chaque forme, la question est bien formée ; l'écriture sans voyelles est acceptée
 out.trous = NAZM.filter(v => { const a = gVerseQuestion(v, "trou"), b = gVerseQuestion(v, "ecrit");
-  return !(a.opts.length === 4 && a.bon >= 0 && a.prompt.includes("blank") && b.type === "ecrit" && b.answer && (v.a + " " + v.b).includes(b.answer)); }).map(v => v.id);
+  return !(a.opts.length === 4 && a.bon >= 0 && a.prompt.includes("blank") && (b.type === "ecrit" ? b.answer && (v.a + " " + v.b).includes(b.answer) : b.opts.length === 4)); }).map(v => v.id);   // un mot qui a un jumeau est donné à choisir
 gs = { typed: "الكلام", picked: null }; out.ecritOk = gIsRight({ type: "ecrit", answer: "الْكَلَامَ" }); gs.typed = "الكلم"; out.ecritFaux = !gIsRight({ type: "ecrit", answer: "الْكَلَامَ" }); gs = null;
 // Avec les voyelles : le mot vocalisé comme on l'écrit à la main est accepté, une voyelle fausse est refusée
 S.harakat = true; gs = { typed: "الكَلامَ", picked: null }; out.vocalOk = gIsRight({ type: "ecrit", answer: "الْكَلَامَ" });
