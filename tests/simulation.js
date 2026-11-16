@@ -286,6 +286,8 @@ const PTS = { "ب": 1, "ت": 2, "ث": 3, "ج": 1, "خ": 1, "ذ": 1, "ز": 1, "ش
 out.lettresFautes = LETTERS.filter(l => { const t = TB_LETTRES[l.ar];
   return !t || !t.length || t[0].length < 2 || t.flat().some(p => p[0] < 0 || p[0] > 1000 || p[1] < 0 || p[1] > 600) || t.filter(x => x.length === 1).length !== (PTS[l.ar] || 0); }).map(l => l.ar);
 out.courbe = tbSpline([[0, 0], [100, 50], [200, 0]]).length;
+// Longueur du chemin : régulière le long d'un trait, avec un temps de pose pour un point de lettre
+const mes = tbMeasure({ traits: [[[0, 0], [30, 40], [60, 80]], [[500, 500]]] }); out.cheminMesure = [mes.cumul[0], mes.longueurs, mes.total];
 S.cards = {};
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
@@ -375,6 +377,7 @@ assert.deepStrictEqual(r.lettresFautes, [], "sens d'écriture : tracé absent, h
 assert.deepStrictEqual(r.cadre, [400, 600, 300, 420], "un chemin est ramené au cadre de la lettre");
 assert.deepStrictEqual(r.alifCentre, [500, 500], "une lettre sans largeur est centrée dans son cadre");
 assert.deepStrictEqual(r.crayon, [true, false], "le crayon clignote tant qu'il n'a jamais été touché");
+assert.deepStrictEqual(r.cheminMesure, [[0, 50, 100], [100, 70], 170], "longueur du chemin");
 assert.ok(r.courbe > 15, "un trait est arrondi en courbe");
 assert.deepStrictEqual(r.tableauFiche, ["w37", null, 240, "exo:fr2ar", false, 2], "tableau : fiche d'un tracé");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");

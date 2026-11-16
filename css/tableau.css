@@ -20,3 +20,12 @@
 @keyframes tb-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220, 181, 92, .7); transform: scale(1); } 50% { box-shadow: 0 0 0 10px rgba(220, 181, 92, 0); transform: scale(1.18); } }
 /* Pour qui a demandé moins d'animations : un anneau fixe à la place du clignotement */
 @media (prefers-reduced-motion: reduce) { .icon.pulse { animation: none; box-shadow: 0 0 0 3px var(--gold); } }
+
+/* Grand écran : deux colonnes. À gauche le rappel de la séance, à la largeur d'un téléphone ; à droite le tableau, plus grand. */
+@media (min-width: 900px) {
+  .tb { display: grid; grid-template-columns: minmax(280px, min(400px, 34%)) minmax(0, 1fr); grid-template-rows: auto auto auto auto 1fr; column-gap: 24px; row-gap: 12px; align-items: start; justify-items: center; padding: 0 24px 16px; }
+  .tb-bar { grid-column: 1 / -1; justify-self: stretch; }
+  .tb-rappel { grid-column: 1; grid-row: 2 / -1; justify-self: stretch; align-self: start; flex: none; max-height: calc(100vh - 90px); }
+  .tb-rappel-in { zoom: .7; }
+  .tb-stage, .tb-tools, .tb-msg, .tb-foot { grid-column: 2; }
+}
