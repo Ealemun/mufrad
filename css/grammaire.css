@@ -7,7 +7,6 @@
 /* Page d'explication */
 .gpage { display: flex; flex-direction: column; gap: 14px; }
 .gpage p { font-size: 17px; line-height: 1.5; }
-.gpage .ar, .verdict .ar, .opt .ar, .glesson .ar { font-size: 1.35em; line-height: 1.4; }
 /* Citation du texte de référence : l'arabe d'abord, puis le sens, puis l'ouvrage */
 .matn { margin: 0; padding: 12px 14px; border-radius: 16px; background: var(--primary-soft); border-inline-start: 5px solid var(--gold); display: flex; flex-direction: column; gap: 6px; }
 .matn > .ar { font-size: 26px; line-height: 1.8; }
@@ -41,12 +40,11 @@
 
 /* Ligne d'une leçon dans l'onglet */
 .glesson { font: inherit; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; padding: 12px 14px; min-height: 60px; border-radius: 16px; border: 2px solid var(--line); border-bottom-width: 4px; background: var(--surface); color: var(--ink); cursor: pointer; }
-.glesson span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.glesson > span:first-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .glesson small { color: var(--muted); font-size: 14px; }
-.ask .ar { font-size: 1.3em; }
 
 /* Termes arabes du glossaire : dans le texte, un appui rouvre la définition */
-.term { font-family: var(--font-ar); font-size: 1.35em; line-height: 1.4; background: none; border: 0; border-bottom: 2px dotted var(--gold); color: inherit; padding: 0 2px; cursor: pointer; }
+.term { font-family: var(--font-ar); background: none; border: 0; border-bottom: 2px dotted var(--gold); color: inherit; padding: 0 2px; cursor: pointer; }
 .gloss { color: var(--muted); font-size: .9em; font-weight: 400; }
 .gterm { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 2px solid var(--line); }
 .gterm:last-child { border-bottom: 0; }
@@ -54,3 +52,16 @@
 .gterm > span:last-child { flex: 1; min-width: 0; font-size: 15px; }
 .gterm small { display: block; color: var(--muted); font-size: 14px; }
 .seg button { padding: 4px 6px; }
+
+/* Arabe glissé dans une phrase française (classe « gi »).
+   - L'écriture arabe paraît plus petite à corps égal : on la grossit nettement.
+   - Son interligne propre est neutralisé, et c'est la phrase qui reçoit un interligne large :
+     les lignes restent régulières, avec ou sans arabe, et les voyelles ne touchent pas la ligne voisine.
+   - Jamais d'espacement de lettres ni de capitales sur l'arabe : cela détache les lettres. */
+.gi { font-size: 1.7em; line-height: 1; letter-spacing: 0; text-transform: none; font-weight: 400; font-style: normal; }
+h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
+.ask .gi, .prompt .tr .gi { font-size: 1.45em; }
+.ask small .gi { font-size: 2em; }
+.gpage p, .regle, .matn p, .gex > div > span:last-child, .gex small, .verdict span, .gterm small, .sheet p,
+.glesson b, .glesson small, .opt:not(.ar), .ask, .lhead > span:first-child, .panel h3, .tiles div { line-height: 1.9; }
+.gloss { white-space: nowrap; }

@@ -128,6 +128,8 @@ out.mesure = { file: fileAvant.slice(0, 2), stable: Boolean(id1) && id1 === id2,
 choisirMesure(true); fileMesure = []; sess = null;
 // Grammaire : cohérence du contenu, puis une leçon et une révision jouées jusqu'au bout, chaque écran affiché
 const gq = gLessons().flatMap(l => l.questions), gids = [...gq.map(x => x.id), ...NAZM.map(v => v.id), ...gLessons().map(l => l.id)];
+// Le premier vers, tel qu'il figure dans l'édition de référence
+out.premierVers = NAZM[0].a;
 out.gramDoubles = gids.filter((id, i) => gids.indexOf(id) !== i);
 out.gramFautes = [
   ...gq.filter(x => x.nature ? !["ism", "fil", "harf"].includes(x.nature) || !BY_ID[x.mot] : !(x.q && x.choix && x.choix.length >= 2 && x.bon >= 0 && x.bon < x.choix.length)).map(x => x.id),
@@ -197,6 +199,7 @@ assert.deepStrictEqual(r.fusion, { rienPerdu: true, cartes: true, plusRecente: t
   "deux appareils hors ligne qui se synchronisent ne perdent aucune réponse, dans n'importe quel ordre");
 assert.deepStrictEqual(r.mesure, { file: ["clic/learn:3", "seance_debut/learn"], stable: true, renouvele: true, refus: true, reglage: true },
   "statistiques : file d'événements, identifiant stable puis renouvelé, refus respecté");
+assert.strictEqual(r.premierVers, "قَالَ عُبَيْدُ رَبِّهِ مُحَمَّدُ", "le premier vers doit être celui de l'édition de référence");
 assert.deepStrictEqual(r.gramDoubles, [], "grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
 assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");

@@ -41,12 +41,12 @@ function gTermHtml(id, pl, plain) {
   const t = gTermOf(id); if (!t) return esc(id);
   const ar = pl && t.pl ? t.pl : t.ar, gloss = gNeedsGloss(id) && !gSeen[id] ? ` <span class="gloss">(${esc(t.fr)})</span>` : "";
   gSeen[id] = true;
-  return (plain ? `<span class="ar" lang="ar" dir="rtl">${ar}</span>` : `<button class="term ar" lang="ar" dir="rtl" data-act="g-term" data-id="${id}">${ar}</button>`) + gloss;
+  return (plain ? `<span class="ar gi" lang="ar" dir="rtl">${ar}</span>` : `<button class="term ar gi" lang="ar" dir="rtl" data-act="g-term" data-id="${id}">${ar}</button>`) + gloss;
 }
 // Texte : échappé, avec {{terme}} du glossaire, l'arabe entre [[ ]] et les mots importants entre * *
 function gText(t, plain) {
   return esc(t).replace(/\{\{([a-z-]+)(:pl)?\}\}/g, (m, id, pl) => gTermHtml(id, Boolean(pl), plain))
-    .replace(/\[\[(.+?)\]\]/g, (m, a) => `<span class="ar" lang="ar" dir="rtl">${a}</span>`).replace(/\*(.+?)\*/g, "<b>$1</b>");
+    .replace(/\[\[(.+?)\]\]/g, (m, a) => `<span class="ar gi" lang="ar" dir="rtl">${a}</span>`).replace(/\*(.+?)\*/g, "<b>$1</b>");
 }
 // Termes employés dans une leçon (pages et questions) : ils sont tenus pour connus une fois la leçon terminée
 function gTermsOf(l) {
@@ -196,12 +196,12 @@ function viewGrammar() {
       ${c.relu ? "" : `<p class="muted">Contenu à relire par un enseignant.</p>`}</section>`).join("");
   const showPoem = gOpen.poem === true;
   const poem = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="poem" aria-expanded="${showPoem}"><span>${gText("Le {{nazm}}", true)} · ${learned} / ${NAZM.length} ${gText("{{bayt:pl}}", true)} appris</span><span class="muted">${showPoem ? "▾" : "▸"}</span></button>
-      <p class="muted">Nazm al-Ājurrūmiyya, de Muhammad b. Ābb ash-Shinqiti : la grammaire d'Ibn Ājurrūm mise en vers pour être retenue. Les vers s'apprennent au fil des leçons.</p>
+      <p class="muted">Nazm al-Ājurrūmiyya, de ’Ubayd Rabbih Muhammad b. Ābbah ash-Shinqiti : la grammaire d'Ibn Ājurrūm mise en vers pour être retenue. Les vers s'apprennent au fil des leçons.</p>
       <div class="seg"><button data-act="g-nazm" data-on="1" aria-pressed="${gNazmOn()}">Je l'apprends</button><button data-act="g-nazm" data-on="0" aria-pressed="${!gNazmOn()}">Sans le ${gText("{{nazm}}", true)}</button></div>
       ${showPoem ? NAZM.map((v, k) => `${k === 0 || NAZM[k - 1].bab !== v.bab ? `<p class="gbab">${AR(v.babAr)}</p>` : ""}<div class="gverse ${gCard(v.id) ? "" : "todo"}">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("") : ""}</section>`;
   const showSrc = gOpen.src === true;
   const sources = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="src" aria-expanded="${showSrc}"><span>Sources</span><span class="muted">${showSrc ? "▾" : "▸"}</span></button>
-      ${showSrc ? `<p>Le plan et les définitions suivent <b>al-Ājurrūmiyya</b> d'Ibn Ājurrūm (m. 723 H), cité en arabe dans chaque leçon. Les vers sont ceux du <b>nazm</b> de Muhammad b. Ābb ash-Shinqiti. Les explications en français sont rédigées pour Mufrad à partir des commentaires classiques du texte ; les exemples viennent du vocabulaire des unités.</p>` : ""}</section>`;
+      ${showSrc ? `<p>Le plan et les définitions suivent <b>al-Ājurrūmiyya</b> d'Ibn Ājurrūm (m. 723 H), cité en arabe dans chaque leçon. Les vers sont ceux du <b>nazm</b> de ’Ubayd Rabbih ash-Shinqiti, recopiés de l'édition établie sur manuscrits par ’Abdallah al-Hakami (1427 H). Les explications en français sont rédigées pour Mufrad à partir des commentaires classiques du texte ; les exemples viennent du vocabulaire des unités.</p>` : ""}</section>`;
   // Glossaire : les termes arabes, leur définition, et le réglage de leur traduction
   const showGlo = gOpen.glo === true, mode = gTermMode();
   const terms = grp => GLOSSAIRE.filter(t => t.groupe === grp).map(t => `<div class="gterm"><span class="ar" lang="ar" dir="rtl">${t.ar}</span><span><b>${esc(t.fr)}</b><small>${gText(t.def, true)}</small></span></div>`).join("");
