@@ -278,6 +278,22 @@ out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-m
   out.retirees = { liste: retiredVoices().map(v => v.id).join(), bouton: page.includes('data-act="voice-restore" data-vid="a"') && !page.includes('data-vid="b"') };
   ({ sb, me, myLevel, voixRows } = sauf); adminTab = null; adminState = "all";
 }
+// Onglet Voix : un mot que j'ai retiré du partage montre « Remettre dans le partage » sur sa ligne
+{
+  const sauf = { sb, me, myLevel, hasConsent, voixRows };
+  const idR = itemsOf(voiceLesson)[0].id;
+  sb = {}; me = { id: "moi" }; hasConsent = true; myLevel = "utilisateur";
+  voixRows = [{ id: "v1", element: idR, auteur: "moi", chemin: "moi/1.wav", etat: "retire", cree_le: "2026-11-10T10:00:00Z" }];
+  CLIPS[idR] = { url: "blob:local" };
+  const local = remettre(idR);                       // enregistrement encore sur l'appareil : on le renvoie
+  delete CLIPS[idR];
+  const sansLocal = remettre(idR);                   // plus sur l'appareil, simple utilisateur : rien à remettre
+  myLevel = "administrateur"; const admin = remettre(idR);   // contributeur : on republie le fichier gardé
+  hasConsent = false; CLIPS[idR] = { url: "blob:local" }; myLevel = "utilisateur"; const sansAccord = remettre(idR); delete CLIPS[idR];
+  out.remettre = { local: local.includes('data-act="share-one"') && local.includes("Remettre dans le partage"), sansLocal: sansLocal === "",
+    admin: admin.includes('data-act="voice-restore" data-vid="v1"'), sansAccord: sansAccord === "" };
+  ({ sb, me, myLevel, hasConsent, voixRows } = sauf);
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -358,6 +374,7 @@ assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognag
 // Les réponses de la base factice arrivent après coup (promesses) : on vérifie au tour suivant
 setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true }, "Version d'essai : lecture seule de la vraie base"), 0);
 assert.deepStrictEqual(r.retirees, { liste: "a", bouton: true }, "Voix retirées : seules celles qui n'ont pas été remplacées peuvent être remises");
+assert.deepStrictEqual(r.remettre, { local: true, sansLocal: true, admin: true, sansAccord: true }, "Onglet Voix : remettre dans le partage un enregistrement retiré");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

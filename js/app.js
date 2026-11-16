@@ -909,6 +909,18 @@ function myCurrentVoice(id) {
   const v = typeof voixRows !== "undefined" && me ? voixRows.slice().reverse().find(x => x.element === id && x.auteur === me.id && (x.etat === "publie" || x.etat === "recommande")) : null;
   return v ? publicUrl(v.chemin) : null;
 }
+// Bouton « Remettre dans le partage » d'un élément qui n'est plus partagé par moi :
+//   - j'ai encore l'enregistrement sur cet appareil : on le renvoie (comme un nouvel envoi) ;
+//   - sinon, je suis contributeur et le fichier retiré est resté sur le serveur : on le republie tel quel.
+// Rien si je ne suis pas connecté, si je n'ai pas signé l'accord, ou s'il n'y a rien à remettre.
+function remettre(id) {
+  if (!sb || !me) return "";
+  const retiree = retiredVoices().find(v => v.element === id && v.auteur === me.id);
+  if (CLIPS[id] && hasConsent && retiree) return `<button class="mini txt ok" data-act="share-one" data-id="${id}">Remettre dans le partage</button>`;
+  if (CLIPS[id] && hasConsent && !(S.shared && S.shared[id])) return `<button class="mini txt ok" data-act="share-one" data-id="${id}">Partager</button>`;
+  if (retiree && isContributor()) return `<button class="mini txt ok" data-act="voice-restore" data-vid="${retiree.id}">Remettre dans le partage</button>`;
+  return "";
+}
 function viewVoices() {
   const its = itemsOf(voiceLesson), have = its.filter(it => AUDIO[it.id]).length;
   const total = ITEMS.filter(it => AUDIO[it.id]).length, micro = canRecord();
@@ -954,7 +966,7 @@ function viewVoices() {
         <label class="mini txt" for="f-${it.id}">Fichier</label>
         <input class="vh" type="file" accept="audio/*" id="f-${it.id}" data-clip="${it.id}">
         ${CLIPS[it.id] ? `<button class="mini txt" data-act="clip-edit" data-id="${it.id}">Rogner</button><button class="mini txt" data-act="clip-del" data-id="${it.id}">Supprimer de l'appareil</button>` : ""}
-        ${mine ? `<button class="mini txt" data-act="voice-del" data-vid="${mine.id}">Retirer du partage</button>` : ""}
+        ${mine ? `<button class="mini txt" data-act="voice-del" data-vid="${mine.id}">Retirer du partage</button>` : remettre(it.id)}
       </div></div>`;
   }).join("");
   return `<section class="panel"><div class="row between"><h3>Ma voix</h3>${gearLink()}</div>
@@ -966,7 +978,7 @@ function viewVoices() {
       <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup. Vous les écouterez avant de les déposer.</p>
       <label class="btn ghost" for="f-bulk">Ajouter les ${its.length} fichiers de la leçon, dans l'ordre</label>
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">
-      ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
+      ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}${sbMsg ? `<p role="status"><b>${esc(sbMsg)}</b></p>` : ""}
       <div class="vlegend">${["moi", "autre", "aucun"].map(st => `<span>${voiceBadge(st)}${st === "moi" ? "moi" : st === "autre" ? "autre voix" : "à enregistrer"}</span>`).join("")}</div>
       <div>${rows}</div></section>
 `;
@@ -1672,6 +1684,7 @@ document.addEventListener("click", e => {
     case "mic-list": askMics(); return;
     case "voice-del": removeVoice(el.dataset.vid); return;
     case "voice-restore": restoreVoice(el.dataset.vid); return;   // remettre une voix retirée dans le partage
+    case "share-one": shareMany([el.dataset.id]); return;          // (re)partager l'enregistrement de cet appareil
     case "admin-state": adminState = el.dataset.k; break;
     case "admin-reader": adminReader = el.dataset.a; adminTab = "voix"; break;   // depuis « Lecteurs » : ses voix
     case "admin-tab": adminTab = el.dataset.k; sbMsg = ""; break;
