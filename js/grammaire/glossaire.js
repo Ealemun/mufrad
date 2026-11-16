@@ -30,13 +30,13 @@ GLOSSAIRE.push(
   { id: "mudari", groupe: "grammaire", ar: "مُضارِع", fr: "présent", def: "Le verbe qui exprime une action en cours ou à venir : يَذْهَبُ, « il part »." },
   { id: "ta-tanith", groupe: "grammaire", ar: "تاء التَّأْنيث", fr: "tāʾ du féminin", def: "Le تْ accroché à la fin d'un verbe au passé quand celle qui agit est féminine : وَضَعَتْ." },
   // Chapitre 2 : بابُ الإِعْراب
-  { id: "irab", groupe: "grammaire", ar: "إِعْراب", fr: "changement de la fin du mot", def: "Le changement de la fin d'un mot selon les mots qui agissent sur lui : [[كِتابٌ، الكِتابَ، الكِتابِ]]." },
+  { id: "irab", groupe: "grammaire", ar: "إِعْراب", fr: "fin variable du mot", def: "Le changement de la fin d'un mot selon les mots qui agissent sur lui : [[كِتابٌ، الكِتابَ، الكِتابِ]]." },
   { id: "amil", groupe: "grammaire", ar: "عامِل", pl: "عَوامِل", fr: "mot qui agit", def: "Le mot qui fait changer la fin d'un autre. Dans [[في الكِتابِ]], c'est [[في]] qui met [[الكِتابِ]] au {{khafd}}." },
   { id: "lafzi", groupe: "grammaire", ar: "لَفْظِيّ", fr: "prononcé", def: "Se dit du {{irab}} qu'on entend et qu'on écrit : la voyelle finale est bien là." },
   { id: "taqdiri", groupe: "grammaire", ar: "تَقْديرِيّ", fr: "sous-entendu", def: "Se dit du {{irab}} qu'on ne peut pas prononcer : la voyelle est supposée, comme à la fin de [[المُصَلّى]]." },
-  { id: "raf", groupe: "grammaire", ar: "رَفْع", fr: "1er état : le nominatif", def: "Le premier des quatre états du {{irab}}. Son signe de base est la {{damma}}. Il va au {{ism}} et au {{fil}} {{mudari}}." },
-  { id: "nasb", groupe: "grammaire", ar: "نَصْب", fr: "2e état : l'accusatif", def: "Le deuxième état du {{irab}}. Son signe de base est la {{fatha}}. Il va au {{ism}} et au {{fil}} {{mudari}}." },
-  { id: "jazm", groupe: "grammaire", ar: "جَزْم", fr: "état propre au verbe", def: "L'état du {{irab}} réservé au {{fil}} {{mudari}}. Son signe de base est le {{sukun}} : [[لَمْ يَذْهَبْ]]." },
+  { id: "raf", groupe: "grammaire", ar: "رَفْع", fr: "nominatif", def: "Le premier des quatre états du {{irab}}. Son signe de base est la {{damma}}. Il va au {{ism}} et au {{fil}} {{mudari}}." },
+  { id: "nasb", groupe: "grammaire", ar: "نَصْب", fr: "accusatif", def: "Le deuxième état du {{irab}}. Son signe de base est la {{fatha}}. Il va au {{ism}} et au {{fil}} {{mudari}}." },
+  { id: "jazm", groupe: "grammaire", ar: "جَزْم", fr: "jussif", def: "L'état du {{irab}} réservé au {{fil}} {{mudari}}. Son signe de base est le {{sukun}} : [[لَمْ يَذْهَبْ]]." },
   { id: "damma", groupe: "grammaire", ar: "ضَمَّة", fr: "voyelle « ou »", def: "Le petit [[و]] au-dessus de la lettre : [[ـُ]]." },
   { id: "fatha", groupe: "grammaire", ar: "فَتْحَة", fr: "voyelle « a »", def: "Le petit trait au-dessus de la lettre : [[ـَ]]." }
 );
