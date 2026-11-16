@@ -65,3 +65,5 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 .gpage p, .regle, .matn p, .gex > div > span:last-child, .gex small, .verdict span, .gterm small, .sheet p,
 .glesson b, .glesson small, .opt:not(.ar), .ask, .lhead > span:first-child, .panel h3, .tiles div { line-height: 1.9; }
 .gloss { white-space: nowrap; }
+/* Chaque mot arabe est isolé : dans une phrase française, une suite de mots arabes garde l'ordre de la phrase (de gauche à droite) */
+.gi { unicode-bidi: isolate; }
