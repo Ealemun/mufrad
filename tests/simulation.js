@@ -48,7 +48,7 @@ const run = failOnce => {
 const out = {};
 out.items = ITEMS.length;
 out.options = ITEMS.map(it => distractors(it).length);        // nombre de mauvaises réponses proposées pour chaque élément
-viewHome(); viewWords(); viewVoices(); viewSettings(); viewSheet(1); viewSheet(101);
+viewHome(); viewWords(); viewVoices(); viewSettings(); viewAdvanced(); viewSheet(1); viewSheet(101);
 // Alphabet : un groupe entier par séance, avec une question sur les formes ; une lettre non liante n'a que deux dessins
 startLearn(101); out.formes = sess.tasks.filter(t => t.ex === "f2l").length; run(false);
 out.lettres = Object.keys(S.cards).length; out.alif = Object.values(formsOf(BY_ID.l1)).join("|"); out.ba = Object.values(formsOf(BY_ID.l7)).join("|");
@@ -138,7 +138,7 @@ const texteTape = JSON.stringify(fileMesure).includes("سِرّ");   // aucun te
 choisirMesure(false); noter("clic", "x");
 out.mesure = { file: fileAvant.slice(0, 2), stable: Boolean(id1) && id1 === id2, renouvele: id3 !== id1,
   refus: fileMesure.length === 0 && localStorage.getItem(APPAREIL_KEY) === null && localStorage.getItem(MESURE_KEY) === null,
-  reglage: viewSettings().includes("Ne pas me compter"),
+  reglage: viewAdvanced().includes("Ne pas me compter") && !viewSettings().includes("Ne pas me compter") && viewSettings().includes('href="#avance"'),   // dans les paramètres avancés
   reponses: reps.length > 0 && reps.every(e => e.detail && e.donnees.ex && typeof e.donnees.ok === "boolean" && e.donnees.rang >= 1 && e.donnees.etat),
   choixFaux: Boolean(faux1 && faux1.donnees.choix && faux1.donnees.choix !== faux1.detail),
   fin: Boolean(fin && fin.donnees.l === "2" && fin.donnees.rep === reps.length && fin.donnees.justes === reps.length - 1),

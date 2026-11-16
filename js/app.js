@@ -492,16 +492,16 @@ function render() {
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">${ESSAI ? "essai · " + esc(ESSAI) : "alpha"}</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     const sh = document.querySelector ? document.querySelector(".sheet") : null, shTop = sh ? sh.scrollTop : 0;
-    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "enregistrer" ? viewGuide() : viewHome();
+    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "avance" ? viewAdvanced() : r === "enregistrer" ? viewGuide() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
     if (r === "voix" || r === "enregistrer") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
-    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer") {
+    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer" && r !== "avance") {
       wantScroll = false;
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
     }
-    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && (r === "partage" || r === "enregistrer")) || (h === "reglages" && r === "statistiques") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage" && r !== "statistiques" && r !== "enregistrer") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
+    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && (r === "partage" || r === "enregistrer")) || (h === "reglages" && (r === "statistiques" || r === "avance")) || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage" && r !== "statistiques" && r !== "enregistrer" && r !== "avance") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
   }
 }
 
@@ -1093,12 +1093,6 @@ function viewSettings() {
       <p class="muted">Fixe le nombre maximal d'éléments dans la révision du jour (${GOALS[S.goal]}).</p></section>
     <section class="panel"><h3>Affichage</h3>
       <div class="seg"><button data-act="translit" data-on="1" aria-pressed="${S.translit}">Avec translittération</button><button data-act="translit" data-on="0" aria-pressed="${!S.translit}">Arabe seul</button></div></section>
-    <section class="panel"><h3>Statistiques anonymes</h3>
-      <p class="muted">Mufrad compte ses visiteurs, les leçons faites, les réponses et les boutons touchés, sans savoir qui vous êtes, pour améliorer ses leçons. Votre appareil change d'identifiant chaque jour. <a href="confidentialite.html">En savoir plus</a></p>
-      <div class="seg"><button data-act="mesure" data-on="1" aria-pressed="${S.mesure !== false}">Je participe</button><button data-act="mesure" data-on="0" aria-pressed="${S.mesure === false}">Ne pas me compter</button></div></section>
-    <section class="panel"><h3>Tableau d'écriture</h3>
-      <p class="muted">Ce que vous écrivez sur le tableau est gardé, sans votre nom ni votre compte, pour entraîner la future reconnaissance d'écriture de Mufrad. Arrêter ne supprime pas ce qui a déjà été envoyé. <a href="confidentialite.html">En savoir plus</a></p>
-      <div class="seg"><button data-act="traces" data-on="1" aria-pressed="${S.traces !== false}">Garder mes tracés</button><button data-act="traces" data-on="0" aria-pressed="${S.traces === false}">Ne pas les garder</button></div></section>
     <section class="panel"><h3>Bruitages</h3>
       <div class="seg"><button data-act="sfx" data-on="1" aria-pressed="${S.sfx !== false}">Activés</button><button data-act="sfx" data-on="0" aria-pressed="${S.sfx === false}">Coupés</button></div></section>
     <section class="panel"><h3>Sauvegarde</h3>
@@ -1118,7 +1112,20 @@ function viewSettings() {
       <p class="muted">Avancer la date permet de vérifier qu'un mot raté revient plus tôt qu'un mot réussi. Décalage actuel : ${S.offset} jour${S.offset > 1 ? "s" : ""}.</p>
       <div class="row"><button class="btn small ghost" data-act="skip">Avancer d'un jour</button>
       ${askReset ? `<button class="btn small" data-act="reset-yes">Confirmer : tout effacer</button><button class="btn small ghost" data-act="reset-no">Annuler</button>`
-                 : `<button class="btn small ghost" data-act="reset">Effacer la progression</button>`}</div></section>`;
+                 : `<button class="btn small ghost" data-act="reset">Effacer la progression</button>`}</div></section>
+    <a class="discret" href="#avance">Paramètres avancés</a>`;
+}
+
+// --- Paramètres avancés (#avance), ouverts par le lien discret en bas des réglages :
+// les choix qu'on règle rarement (statistiques anonymes, tableau d'écriture… d'autres viendront)
+function viewAdvanced() {
+  return `<div class="row between"><h2>Paramètres avancés</h2><a class="btn small ghost" href="#reglages">‹ Réglages</a></div>
+    <section class="panel"><h3>Statistiques anonymes</h3>
+      <p class="muted">Mufrad compte ses visiteurs, les leçons faites, les réponses et les boutons touchés, sans savoir qui vous êtes, pour améliorer ses leçons. Votre appareil change d'identifiant chaque jour. <a href="confidentialite.html">En savoir plus</a></p>
+      <div class="seg"><button data-act="mesure" data-on="1" aria-pressed="${S.mesure !== false}">Je participe</button><button data-act="mesure" data-on="0" aria-pressed="${S.mesure === false}">Ne pas me compter</button></div></section>
+    <section class="panel"><h3>Tableau d'écriture</h3>
+      <p class="muted">Ce que vous écrivez sur le tableau est gardé, sans votre nom ni votre compte, pour entraîner la future reconnaissance d'écriture de Mufrad. Arrêter ne supprime pas ce qui a déjà été envoyé. <a href="confidentialite.html">En savoir plus</a></p>
+      <div class="seg"><button data-act="traces" data-on="1" aria-pressed="${S.traces !== false}">Garder mes tracés</button><button data-act="traces" data-on="0" aria-pressed="${S.traces === false}">Ne pas les garder</button></div></section>`;
 }
 
 /* ---------- 9. COMPTE ET PARTAGE ---------- */

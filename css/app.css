@@ -327,3 +327,5 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 .voixcarte .btn { width: auto; }
 .guide a.icon { text-decoration: none; display: grid; place-items: center; }   /* ✕ de sortie : un bouton, pas un lien souligné */
 .gtrim { text-align: left; display: flex; flex-direction: column; gap: 8px; }   /* piste et poignées dans l'enregistrement guidé */
+/* Lien discret en bas des réglages (Paramètres avancés) : couleur pâle, sans cadre, mais une zone de 44 px à toucher */
+a.discret { align-self: center; color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; padding: 12px 16px; min-height: 44px; box-sizing: border-box; }
