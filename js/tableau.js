@@ -176,7 +176,8 @@ function tbDown(e) {
 function tbMove(e) {
   if (!tbl.cur) return;
   // Les navigateurs regroupent parfois plusieurs positions par signal : on les prend toutes, le tracé est plus fidèle
-  (e.getCoalescedEvents ? e.getCoalescedEvents() : [e]).forEach(ev => { const p = tbPoint(ev), l = tbl.cur[tbl.cur.length - 1]; if (p[0] !== l[0] || p[1] !== l[1]) tbl.cur.push(p); });
+  const lot = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  (lot.length ? lot : [e]).forEach(ev => { const p = tbPoint(ev), l = tbl.cur[tbl.cur.length - 1]; if (p[0] !== l[0] || p[1] !== l[1]) tbl.cur.push(p); });
   tbDrawInk();
 }
 function tbUp() { if (tbl && tbl.cur) { tbl.cur = null; tbChrome(); } }
