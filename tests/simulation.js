@@ -158,6 +158,13 @@ out.gramFaite = gDone(gLessons()[0]); out.gramCartes = Object.keys(S.cards).filt
 S.offset = (S.offset || 0) + 3; out.gramDues = gramDue().length; gStartReview(); out.gramRevues = gJoue(true); gs = null; S.offset -= 3;
 S.nazm = false; gStartLesson("g1b"); out.gramSansPoeme = gs.steps.every(s => s.t !== "verses" && !(s.q && s.q.verse)); gs = null; S.nazm = true;
 S.cards = {}; S.days = {}; location.hash = "";
+// Réviser : les unités sont repliées sauf celle en cours ; cocher une leçon fait apparaître le bouton collé en bas
+drillSel = {}; drillOpen = {};
+const vide = viewWords(), deplies = (vide.match(/data-act="drill-unit"[^>]*aria-expanded="true"/g) || []).length;
+drillSel[1] = true; const coche = viewWords();
+out.reviser = { unitesRepliees: deplies === 1 && (vide.match(/data-act="drill-unit"/g) || []).length > 2,
+  sansDock: !vide.includes('class="dock"'), dock: /class="dock"><button class="btn" data-act="drill-start">Réviser/.test(coche) };
+drillSel = {};
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -217,6 +224,7 @@ assert.ok(/^p+vq+$/.test(r.gramEtapes), "une leçon enchaîne les pages, les ver
 assert.ok(r.gramPosees === 11 && r.gramFaite && r.gramCartes === 11 && r.gramSerie === 1, "la leçon faite crée une carte par question et par vers, et compte pour la série");
 assert.ok(r.gramDues > 0 && r.gramRevues === Math.min(15, r.gramDues), "les cartes de grammaire reviennent en révision");
 assert.ok(r.gramSansPoeme, "sans le poème, la leçon ne montre ni vers ni question de mémorisation");
+assert.deepStrictEqual(r.reviser, { unitesRepliees: true, sansDock: true, dock: true }, "Réviser : unités repliées et bouton de départ collé en bas");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

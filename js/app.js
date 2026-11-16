@@ -702,19 +702,30 @@ function wordList() {
     }).join("");
   }).join("");
 }
+let drillOpen = {};  // unités dépliées à la main dans « Réviser ce que je veux » : numéro d'unité -> true ou false
 function viewWords() {
-  const chips = UNITS.map(u => `<p class="muted">${unitName(u)} · ${esc(u.fr)}</p><div class="chips">` +
-    u.lessons.map(([l, title]) => `<button class="chip" data-act="drill-toggle" data-l="${l}" aria-pressed="${Boolean(drillSel[l])}">${lessonShort(l)} · ${esc(title)}</button>`).join("") + `</div>`).join("");
-  const n = drillItems().length, hard = hardItems().length;
+  // Les leçons sont rangées par unité, repliées : seule l'unité en cours est dépliée au départ,
+  // ainsi que celles où une leçon est cochée. Chaque unité repliée tient sur une ligne.
+  const next = nextLesson();
+  const chips = UNITS.map(u => {
+    const nSel = u.lessons.filter(([l]) => drillSel[l]).length;
+    const ouverte = u.n in drillOpen ? drillOpen[u.n] : (isOpen(u, next) || nSel > 0);
+    return `<button class="lhead ugroup" data-act="drill-unit" data-u="${u.n}" aria-expanded="${ouverte}">
+        <span>${unitName(u)} · ${esc(u.fr)}</span><span class="muted">${nSel ? "✓ " + nSel + " " : ""}${ouverte ? "▾" : "▸"}</span></button>` +
+      (ouverte ? `<div class="chips">` + u.lessons.map(([l, title]) => `<button class="chip" data-act="drill-toggle" data-l="${l}" aria-pressed="${Boolean(drillSel[l])}">${lessonShort(l)} · ${esc(title)}</button>`).join("") + `</div>` : "");
+  }).join("");
+  const n = drillItems().length, hard = hardItems().length, nL = Object.keys(drillSel).filter(l => drillSel[l]).length;
   return `<section class="panel"><h3>Réviser ce que je veux</h3>
       <p>Cochez une ou plusieurs leçons. Les questions s'enchaînent jusqu'à ce que chaque élément soit réussi deux fois de suite.</p>
       ${chips}
       <div class="row"><button class="btn small ghost" data-act="drill-all">Tout cocher</button><button class="btn small ghost" data-act="drill-none">Tout décocher</button></div>
-      <button class="btn" data-act="drill-start" ${n ? "" : "disabled"}>${n ? "Réviser " + plural(n, "élément") : "Choisissez une leçon"}</button>
+      ${n ? "" : `<button class="btn" disabled>Choisissez une leçon</button>`}
       ${hard ? `<button class="btn ghost" data-act="drill-hard">Reprendre mes ${plural(hard, "élément")} en difficulté</button>` : ""}</section>` + viewContentRecos() +
     `<div class="row between"><h3>Tous les mots</h3><button class="linkbtn" data-act="${UNITS.some(u => isOpen(u, nextLesson())) ? "fold-all" : "unfold-all"}">${UNITS.some(u => isOpen(u, nextLesson())) ? "Tout replier" : "Tout déplier"}</button></div>
     <label class="vh" for="wq">Chercher un mot</label><input type="search" id="wq" class="field" placeholder="Chercher un mot, en arabe ou en français" value="${esc(wordQuery)}" data-wq="1">
-    <div id="wlist">${wordList()}</div>` + viewEditForm();
+    <div id="wlist">${wordList()}</div>` + viewEditForm() +
+    // Dès qu'une leçon est cochée, le bouton de départ reste collé en bas de l'écran, où qu'on soit dans la page
+    (n ? `<div class="dock"><button class="btn" data-act="drill-start">Réviser ${plural(n, "élément")} · ${plural(nL, "leçon")}</button></div>` : "");
 }
 
 // --- Voix : enregistrer soi-même les lettres et les mots, à la place de la voix de l'appareil.
@@ -1466,6 +1477,11 @@ document.addEventListener("click", e => {
     case "cram": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l), lessonLabel(l)); return; }
     // Onglet Réviser
     case "drill-toggle": drillSel[el.dataset.l] = !drillSel[el.dataset.l]; break;
+    case "drill-unit": {                                   // déplier ou replier une unité dans le choix des leçons
+      const u = UNITS.find(x => String(x.n) === el.dataset.u);
+      drillOpen[u.n] = !(u.n in drillOpen ? drillOpen[u.n] : (isOpen(u, nextLesson()) || u.lessons.some(([l]) => drillSel[l])));
+      break;
+    }
     case "drill-all": UNITS.forEach(u => u.lessons.forEach(([l]) => { drillSel[l] = true; })); break;
     case "drill-none": drillSel = {}; break;
     case "drill-start": startDrill(drillItems(), "Révision choisie"); location.hash = "#accueil"; return;
