@@ -354,29 +354,56 @@ function tbCarte(path) {
   }
   // Un morceau d'encre que le chemin n'approche pas (rare) : le moment du point du chemin le plus proche à vol d'oiseau
   for (let i = 0; i < N; i++) if (A[i] && T[i] < 0) { const x = i % w, y = (i / w) | 0; let bs = path.total, bd = Infinity; corps.forEach(p => { const dd = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (dd < bd) { bd = dd; bs = p[2]; } }); T[i] = bs; }
-  // 4. La même lettre à la netteté de l'écran (pixels réels) : chaque pixel réel reprend le moment de son pixel CSS.
+  // Lissage de la carte : deux passes de moyenne sur les pixels d'encre voisins. Là où deux passages du chemin se
+  // partagent un trait (le retour de ح sous sa barre, par exemple), la frontière entre eux devient une pente douce au lieu
+  // d'un escalier de pixels.
+  for (let passe = 0; passe < 2; passe++) {
+    const L = T.slice();
+    for (let i = 0; i < N; i++) {
+      if (!A[i]) continue;
+      let som = T[i] * 4, poids = 4;
+      voisins(i, (j, pas) => { if (A[j] && T[j] >= 0) { const q = pas > 1 ? 1 : 2; som += T[j] * q; poids += q; } });
+      L[i] = som / poids;
+    }
+    T.set(L);
+  }
+  // 4. La même lettre à la netteté de l'écran (pixels réels). Le moment de chaque pixel réel est interpolé entre les
+  // quatre pixels CSS qui l'entourent : pas de blocs de 2×2 ou 3×3 sur un écran à haute densité.
   const bx = Math.max(0, Math.floor(x0 * d) - 2), by = Math.max(0, Math.floor(y0 * d) - 2);
   const bw = Math.min(tbl.guide.width, Math.ceil((x1 + 1) * d) + 2) - bx, bh = Math.min(tbl.guide.height, Math.ceil((y1 + 1) * d) + 2) - by;
   const toile = document.createElement("canvas"); toile.width = Math.max(1, bw); toile.height = Math.max(1, bh);
-  const tg = toile.getContext("2d", { willReadFrequently: true });
+  const W = toile.width, H = toile.height, tg = toile.getContext("2d", { willReadFrequently: true });
   tg.fillStyle = tbColor("--gold"); tg.fillRect(0, 0, 1, 1); const or = tg.getImageData(0, 0, 1, 1).data; tg.clearRect(0, 0, 1, 1);
   tg.setTransform(d, 0, 0, d, -bx, -by); tg.fillStyle = "#000"; tbGlyph(tg, tbl.ctx.text, tbl.w, tbl.h); tg.setTransform(1, 0, 0, 1, 0, 0);
-  const img = tg.getImageData(0, 0, toile.width, toile.height), D = img.data, liste = [];   // la lettre noire sert de patron, puis la toile est vidée
-  for (let y = 0; y < toile.height; y++) for (let x = 0; x < toile.width; x++) {
-    const o = y * toile.width + x, a = D[o * 4 + 3]; D[o * 4] = or[0]; D[o * 4 + 1] = or[1]; D[o * 4 + 2] = or[2]; D[o * 4 + 3] = 0;
+  const img = tg.getImageData(0, 0, W, H), D = img.data, Td = new Float32Array(W * H).fill(-1);   // la lettre noire sert de patron, puis la toile est vidée
+  const lu = (xx, yy) => (xx >= 0 && yy >= 0 && xx < w && yy < h ? T[yy * w + xx] : -1);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const o = y * W + x; if (!D[o * 4 + 3]) continue;
+    const fx = (x + bx + 0.5) / d - 0.5, fy = (y + by + 0.5) / d - 0.5, ix = Math.floor(fx), iy = Math.floor(fy), ux = fx - ix, uy = fy - iy;
+    let som = 0, poids = 0;
+    [[0, 0, (1 - ux) * (1 - uy)], [1, 0, ux * (1 - uy)], [0, 1, (1 - ux) * uy], [1, 1, ux * uy]].forEach(([dx, dy, q]) => { const t = lu(ix + dx, iy + dy); if (t >= 0 && q > 0) { som += t * q; poids += q; } });
+    if (!poids) for (let dy = -1; dy <= 2 && !poids; dy++) for (let dx = -1; dx <= 2 && !poids; dx++) { const t = lu(ix + dx, iy + dy); if (t >= 0) { som = t; poids = 1; } }
+    Td[o] = poids ? som / poids : path.total;
+  }
+  // Bord du front, pixel par pixel : sa largeur en temps est au moins TB_DOUX, et au moins ce que le moment change d'un
+  // pixel au voisin (là où il change vite, une frontière nette entre deux passages, le pixel est à moitié allumé quand
+  // le front passe en son milieu : le bord est lissé comme celui d'une lettre, sans marches).
+  const liste = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const o = y * W + x, a = D[o * 4 + 3]; D[o * 4] = or[0]; D[o * 4 + 1] = or[1]; D[o * 4 + 2] = or[2]; D[o * 4 + 3] = 0;
     if (!a) continue;
-    const cx = Math.min(w - 1, Math.floor((x + bx + 0.5) / d)), cy = Math.min(h - 1, Math.floor((y + by + 0.5) / d));
-    let s = T[cy * w + cx];
-    if (s < 0) for (let dy = -1; dy <= 1 && s < 0; dy++) for (let dx = -1; dx <= 1 && s < 0; dx++) { const xx = cx + dx, yy = cy + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h) s = T[yy * w + xx]; }
-    liste.push([s < 0 ? path.total : s, o, a]);
+    const t = Td[o], v = (xx, yy) => (xx >= 0 && yy >= 0 && xx < W && yy < H && Td[yy * W + xx] >= 0 ? Td[yy * W + xx] : t);
+    const gx = (v(x + 1, y) - v(x - 1, y)) / 2, gy = (v(x, y + 1) - v(x, y - 1)) / 2;
+    const larg = Math.min(TB_DOUX * 6, Math.max(TB_DOUX, Math.hypot(gx, gy)));
+    liste.push([t - larg / 2, o, a, larg]);
   }
   tg.putImageData(img, 0, 0);   // toile vide (or, transparent) : rien n'est allumé au départ
-  // Rangés par moment : à chaque image, on ne touche qu'aux pixels qui s'allument à cet instant
+  // Rangés par moment de début : à chaque image, on ne touche qu'aux pixels qui s'allument à cet instant
   liste.sort((p, q) => p[0] - q[0]);
-  const carte = { bx, by, toile, tg, img, temps: Float32Array.from(liste, p => p[0]), pos: Uint32Array.from(liste, p => p[1]), opa: Uint8Array.from(liste, p => p[2]),
-    fait: 0, haut: 0, S: -Infinity, centres, fond: null };
+  const carte = { bx, by, toile, tg, img, temps: Float32Array.from(liste, p => p[0]), larg: Float32Array.from(liste, p => p[3]), pos: Uint32Array.from(liste, p => p[1]),
+    opa: Uint8Array.from(liste, p => p[2]), fait: 0, haut: 0, S: -Infinity, centres, fond: null };
   // Moment où le dernier pixel est tout à fait allumé : la fin de l'animation (un peu après la fin du chemin, à cause des bords)
-  carte.fin = Math.max(path.total, liste.length ? liste[liste.length - 1][0] : 0) + TB_DOUX;
+  carte.fin = liste.reduce((m, p) => Math.max(m, p[0] + p[3]), path.total);
   return (path.carte = carte);
 }
 // Allume la lettre jusqu'au moment S (en unités de chemin). Ne retouche que les pixels qui changent depuis l'image d'avant.
@@ -386,13 +413,14 @@ function tbAllume(carte, S) {
   carte.S = S;
   let x0 = W, y0 = Infinity, x1 = -1, y1 = -1, i = carte.fait;
   for (; i < n && carte.temps[i] <= S; i++) {
-    // Bord adouci : un pixel atteint par le front s'allume en un peu moins de deux images, pas d'un coup
-    const v = (S - carte.temps[i]) / TB_DOUX, p = carte.pos[i];
+    // Bord adouci : un pixel atteint par le front s'allume progressivement (sur sa largeur de bord), pas d'un coup
+    const v = (S - carte.temps[i]) / carte.larg[i], p = carte.pos[i];
     D[p * 4 + 3] = v >= 1 ? carte.opa[i] : Math.round(carte.opa[i] * v);
     const x = p % W, y = (p / W) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
   }
   carte.haut = Math.max(carte.haut, i);
-  while (carte.fait < n && carte.temps[carte.fait] <= S - TB_DOUX) carte.fait++;
+  // Les pixels du début de la liste déjà tout allumés ne seront plus retouchés
+  while (carte.fait < n && carte.temps[carte.fait] + carte.larg[carte.fait] <= S) carte.fait++;
   if (x1 >= 0) carte.tg.putImageData(carte.img, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);   // seulement la partie qui a changé
 }
 
