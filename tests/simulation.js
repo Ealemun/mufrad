@@ -289,6 +289,39 @@ out.courbe = tbSpline([[0, 0], [100, 50], [200, 0]]).length;
 // Longueur du chemin : régulière le long d'un trait, avec un temps de pose pour un point de lettre
 const mes = tbMeasure({ traits: [[[0, 0], [30, 40], [60, 80]], [[500, 500]]] }); out.cheminMesure = [mes.cumul[0], mes.longueurs, mes.total];
 S.cards = {};
+// Voix retirées : un contributeur les retrouve dans la page Partage (filtre « Voix retirées ») et peut les remettre ;
+// une voix retirée puis remplacée par un envoi plus récent du même lecteur n'est pas proposée
+{
+  const sauf = { sb, me, myLevel, voixRows };
+  const [i1, i2] = ITEMS.filter(it => it.type === "word").slice(0, 2).map(it => it.id);
+  sb = {}; me = { id: "adm" }; myLevel = "administrateur";
+  voixRows = [
+    { id: "a", element: i1, auteur: "lect", chemin: "lect/a.wav", etat: "retire", cree_le: "2026-11-10T10:00:00Z" },
+    { id: "b", element: i2, auteur: "lect", chemin: "lect/b.wav", etat: "retire", cree_le: "2026-11-10T10:00:00Z" },
+    { id: "c", element: i2, auteur: "lect", chemin: "lect/c.wav", etat: "publie", cree_le: "2026-11-12T10:00:00Z" }];
+  adminTab = "voix"; adminState = "retire"; adminLesson = "all";
+  const page = viewPartage();
+  out.retirees = { liste: retiredVoices().map(v => v.id).join(), bouton: page.includes('data-act="voice-restore" data-vid="a"') && !page.includes('data-vid="b"') };
+  ({ sb, me, myLevel, voixRows } = sauf); adminTab = null; adminState = "all";
+}
+// Onglet Voix : un mot que j'ai retiré du partage montre « Remettre dans le partage » sur sa ligne
+{
+  const sauf = { sb, me, myLevel, hasConsent, voixRows };
+  const idR = itemsOf(voiceLesson)[0].id;
+  sb = {}; me = { id: "moi" }; hasConsent = true; myLevel = "utilisateur";
+  voixRows = [{ id: "v1", element: idR, auteur: "moi", chemin: "moi/1.wav", etat: "retire", cree_le: "2026-11-10T10:00:00Z" }];
+  CLIPS[idR] = { url: "blob:local" };
+  const local = remettre(idR);                       // enregistrement encore sur l'appareil : on le renvoie
+  delete CLIPS[idR];
+  const sansLocal = remettre(idR);                   // plus sur l'appareil, simple utilisateur : rien à remettre
+  myLevel = "administrateur"; const admin = remettre(idR);   // contributeur : on republie le fichier gardé
+  hasConsent = false; CLIPS[idR] = { url: "blob:local" }; myLevel = "utilisateur"; const sansAccord = remettre(idR); delete CLIPS[idR];
+  out.remettre = { local: local.includes('data-act="share-one"') && local.includes("Remettre dans le partage"), sansLocal: sansLocal === "",
+    admin: admin.includes('data-act="voice-restore" data-vid="v1"'), sansAccord: sansAccord === "" };
+  ({ sb, me, myLevel, hasConsent, voixRows } = sauf);
+}
+// Après une action sur les voix, un message bref s'affiche au-dessus des onglets
+toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.includes('class="toast"') && $foot.innerHTML.includes("Voix remise"); toastMsg = ""; render();
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -380,6 +413,9 @@ assert.deepStrictEqual(r.crayon, [true, false], "le crayon clignote tant qu'il n
 assert.deepStrictEqual(r.cheminMesure, [[0, 50, 100], [100, 70], 170], "longueur du chemin");
 assert.ok(r.courbe > 15, "un trait est arrondi en courbe");
 assert.deepStrictEqual(r.tableauFiche, ["w37", null, 240, "exo:fr2ar", false, 2], "tableau : fiche d'un tracé");
+assert.deepStrictEqual(r.retirees, { liste: "a", bouton: true }, "Voix retirées : seules celles qui n'ont pas été remplacées peuvent être remises");
+assert.deepStrictEqual(r.remettre, { local: true, sansLocal: true, admin: true, sansAccord: true }, "Onglet Voix : remettre dans le partage un enregistrement retiré");
+assert.ok(r.toast, "Message bref visible après une action sur les voix");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
