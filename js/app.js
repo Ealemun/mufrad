@@ -643,7 +643,9 @@ function viewIntro(it) {
        ${it.join ? "" : `<p class="muted">Cette lettre ne s'attache jamais à la suivante.</p>`}
        <p>Exemple : ${AR(it.ex)} <span class="muted">(${esc(it.exFr)})</span></p>`
     : `${AR(it.ar)}${translit(it)}<p class="fr">${esc(it.fr)}</p>${it.note ? `<p class="muted">${it.note.replace(/[؀-ۿ ]{2,}/g, m => AR(m.trim()) + " ")}</p>` : ""}`;
-  return `<p class="ask"><small>${lessonHtml(it.l)}</small>${it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot"}</p>
+  // Quand on refait une leçon, la fiche n'annonce pas une nouveauté : c'est un rappel
+  const titre = sess && sess.redo ? (it.type === "letter" ? "Rappel : la lettre" : "Rappel : le mot") : (it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot");
+  return `<p class="ask"><small>${lessonHtml(it.l)}</small>${titre}</p>
     <section class="card fiche">${body}${speakBtn(it.id)}</section>`;
 }
 

@@ -375,9 +375,9 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
   const avant = JSON.stringify(its.map(it => S.cards[it.id]));
   const feuille = viewSheet(l);
   startLearn(l, true);
-  const fiches = sess.tasks.filter(t => t.kind === "intro").length;
+  const fiches = sess.tasks.filter(t => t.kind === "intro").length, ficheTitre = viewIntro(its[0]).includes("Rappel");
   run(false);                                        // tout juste
-  out.refaire = { bouton: feuille.includes('data-act="redo"'), fiches: fiches === its.length, titre: sess.redo === true,
+  out.refaire = { bouton: feuille.includes('data-act="redo"'), fiches: fiches === its.length && ficheTitre, titre: sess.redo === true,
     calendrier: JSON.stringify(its.map(it => S.cards[it.id])) === avant };
   S.cards = JSON.parse(sauf); sess = null;
 }
