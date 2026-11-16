@@ -274,7 +274,7 @@ function gramRender(r) {
   const pct = gs.over ? 100 : 100 * gs.i / gs.steps.length;
   $top.innerHTML = gs.over ? "" : `<div class="sess-head"><button class="icon" data-act="g-quit" aria-label="Quitter la leçon">✕</button>
     <button class="icon" data-act="g-back" aria-label="Écran précédent" ${gs.i > 0 && !gs.checked && gs.steps[gs.i - 1].t !== "q" ? "" : "disabled"}>‹</button>
-    <button class="icon" data-act="t-open" aria-label="Ouvrir le tableau pour écrire">✎</button>
+    <button class="icon ${S.crayonVu ? "" : "pulse"}" data-act="t-open" aria-label="Ouvrir le tableau pour écrire">✎</button>
     <div class="bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div></div>`;
   if (gs.over) {
     $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gs.kind === "lesson" ? "Leçon terminée" : gs.kind === "train" ? "Entraînement terminé" : "Révision terminée"}</p>

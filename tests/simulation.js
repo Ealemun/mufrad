@@ -270,11 +270,16 @@ out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-m
   out.essai = () => ({ refus: [res.update, res.delete, res.remove, res.rpcEcrit].every(m => m === ESSAI_REFUS), lecture: res.select && res.rpcLu && true,
     jamaisAppele: !appels.some(a => /update|delete|remove|noter/.test(a)), auth: ls.auth.essai === true });
 }
+const sessHeadPulse = vu => { S.crayonVu = vu; startLearn(101); const h = sessHead().includes("pulse"); sess = null; return h; };
 // Tableau d'écriture : ce qu'on écrit est déduit de l'écran ; le modèle ne s'affiche pas quand il donnerait la réponse
 S.cards = {}; location.hash = ""; startLearn(101); render();
 const tc1 = tbContext(); sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "fr2ar" }; const tc2 = tbContext(); sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "ar2fr" }; const tc3 = tbContext(); sess = null;
 out.tableau = [tc1.contexte, tc1.montre, Boolean(tc1.lettre), tc2.contexte, tc2.montre, tc2.text === BY_ID.w37.ar, tc3.montre];
-const trec = tbRecord(tc2, "isolee", [[[10, 20, 0], [30, 40, 16]]], 400, "touch", false, false);
+const trec = tbRecord(tc2, "isolee", [[[10, 20, 0], [30, 40, 16]]], 400, "touch", false, false, false);
+// Un chemin du fichier est ramené au cadre de la lettre à l'écran ; une lettre sans largeur (ا) est centrée
+const fit = tbFit(TB_LETTRES["ب"], [400, 300, 600, 420]).flat(); out.cadre = [Math.min(...fit.map(p => p[0])), Math.max(...fit.map(p => p[0])), Math.min(...fit.map(p => p[1])), Math.max(...fit.map(p => p[1]))];
+out.alifCentre = tbFit(TB_LETTRES["ا"], [480, 200, 520, 400])[0].map(p => p[0]);
+out.crayon = [sessHeadPulse(false), sessHeadPulse(true)];
 out.tableauFiche = [trec.element, trec.forme, trec.hauteur, trec.contexte, trec.modele, trec.traits[0].length];
 // Sens d'écriture : chacune des 28 lettres a son tracé, dans les limites du tableau, et le nombre de points attendu
 const PTS = { "ب": 1, "ت": 2, "ث": 3, "ج": 1, "خ": 1, "ذ": 1, "ز": 1, "ش": 3, "ض": 1, "ظ": 1, "غ": 1, "ف": 1, "ق": 2, "ن": 1, "ي": 2 };
@@ -367,6 +372,9 @@ assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognag
 setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true }, "Version d'essai : lecture seule de la vraie base"), 0);
 assert.deepStrictEqual(r.tableau, ["cours", true, true, "exo:fr2ar", false, true, true], "tableau : la cible suit l'écran, et le modèle ne donne pas la réponse");
 assert.deepStrictEqual(r.lettresFautes, [], "sens d'écriture : tracé absent, hors du tableau, ou nombre de points de la lettre incorrect");
+assert.deepStrictEqual(r.cadre, [400, 600, 300, 420], "un chemin est ramené au cadre de la lettre");
+assert.deepStrictEqual(r.alifCentre, [500, 500], "une lettre sans largeur est centrée dans son cadre");
+assert.deepStrictEqual(r.crayon, [true, false], "le crayon clignote tant qu'il n'a jamais été touché");
 assert.ok(r.courbe > 15, "un trait est arrondi en courbe");
 assert.deepStrictEqual(r.tableauFiche, ["w37", null, 240, "exo:fr2ar", false, 2], "tableau : fiche d'un tracé");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");

@@ -568,7 +568,7 @@ function sessHead() {
   const pct = sess.kind === "drill" ? 100 * Object.values(sess.st).filter(x => x.need <= 0).length / sess.n : 100 * sess.i / sess.tasks.length;
   return `<div class="sess-head"><button class="icon" data-act="quit" aria-label="Quitter la séance">✕</button>
     <button class="icon" data-act="back" aria-label="Carte précédente" ${canBack ? "" : "disabled"}>‹</button>
-    <button class="icon" data-act="t-open" aria-label="Ouvrir le tableau pour écrire">✎</button>
+    <button class="icon ${S.crayonVu ? "" : "pulse"}" data-act="t-open" aria-label="Ouvrir le tableau pour écrire">✎</button>
     <div class="bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div></div>`;
 }
 // Carte affichée : la carte en cours, ou une carte déjà faite quand on est revenu en arrière
