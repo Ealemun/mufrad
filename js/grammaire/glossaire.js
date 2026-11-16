@@ -31,7 +31,7 @@ GLOSSAIRE.push(
   { id: "ta-tanith", groupe: "grammaire", ar: "تاء التَّأْنيث", fr: "tāʾ du féminin", def: "Le تْ accroché à la fin d'un verbe au passé quand celle qui agit est féminine : وَضَعَتْ." },
   // Chapitre 2 : بابُ الإِعْراب
   { id: "irab", groupe: "grammaire", ar: "إِعْراب", fr: "fin variable du mot", def: "Le changement de la fin d'un mot selon les mots qui agissent sur lui : [[كِتابٌ، الكِتابَ، الكِتابِ]]." },
-  { id: "amil", groupe: "grammaire", ar: "عامِل", pl: "عَوامِل", fr: "mot qui agit", def: "Le mot qui fait changer la fin d'un autre. Dans [[في الكِتابِ]], c'est [[في]] qui met [[الكِتابِ]] au {{khafd}}." },
+  { id: "amil", groupe: "grammaire", ar: "عامِل", pl: "عَوامِل", fr: "mot qui agit", def: "Le mot qui fait changer la fin d'un autre. Par exemple, [[في]] met le nom qui le suit au {{khafd}} : [[في الكِتابِ]]." },
   { id: "lafzi", groupe: "grammaire", ar: "لَفْظِيّ", fr: "prononcé", def: "Se dit du {{irab}} qu'on entend et qu'on écrit : la voyelle finale est bien là." },
   { id: "taqdiri", groupe: "grammaire", ar: "تَقْديرِيّ", fr: "sous-entendu", def: "Se dit du {{irab}} qu'on ne peut pas prononcer : la voyelle est supposée, comme à la fin de [[المُصَلّى]]." },
   { id: "raf", groupe: "grammaire", ar: "رَفْع", fr: "nominatif", def: "Le premier des quatre états du {{irab}}. Son signe de base est la {{damma}}. Il va au {{ism}} et au {{fil}} {{mudari}}." },
