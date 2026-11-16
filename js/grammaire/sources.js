@@ -12,5 +12,5 @@ SOURCES.push({
   dossier: "sources/nazm-shinqiti/",
   pages: 20,
   debut: 7,
-  babs: { intro: 7, kalam: 7 }
+  babs: { intro: 7, kalam: 7, irab: 8 }
 });
