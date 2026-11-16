@@ -291,3 +291,19 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 /* Message bref après une action, collé au-dessus de la barre d'onglets */
 .foot { position: relative; }
 .toast { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 8px); background: var(--ink); color: var(--paper); border-radius: 14px; padding: 12px 16px; font-weight: 500; z-index: 4; box-shadow: 0 4px 0 rgba(0, 0, 0, .2); }
+
+/* Écran « Statistiques » (administrateurs) */
+.st-scroll { overflow-x: auto; }
+.st-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.st-table th { text-align: start; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid var(--line); padding: 6px 8px; white-space: nowrap; }
+.st-table td { border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: middle; }
+.st-mot { display: block; min-width: 7em; }
+.st-mot .ar { display: block; font-size: 22px; white-space: nowrap; }
+.st-mot small { display: block; color: var(--muted); font-size: 12px; line-height: 1.25; }
+.st-table td:first-child { min-width: 7em; }
+.st-chart { width: 100%; height: auto; display: block; }
+.st-bar { fill: var(--primary); }
+.st-hit { fill: transparent; }
+.st-hit:hover + .st-bar, g:hover .st-bar { fill: var(--primary-deep); }
+.st-axe { stroke: var(--line); stroke-width: 1; }
+.st-lbl { fill: var(--muted); font-size: 11px; font-family: var(--font-ui); }

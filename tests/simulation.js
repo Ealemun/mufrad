@@ -6,7 +6,7 @@ const lire = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const unites = fs.readdirSync(path.join(__dirname, "..", "js", "unites")).filter(f => f.endsWith(".js")).sort();
 const gram = fs.readdirSync(path.join(__dirname, "..", "js", "grammaire")).filter(f => f.endsWith(".js")).sort();
 const code = [lire("js/contenu.js"), ...unites.map(f => lire("js/unites/" + f)), lire("js/assemblage.js"),
-  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/tableau-lettres.js"), lire("js/tableau.js"), lire("js/app.js")].join("\n");
+  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/tableau-lettres.js"), lire("js/tableau.js"), lire("js/statistiques.js"), lire("js/app.js")].join("\n");
 gram.forEach(f => assert.ok(lire("index.html").includes("js/grammaire/" + f), "index.html ne charge pas js/grammaire/" + f));
 // Chaque fichier d'unité doit aussi être déclaré dans la page, sinon il ne serait jamais chargé
 unites.forEach(f => assert.ok(lire("index.html").includes("js/unites/" + f), "index.html ne charge pas js/unites/" + f));
@@ -15,7 +15,10 @@ unites.forEach(f => assert.ok(lire("index.html").includes("js/unites/" + f), "in
 const store = {};
 const el = () => ({ innerHTML: "", textContent: "", setAttribute() {}, removeAttribute() {}, dataset: {} });
 global.localStorage = { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; }, removeItem: k => { delete store[k]; } };
-global.document = { getElementById: el, querySelectorAll: () => [], addEventListener() {} };
+// Les écouteurs posés par l'application sont gardés, pour pouvoir simuler un appui sur un bouton (data-act)
+const ecouteurs = {};
+global.document = { getElementById: el, querySelectorAll: () => [], addEventListener(t, f) { (ecouteurs[t] = ecouteurs[t] || []).push(f); },
+  dispatchClic: (act, data) => (ecouteurs.click || []).forEach(f => f({ target: { closest: () => ({ dataset: { act, ...(data || {}) } }) } })) };
 global.window = { addEventListener() {} };
 global.location = { hash: "" };
 global.speechSynthesis = { getVoices: () => [] };
@@ -34,7 +37,7 @@ const run = failOnce => {
       const good = c.opts.findIndex(o => o.id === t.id);
       c.picked = failOnce && !failed ? (good + 1) % c.opts.length : good;
       if (failOnce && !failed) { failed = true; firstFail = t.id; }
-      c.checked = true; answer(t, c.opts[c.picked].id === t.id, 4000); sessFoot();
+      c.checked = true; answer(t, c.opts[c.picked].id === t.id, 4000, c.opts[c.picked].id); sessFoot();   // comme le bouton « Vérifier »
     }
     if (t.kind === "match") t.ids.forEach(id => { c.done[id] = true; });
     sess.hist.push({ task: t, cur: c }); sess.i++; showTask();
@@ -116,15 +119,33 @@ out.fusion = {
   stable: JSON.stringify(mergeProgress(compte2, compte2)) === JSON.stringify(compte2) && JSON.stringify(mergeProgress(tel, compte2)) === JSON.stringify(compte2)
 };
 S.cards = {}; S.days = {}; S.log = [];
-// Mesure d'audience : les événements attendent en file ; un refus vide la file, efface l'identifiant et arrête le comptage ;
-// l'identifiant d'appareil est stable, puis renouvelé après 13 mois
+// Statistiques : les événements attendent en file ; un refus vide la file, efface l'identifiant et arrête le comptage ;
+// l'identifiant d'appareil est stable dans la journée, puis renouvelé le lendemain
 fileMesure = []; S.mesure = true;
 noter("clic", "learn:3"); startLearn(2); const fileAvant = fileMesure.map(e => e.type + "/" + e.detail);
 const id1 = appareilId(), id2 = appareilId();
-localStorage.setItem(APPAREIL_KEY, JSON.stringify({ id: id1, cree: Date.now() - 400 * 86400000 })); const id3 = appareilId();
+localStorage.setItem(APPAREIL_KEY, JSON.stringify({ id: id1, jour: addDays(today(), -1) })); const id3 = appareilId();
+// Une séance jouée avec une erreur : chaque réponse est notée avec son exercice, sa justesse, son rang et le choix faux
+fileMesure = []; run(true);
+const reps = fileMesure.filter(e => e.type === "reponse"), faux1 = reps.find(e => !e.donnees.ok), fin = fileMesure.find(e => e.type === "seance_fin");
+// Séance quittée en cours de route
+startLearn(3); fileMesure = []; sess.i = 2; document.dispatchClic("quit");
+const quittee = fileMesure.find(e => e.type === "seance_quittee");
+// Ouverture : contexte calculé sur l'appareil ; la deuxième ouverture du jour n'est plus « première du jour »
+fileMesure = []; localStorage.removeItem(MESURE_KEY); noterOuverture(); noterOuverture();
+const ouv = fileMesure.filter(e => e.type === "ouverture").map(e => e.donnees);
+const texteTape = JSON.stringify(fileMesure).includes("سِرّ");   // aucun texte tapé ne doit partir
 choisirMesure(false); noter("clic", "x");
 out.mesure = { file: fileAvant.slice(0, 2), stable: Boolean(id1) && id1 === id2, renouvele: id3 !== id1,
-  refus: fileMesure.length === 0 && localStorage.getItem(APPAREIL_KEY) === null, reglage: viewSettings().includes("Ne pas me compter") };
+  refus: fileMesure.length === 0 && localStorage.getItem(APPAREIL_KEY) === null && localStorage.getItem(MESURE_KEY) === null,
+  reglage: viewSettings().includes("Ne pas me compter"),
+  reponses: reps.length > 0 && reps.every(e => e.detail && e.donnees.ex && typeof e.donnees.ok === "boolean" && e.donnees.rang >= 1 && e.donnees.etat),
+  choixFaux: Boolean(faux1 && faux1.donnees.choix && faux1.donnees.choix !== faux1.detail),
+  fin: Boolean(fin && fin.donnees.l === "2" && fin.donnees.rep === reps.length && fin.donnees.justes === reps.length - 1),
+  quittee: Boolean(quittee && quittee.donnees.pos === 2 && quittee.donnees.l === "3"),
+  ouverture: ouv.length === 2 && ouv[0].njour === true && ouv[1].njour === false && ouv[0].anc === 0 && "serie" in ouv[0],
+  tranches: [tranche(5, T_JOURS), tranche(20, T_JOURS), tranche(400, T_JOURS), tranche(-1, T_JOURS)].join(","),
+  sansTexte: !texteTape };
 choisirMesure(true); fileMesure = []; sess = null;
 // Grammaire : cohérence du contenu, puis une leçon et une révision jouées jusqu'au bout, chaque écran affiché
 const gq = gLessons().flatMap(l => l.questions), gids = [...gq.map(x => x.id), ...NAZM.map(v => v.id), ...gLessons().map(l => l.id)];
@@ -267,8 +288,10 @@ out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-m
   ls.rpc("noter_evenements", {}).then(r => { res.rpcEcrit = r.error && r.error.message; });
   ls.from("voix").select("id").then(r => { res.select = r.data; });
   ls.rpc("lecteurs").then(r => { res.rpcLu = r.data; });
+  ls.rpc("noter_evenements_v2", {}).then(r => { res.stats = !r.error; });   // les statistiques partent, marquées « essai »
   out.essai = () => ({ refus: [res.update, res.delete, res.remove, res.rpcEcrit].every(m => m === ESSAI_REFUS), lecture: res.select && res.rpcLu && true,
-    jamaisAppele: !appels.some(a => /update|delete|remove|noter/.test(a)), auth: ls.auth.essai === true });
+    jamaisAppele: !appels.some(a => /update|delete|remove|noter_evenements$/.test(a)), auth: ls.auth.essai === true,
+    stats: res.stats === true && appels.includes("rpc.noter_evenements_v2") });
 }
 const sessHeadPulse = vu => { S.crayonVu = vu; startLearn(101); const h = sessHead().includes("pulse"); sess = null; return h; };
 // Tableau d'écriture : ce qu'on écrit est déduit de l'écran ; le modèle ne s'affiche pas quand il donnerait la réponse
@@ -366,8 +389,9 @@ assert.strictEqual(r.listeRepliee, 4, "sans progression, la liste ne déroule qu
 assert.ok(r.rechercheAr && r.rechercheFr, "la recherche trouve un mot sans ses voyelles ni ses accents");
 assert.deepStrictEqual(r.fusion, { rienPerdu: true, cartes: true, plusRecente: true, ordre: true, stable: true },
   "deux appareils hors ligne qui se synchronisent ne perdent aucune réponse, dans n'importe quel ordre");
-assert.deepStrictEqual(r.mesure, { file: ["clic/learn:3", "seance_debut/learn"], stable: true, renouvele: true, refus: true, reglage: true },
-  "statistiques : file d'événements, identifiant stable puis renouvelé, refus respecté");
+assert.deepStrictEqual(r.mesure, { file: ["clic/learn:3", "seance_debut/learn"], stable: true, renouvele: true, refus: true, reglage: true,
+  reponses: true, choixFaux: true, fin: true, quittee: true, ouverture: true, tranches: "5,14,365,", sansTexte: true },
+  "statistiques : file d'événements, identifiant du jour, réponses, fin et abandon de séance, ouverture, tranches, refus respecté");
 assert.deepStrictEqual(r.srcPages.filter(f => !fs.existsSync(path.join(__dirname, "..", f))), [], "édition de référence : image de page absente");
 assert.deepStrictEqual(r.srcBabs, [], "édition de référence : un bab du poème n'a pas de page");
 assert.ok(r.srcVue, "la visionneuse affiche la page demandée");
@@ -404,7 +428,7 @@ assert.ok(r.adminSimple, "Partage des voix : un utilisateur voit seulement l'acc
 assert.deepStrictEqual(r.voixEtat, { aucun: true, moi: true, badge: true, point: true }, "Voix : état de chaque élément visible (moi, autre, à enregistrer)");
 assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognage: true }, "Voix : choisir entre l'ancien et le nouvel enregistrement");
 // Les réponses de la base factice arrivent après coup (promesses) : on vérifie au tour suivant
-setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true }, "Version d'essai : lecture seule de la vraie base"), 0);
+setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true, stats: true }, "Version d'essai : lecture seule de la vraie base, sauf les statistiques"), 0);
 assert.deepStrictEqual(r.tableau, ["cours", true, true, "exo:fr2ar", false, true, true], "tableau : la cible suit l'écran, et le modèle ne donne pas la réponse");
 assert.deepStrictEqual(r.lettresFautes, [], "sens d'écriture : tracé absent, hors du tableau, ou nombre de points de la lettre incorrect");
 assert.deepStrictEqual(r.cadre, [400, 600, 300, 420], "un chemin est ramené au cadre de la lettre");

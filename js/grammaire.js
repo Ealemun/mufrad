@@ -221,7 +221,14 @@ function gStartLesson(id) {
   ];
   gs = gSession("lesson", l.titre, steps, { lesson: l });
 }
-const gSession = (kind, title, steps, extra) => ({ kind, title, steps, i: 0, picked: null, typed: "", checked: false, right: 0, asked: 0, over: false, ...extra });
+// Une séance de grammaire. t0 : début de la séance ; tq : affichage de l'étape en cours (temps de réponse).
+function gSession(kind, title, steps, extra) {
+  const s = { kind, title, steps, i: 0, picked: null, typed: "", checked: false, right: 0, asked: 0, over: false, t0: Date.now(), tq: Date.now(), ...extra };
+  if (typeof noter === "function") noter("g_debut", kind, { l: s.lesson ? s.lesson.id : s.what || null, n: steps.filter(x => x.t === "q").length });   // statistiques
+  return s;
+}
+// Ce qui décrit une séance de grammaire dans les statistiques
+const gStats = () => ({ l: gs.lesson ? gs.lesson.id : gs.what || null, q: gs.asked, justes: gs.right, duree_s: Math.round((Date.now() - gs.t0) / 1000) });
 // Révision des cartes dues : which = "q" (grammaire), "v" (poème), ou les deux si rien n'est précisé
 function gStartReview(which) {
   const ids = which === "q" ? gramDueQ() : which === "v" ? gramDueV() : gramDue(), byId = {};
@@ -255,14 +262,22 @@ function gCheck() {
   }
   dayRec(t).answers++;
   saveState(); sfx(ok ? "ok" : "ko");
+  // Statistiques : question, justesse, temps ; pour une réponse écrite, le clavier et l'exigence des voyelles,
+  // et si la réponse n'était fausse que par ses voyelles (« presque »). Le texte tapé n'est jamais envoyé.
+  const ecrit = st.q.type === "ecrit";
+  if (typeof noter === "function") noter("g_reponse", st.q.id, {
+    q: st.q.type || "choix", ok, ms: Math.min(Date.now() - gs.tq, 600000), s: gs.kind,
+    clavier: ecrit ? gLayout() : null, harakat: ecrit ? gHarakat() : null,
+    presque: ecrit && !ok && gHarakat() && gNorm(gs.typed) === gNorm(st.q.answer) ? true : null
+  });
 }
 function gNext() {
-  gs.i++; gs.picked = null; gs.typed = ""; gs.checked = false;
+  gs.i++; gs.picked = null; gs.typed = ""; gs.checked = false; gs.tq = Date.now();
   if (gs.i >= gs.steps.length) {
     gs.over = true;
     if (gs.kind === "lesson") { S.connus = S.connus || {}; gTermsOf(gs.lesson).forEach(id => { S.connus[id] = true; }); saveState(); }
     if (gs.asked > 0) { dayRec(today()).done = true; saveState(); }   // la séance compte pour la série de jours
-    if (typeof noter === "function") noter("seance_fin", "grammaire:" + gs.asked);
+    if (typeof noter === "function") noter("g_fin", gs.kind, gStats());   // statistiques
     sfx("done");
   }
 }
@@ -406,21 +421,23 @@ function gramClick(act, el) {
     case "g-layout": S.clavier = el.dataset.m; saveState(); break;
     case "g-known": gKnown = el.dataset.n; break;
     case "g-known-no": gKnown = null; break;
-    case "g-known-yes": gMarkKnown(Number(el.dataset.n)); gKnown = null; sfx("ok"); break;
+    case "g-known-yes": gMarkKnown(Number(el.dataset.n)); noter("lecon_validee", "grammaire:" + el.dataset.n); gKnown = null; sfx("ok"); break;
     case "g-key": if (gs && !gs.checked && [...gs.typed].length < 40) { gs.typed += el.dataset.k; sfx("tap"); } break;
     case "g-key-del": if (gs && !gs.checked) gs.typed = [...gs.typed].slice(0, -1).join(""); break;
-    case "g-quit": gs = null; gTerm = null; gSrc = null; break;
-    case "g-back": if (gs && gs.i > 0) { gs.i--; gs.picked = null; gs.typed = ""; gs.checked = false; } break;
+    case "g-quit":
+      if (gs && !gs.over) noter("g_quittee", gs.kind, { ...gStats(), pos: gs.i, total: gs.steps.length });   // statistiques
+      gs = null; gTerm = null; gSrc = null; break;
+    case "g-back": if (gs && gs.i > 0) { gs.i--; gs.picked = null; gs.typed = ""; gs.checked = false; gs.tq = Date.now(); } break;
     case "g-next": gNext(); break;
     case "g-pick": { const k = Number(el.dataset.k); gs.picked = gs.picked === k ? null : k; sfx("tap"); break; }
     case "g-check": if (gs.picked !== null || gs.typed) gCheck(); break;
     case "g-fold": gOpen[el.dataset.k] = !(gOpen[el.dataset.k] === true); break;
     case "g-nazm": S.nazm = el.dataset.on === "1"; saveState(); break;
-    case "g-src": gSrc = { id: el.dataset.id, p: Number(el.dataset.p) || 1, zoom: false }; break;
+    case "g-src": gSrc = { id: el.dataset.id, p: Number(el.dataset.p) || 1, zoom: false }; noter("source", el.dataset.id, { p: gSrc.p }); break;
     case "g-src-close": gSrc = null; break;
     case "g-src-zoom": gSrc.zoom = !gSrc.zoom; break;
     case "g-src-go": { const s = SOURCES.find(x => x.id === gSrc.id); gSrc.p = Math.max(1, Math.min(s.pages, gSrc.p + Number(el.dataset.d))); gSrc.zoom = false; break; }
-    case "g-term": gTerm = el.dataset.id; break;
+    case "g-term": gTerm = el.dataset.id; noter("terme", el.dataset.id); break;
     case "g-term-close": gTerm = null; break;
     case "g-mode": S.termes = el.dataset.m; saveState(); break;
   }

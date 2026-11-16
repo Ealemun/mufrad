@@ -101,7 +101,7 @@ function tableauOpen() {
   if (tbMemo.owner !== tbOwner() || tbMemo.pas !== tbStep()) tbMemo = { owner: tbOwner(), pas: tbStep(), items: {} };
   const memo = tbMemo.items[ctx.cle];
   tbl = { root, ctx, forme: "isolee", modele: ctx.montre, fleches: true, traits: memo ? memo.traits.map(t => t.slice()) : [], envoye: memo ? memo.envoye : 0,
-    cur: null, t0: 0, appareil: "", anim: 0, path: null, mask: null, guide: root.querySelector(".tb-guide"), ink: root.querySelector(".tb-ink") };
+    cur: null, t0: 0, ouvert: Date.now(), appareil: "", anim: 0, path: null, mask: null, guide: root.querySelector(".tb-guide"), ink: root.querySelector(".tb-ink") };
   root.addEventListener("click", tbClick);
   tbl.ink.addEventListener("pointerdown", tbDown); tbl.ink.addEventListener("pointermove", tbMove);
   ["pointerup", "pointercancel", "pointerleave"].forEach(ev => tbl.ink.addEventListener(ev, tbUp));
@@ -303,11 +303,18 @@ function tbKeep(commeModele) {
 function tbRemember() {
   if (tbl.traits.length) tbMemo.items[tbl.ctx.cle] = { traits: tbl.traits.map(t => t.slice()), envoye: tbl.envoye }; else delete tbMemo.items[tbl.ctx.cle];
 }
+// Statistiques : comment le tableau a été quitté (Terminé, croix, recommencer), combien de traits, en combien de temps,
+// au doigt, au stylet ou à la souris, avec ou sans le modèle affiché. Les traits eux-mêmes ne partent pas ici.
+function tbNoterFin(issue) {
+  if (typeof noter !== "function") return;
+  noter("tableau_fin", tbl.ctx.contexte, { issue, traits: tbl.traits.length, ms: Math.min(Date.now() - tbl.ouvert, 3600000),
+    pointage: tbl.appareil || null, modele: Boolean(tbl.modele), lettre: Boolean(tbl.ctx.lettre) });
+}
 function tbClick(e) {
   const el = e.target.closest("[data-tb]"); if (!el || !tbl) return;
   switch (el.dataset.tb) {
-    case "close": case "done": tbKeep(false); tbRemember(); tableauClose(); return;   // la croix garde le tracé comme « Terminé »
-    case "again": tbKeep(false); tbl.traits = []; tbl.envoye = 0; tbl.t0 = 0; tbRemember(); tbDrawInk(); tbMsg(""); break;
+    case "close": case "done": tbNoterFin(el.dataset.tb === "done" ? "termine" : "croix"); tbKeep(false); tbRemember(); tableauClose(); return;   // la croix garde le tracé comme « Terminé »
+    case "again": tbNoterFin("recommencer"); tbKeep(false); tbl.traits = []; tbl.envoye = 0; tbl.t0 = 0; tbRemember(); tbDrawInk(); tbMsg(""); break;
     case "undo": tbl.traits.pop(); tbDrawInk(); break;
     case "modele": tbl.modele = !tbl.modele; cancelAnimationFrame(tbl.anim); clearTimeout(tbl.fin); tbDrawGuide(); break;
     case "fleches": tbl.fleches = !tbl.fleches; cancelAnimationFrame(tbl.anim); clearTimeout(tbl.fin); tbDrawGuide(); break;
