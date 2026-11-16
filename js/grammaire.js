@@ -14,6 +14,7 @@ const SOURCES = [];     // éditions de référence consultables dans l'applicat
 let gs = null;          // séance de grammaire en cours (en mémoire seulement)
 let gOpen = {};         // encadrés dépliés à la main dans l'onglet : nom -> true ou false
 let gTerm = null;       // terme dont la définition est ouverte
+let gKnown = null;      // bab pour lequel on demande confirmation de « je connais déjà »
 let gSrc = null;        // édition ouverte dans la visionneuse : { id, p (image affichée), zoom }
 let gSeen = {};         // termes déjà traduits dans l'écran en cours (on ne répète pas la traduction à chaque ligne)
 
@@ -32,6 +33,8 @@ const gramDueQ = () => gLessons().flatMap(l => gQuestions(l).map(q => q.id)).fil
 const gramDueV = () => (gNazmOn() ? NAZM.map(v => v.id).filter(gIsDue) : []);
 const gramDue = () => [...gramDueQ(), ...gramDueV()];
 const gWrite = () => S.ecrire !== false;                              // écrire certaines réponses au clavier arabe : oui par défaut
+const gHarakat = () => S.harakat === true;                            // écrire aussi les voyelles (harakat) : non par défaut
+const gLayout = () => (S.clavier === "alpha" ? "alpha" : "classique"); // disposition du clavier : celle des claviers arabes, ou l'alphabet
 
 // --- Termes arabes. Trois réglages (S.termes) : "auto" (traduit jusqu'à la fin de la leçon qui l'introduit),
 // "fr" (toujours traduit), "ar" (arabe seul). Les termes rencontrés sont notés dans S.connus.
@@ -83,6 +86,14 @@ function gBuildQuestion(q) {
 // et on ne distingue pas les formes de l'alif ni le ى final du ي (l'écriture est déjà assez difficile au clavier).
 const gBare = t => String(t).replace(/[\u064B-\u0652\u0670\u0640«»،؛:.!؟\s]/g, "");
 const gNorm = t => gBare(t).replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي");
+// Avec les voyelles : on compare lettres ET voyelles, mais sans exiger ce que personne n'écrit à la main :
+// le sukūn, la voyelle brève qui précède sa lettre d'allongement (ـَا ـِي ـُو ـَى), et l'ordre shadda / voyelle.
+function gVocal(t) {
+  return String(t).replace(/[\u0640«»،؛:.!؟\s]/g, "").replace(/[أإآٱ]/g, "ا").replace(/\u0652/g, "")
+    .replace(/([\u064B-\u0650])\u0651/g, "\u0651$1")                               // la shadda d'abord, puis sa voyelle
+    .replace(/\u064E(?=[اى])/g, "").replace(/\u0650(?=ي(?![\u064B-\u0651]))/g, "").replace(/\u064F(?=و(?![\u064B-\u0651]))/g, "")
+    .replace(/ى/g, "ي").replace(/\u0670/g, "");
+}
 const gCore = w => w.replace(/^[«»،؛:.!؟]+|[«»،؛:.!؟]+$/g, "").replace(/^كَـ«|»$/g, "");   // le mot sans la ponctuation qui l'entoure
 // Les mots d'un vers qu'on peut cacher : au moins trois lettres, pour que le trou ait un intérêt
 function gHoles(v) {
@@ -169,6 +180,18 @@ function gSourceBtn(bab, label) {
   return `<button class="linkbtn" data-act="g-src" data-id="nazm" data-p="${(bab && s.babs[bab]) || s.debut}">${label}</button>`;
 }
 
+// Valider un bab sans faire ses leçons : ses questions et ses vers entrent en révision dès aujourd'hui
+// (une première révision réussie les rend acquis), et ses termes sont tenus pour connus.
+function gMarkKnown(n) {
+  const c = GRAMMAIRE.find(x => x.n === n), t = today(); if (!c) return;
+  S.connus = S.connus || {};
+  c.lecons.forEach(l => {
+    [...gQuestions(l).map(q => q.id), ...(gNazmOn() ? l.vers || [] : [])].forEach(id => { if (!gCard(id)) S.cards[id] = { ...schedule(undefined, 4, t), due: t }; });
+    gTermsOf(l).forEach(id => { S.connus[id] = true; });
+  });
+  saveState();
+}
+
 // --- Séances
 function gStartLesson(id) {
   const l = gLessons().find(x => x.id === id); if (!l) return;
@@ -203,7 +226,8 @@ function gStartTraining(what) {
   if (steps.length) gs = gSession("train", what === "v" ? "Entraînement sur le {{nazm}}" : "Entraînement de grammaire", steps, { what });
 }
 // La réponse donnée est-elle la bonne ? (choix touché, ou mot écrit comparé sans les voyelles)
-const gIsRight = q => (q.type === "ecrit" ? gNorm(gs.typed) === gNorm(q.answer) : gs.picked === q.bon);
+// Avec l'option « voyelles », le mot doit être juste lettres et voyelles comprises.
+const gIsRight = q => (q.type !== "ecrit" ? gs.picked === q.bon : gHarakat() ? gVocal(gs.typed) === gVocal(q.answer) : gNorm(gs.typed) === gNorm(q.answer));
 // Réponse vérifiée : la carte de la question est créée ou replanifiée, comme pour un mot. L'entraînement libre ne planifie rien.
 function gCheck() {
   const st = gs.steps[gs.i], ok = gIsRight(st.q), t = today(), card = gCard(st.q.id);
@@ -264,7 +288,8 @@ function gramRender(r) {
       : `<div class="opts">${opts}</div>`;
     $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gText(q.ask)}</p>${prompt ? `<div class="prompt gprompt">${prompt}</div>` : ""}${body}`;
     if (gs.checked) {
-      const ok = gs.ok, why = q.type === "ecrit" && !ok ? `Il fallait écrire [[${q.answer}]].` : q.why;
+      // Mot écrit et faux : on dit si seules les voyelles sont en cause, et on montre le mot attendu
+      const ok = gs.ok, why = q.type === "ecrit" && !ok ? (gNorm(gs.typed) === gNorm(q.answer) ? "Les lettres sont justes, ce sont les voyelles à revoir : " : "Il fallait écrire ") + `[[${q.answer}]].` : q.why;
       // Le verdict est porté par un signe et un texte, pas seulement par la couleur ; l'explication suit toujours
       $foot.innerHTML = `<div class="act ${ok ? "ok" : "ko"}"><div class="verdict" role="status"><b>${ok ? "✓ Bien joué" : "✗ Ce n'est pas ça"}</b>${why ? `<span>${gText(why)}</span>` : ""}</div>
         <button class="btn ${ok ? "good" : "bad"}" data-act="g-next">Continuer</button></div>`;
@@ -273,15 +298,23 @@ function gramRender(r) {
   $view.innerHTML += gTermSheet() + gSourceView();
   return true;
 }
-// Clavier arabe de l'application, pour qui n'a pas de clavier arabe : les lettres dans l'ordre de l'alphabet
-// (celui dans lequel on les a apprises), de droite à gauche, puis les formes de la hamza, le ة et le ى.
-const G_KEYS = ["ا", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي"];
-const G_KEYS2 = ["ء", "أ", "إ", "آ", "ؤ", "ئ", "ة", "ى"];
+// Clavier arabe de l'application, pour qui n'a pas de clavier arabe sur son appareil.
+// Deux dispositions au choix (S.clavier) :
+//  - « classique » : celle des claviers arabes de téléphone et d'ordinateur (ض en haut à gauche), pour s'y habituer ;
+//  - « alpha » : les lettres dans l'ordre de l'alphabet, de droite à gauche.
+// Avec l'option « voyelles » (S.harakat), une rangée de harakat s'ajoute.
+const G_KEYS = ["ا", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي"];   // les 28 lettres
+const G_ROWS = { classique: [["ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج"], ["ش", "س", "ي", "ب", "ل", "ا", "ت", "ن", "م", "ك", "ط"], ["ذ", "ء", "ؤ", "ر", "ى", "ة", "و", "ز", "ظ", "د"], ["أ", "إ", "آ", "ئ"]],
+  alpha: [["ا", "ب", "ت", "ث", "ج", "ح", "خ"], ["د", "ذ", "ر", "ز", "س", "ش", "ص"], ["ض", "ط", "ظ", "ع", "غ", "ف", "ق"], ["ك", "ل", "م", "ن", "ه", "و", "ي"], ["ء", "أ", "إ", "آ", "ؤ", "ئ", "ة", "ى"]] };
+const G_HARAKAT = [["\u064E", "fatha"], ["\u064F", "damma"], ["\u0650", "kasra"], ["\u0652", "sukun"], ["\u0651", "shadda"], ["\u064B", "deux fatha"], ["\u064C", "deux damma"], ["\u064D", "deux kasra"]];
 function gKeyboard() {
-  const key = k => `<button class="gkey ar" lang="ar" data-act="g-key" data-k="${k}">${k}</button>`;
-  return `<div class="gkb" dir="rtl" role="group" aria-label="Clavier arabe">${G_KEYS.map(key).join("")}</div>
-    <div class="gkb gkb2" dir="rtl">${G_KEYS2.map(key).join("")}<button class="gkey wide" data-act="g-key-del" aria-label="Effacer la dernière lettre">⌫</button></div>
-    <p class="muted gkb-note">Inutile d'écrire les voyelles.</p>`;
+  const lay = gLayout(), key = k => `<button class="gkey ar" lang="ar" data-act="g-key" data-k="${k}">${k}</button>`;
+  const del = `<button class="gkey wide" data-act="g-key-del" aria-label="Effacer le dernier signe">⌫</button>`;
+  const rows = G_ROWS[lay].map((r, n) => `<div class="gkrow" dir="${lay === "alpha" ? "rtl" : "ltr"}">${r.map(key).join("")}${n === G_ROWS[lay].length - 1 ? del : ""}</div>`).join("");
+  // Une voyelle se pose sur la lettre qu'on vient d'écrire ; le petit rond montre où elle se place
+  const marks = gHarakat() ? `<div class="gkrow" dir="rtl">${G_HARAKAT.map(([m, nom]) => `<button class="gkey ar" lang="ar" data-act="g-key" data-k="${m}" aria-label="${nom}">◌${m}</button>`).join("")}</div>` : "";
+  return `<div class="gkb ${lay}" role="group" aria-label="Clavier arabe">${rows}${marks}</div>
+    <p class="muted gkb-note">${gHarakat() ? "Écrivez chaque lettre, puis sa voyelle." : "Inutile d'écrire les voyelles."}</p>`;
 }
 // Un clavier arabe branché à l'ordinateur fonctionne aussi
 if (typeof document !== "undefined" && document.addEventListener) document.addEventListener("keydown", e => {
@@ -289,7 +322,7 @@ if (typeof document !== "undefined" && document.addEventListener) document.addEv
   if (!q || q.type !== "ecrit" || route() !== "grammaire") return;
   if (e.key === "Backspace") { gs.typed = [...gs.typed].slice(0, -1).join(""); render(); e.preventDefault(); }
   else if (e.key === "Enter" && gs.typed) { gCheck(); render(); }
-  else if (/^[\u0621-\u064A]$/.test(e.key)) { gs.typed += e.key; render(); }
+  else if (/^[\u0621-\u0652]$/.test(e.key)) { gs.typed += e.key; render(); }
 });
 // Un bloc d'explication : paragraphe, citation du texte de référence, exemples, ou règle à retenir
 function gBlock(b) {
@@ -311,6 +344,9 @@ function viewGrammar() {
       ${c.lecons.map(l => { const qs = gQuestions(l), ok = qs.filter(q => gIsKnown(q.id)).length, d = gDone(l);
         return `<button class="glesson ${d ? "done" : ""}" data-act="g-lesson" data-id="${l.id}"><span><b>${gText(l.titre, true)}</b><small>${gText(l.resume, true)}</small></span>
           <span class="pill ${d ? "known" : next && next.id === l.id ? "learn" : ""}">${d ? ok + " / " + qs.length + " acquis" : next && next.id === l.id ? "à faire" : "à venir"}</span></button>`; }).join("")}
+      ${c.lecons.every(gDone) ? "" : String(gKnown) === String(c.n)
+        ? `<div class="row center"><button class="btn small" data-act="g-known-yes" data-n="${c.n}">Oui, tout passer en révision</button><button class="btn small ghost" data-act="g-known-no">Annuler</button></div>`
+        : `<button class="linkbtn" data-act="g-known" data-n="${c.n}">${gText("Je connais déjà ce {{bab}}", true)}</button>`}
       ${c.relu ? "" : `<p class="muted">Contenu à relire par un enseignant.</p>`}</section>`).join("");
   const showPoem = gOpen.poem === true;
   const poem = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="poem" aria-expanded="${showPoem}"><span>${gText("Le {{nazm}}", true)} · ${learned} / ${NAZM.length} ${gText("{{bayt:pl}}", true)} appris</span><span class="muted">${showPoem ? "▾" : "▸"}</span></button>
@@ -318,8 +354,10 @@ function viewGrammar() {
       <div class="seg"><button data-act="g-nazm" data-on="1" aria-pressed="${gNazmOn()}">Je l'apprends</button><button data-act="g-nazm" data-on="0" aria-pressed="${!gNazmOn()}">Sans le ${gText("{{nazm}}", true)}</button></div>
       ${gNazmOn() && dueV ? `<button class="btn gold" data-act="g-review" data-w="v">${gText("Réviser le {{nazm}}", true)} · ${plural(dueV, "ligne")}</button>` : ""}
       ${gNazmOn() && learned ? `<button class="btn ghost" data-act="g-train" data-w="v">${gText("S'entraîner sur le {{nazm}}", true)}</button>
-        <p class="muted">Réponses à écrire au clavier arabe de l'application</p>
-        <div class="seg"><button data-act="g-write" data-on="1" aria-pressed="${gWrite()}">Oui, peu à peu</button><button data-act="g-write" data-on="0" aria-pressed="${!gWrite()}">Choix seulement</button></div>` : ""}
+        <p class="muted">Réponses à écrire</p>
+        <div class="seg"><button data-act="g-write" data-m="non" aria-pressed="${!gWrite()}">Choix seulement</button><button data-act="g-write" data-m="lettres" aria-pressed="${gWrite() && !gHarakat()}">Sans voyelles</button><button data-act="g-write" data-m="voyelles" aria-pressed="${gWrite() && gHarakat()}">Avec voyelles</button></div>
+        <p class="muted">Clavier</p>
+        <div class="seg"><button data-act="g-layout" data-m="classique" aria-pressed="${gLayout() === "classique"}">Clavier arabe classique</button><button data-act="g-layout" data-m="alpha" aria-pressed="${gLayout() === "alpha"}">Ordre de l'alphabet</button></div>` : ""}
       ${showPoem ? NAZM.map((v, k) => `${k === 0 || NAZM[k - 1].bab !== v.bab ? `<p class="gbab">${AR(v.babAr)}${gSourceBtn(v.bab, "dans l'édition")}</p>` : ""}<div class="gverse ${gCard(v.id) ? "" : "todo"}">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("") : ""}</section>`;
   const showSrc = gOpen.src === true;
   const sources = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="src" aria-expanded="${showSrc}"><span>Sources</span><span class="muted">${showSrc ? "▾" : "▸"}</span></button>
@@ -346,8 +384,12 @@ function gramClick(act, el) {
     case "g-lesson": gStartLesson(el.dataset.id); break;
     case "g-review": gStartReview(el.dataset.w); break;
     case "g-train": gStartTraining(el.dataset.w); break;
-    case "g-write": S.ecrire = el.dataset.on === "1"; saveState(); break;
-    case "g-key": if (gs && !gs.checked && [...gs.typed].length < 24) { gs.typed += el.dataset.k; sfx("tap"); } break;
+    case "g-write": S.ecrire = el.dataset.m !== "non"; S.harakat = el.dataset.m === "voyelles"; saveState(); break;
+    case "g-layout": S.clavier = el.dataset.m; saveState(); break;
+    case "g-known": gKnown = el.dataset.n; break;
+    case "g-known-no": gKnown = null; break;
+    case "g-known-yes": gMarkKnown(Number(el.dataset.n)); gKnown = null; sfx("ok"); break;
+    case "g-key": if (gs && !gs.checked && [...gs.typed].length < 40) { gs.typed += el.dataset.k; sfx("tap"); } break;
     case "g-key-del": if (gs && !gs.checked) gs.typed = [...gs.typed].slice(0, -1).join(""); break;
     case "g-quit": gs = null; gTerm = null; gSrc = null; break;
     case "g-back": if (gs && gs.i > 0) { gs.i--; gs.picked = null; gs.typed = ""; gs.checked = false; } break;

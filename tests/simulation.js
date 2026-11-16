@@ -160,6 +160,15 @@ S.offset = (S.offset || 0) + 3; out.gramDues = gramDue().length; gStartReview();
 out.trous = NAZM.filter(v => { const a = gVerseQuestion(v, "trou"), b = gVerseQuestion(v, "ecrit");
   return !(a.opts.length === 4 && a.bon >= 0 && a.prompt.includes("blank") && b.type === "ecrit" && b.answer && (v.a + " " + v.b).includes(b.answer)); }).map(v => v.id);
 gs = { typed: "الكلام", picked: null }; out.ecritOk = gIsRight({ type: "ecrit", answer: "الْكَلَامَ" }); gs.typed = "الكلم"; out.ecritFaux = !gIsRight({ type: "ecrit", answer: "الْكَلَامَ" }); gs = null;
+// Avec les voyelles : le mot vocalisé comme on l'écrit à la main est accepté, une voyelle fausse est refusée
+S.harakat = true; gs = { typed: "الكَلامَ", picked: null }; out.vocalOk = gIsRight({ type: "ecrit", answer: "الْكَلَامَ" });
+gs.typed = "الكَلامُ"; out.vocalFaux = !gIsRight({ type: "ecrit", answer: "الْكَلَامَ" }); gs.typed = "مُرَكَّبٌ"; out.vocalShadda = gIsRight({ type: "ecrit", answer: "مُرَكَّبٌ" });
+out.clavierVoyelles = gKeyboard().includes("fatha"); S.harakat = false; out.clavierSans = !gKeyboard().includes("fatha"); gs = null;
+// Les deux dispositions du clavier portent les 28 lettres
+out.clavier = ["classique", "alpha"].map(l => G_KEYS.every(k => G_ROWS[l].flat().includes(k)));
+// « Je connais déjà ce bab » : tout entre en révision aujourd'hui, les termes sont connus
+const gardeCartes = S.cards, gardeConnus = S.connus; S.cards = {}; S.connus = {}; gMarkKnown(1);
+out.babConnu = [gLessons().every(gDone), gramDueQ().length, gramDueV().length, Boolean(S.connus.tanwin)]; S.cards = gardeCartes; S.connus = gardeConnus;
 // Sorte des mots : identifiants valables, aucun mot dans deux listes ; l'entraînement libre ne crée ni ne déplace aucune carte
 const nm = [...NATURES_MOTS.fil, ...NATURES_MOTS.harf, ...NATURES_MOTS.hors];
 out.naturesFautes = nm.filter((id, i) => !BY_ID[id] || nm.indexOf(id) !== i);
@@ -284,6 +293,10 @@ assert.ok(r.gramPosees === 11 && r.gramFaite && r.gramCartes === 11 && r.gramSer
 assert.ok(r.gramDues > 0 && r.gramRevues === Math.min(15, r.gramDues), "les cartes de grammaire reviennent en révision");
 assert.deepStrictEqual(r.trous, [], "mot manquant : question mal formée pour ce vers");
 assert.ok(r.ecritOk && r.ecritFaux, "un mot écrit sans voyelles est accepté, un mot faux est refusé");
+assert.ok(r.vocalOk && r.vocalFaux && r.vocalShadda, "avec les voyelles : l'écriture courante est acceptée, une voyelle fausse est refusée");
+assert.ok(r.clavierVoyelles && r.clavierSans, "la rangée des voyelles suit le réglage");
+assert.deepStrictEqual(r.clavier, [true, true], "une disposition du clavier n'a pas toutes les lettres");
+assert.deepStrictEqual(r.babConnu, [true, 24, 7, true], "un bab validé sans le faire entre en entier en révision");
 assert.deepStrictEqual(r.naturesFautes, [], "sorte des mots : identifiant inconnu ou en double");
 assert.ok(r.trainQ === 10 && r.trainV === 10 && r.trainSansEffet, "l'entraînement libre pose dix questions et ne touche pas au calendrier");
 assert.ok(r.revueV && r.revueQ, "la révision du poème et celle de la grammaire sont séparées");
