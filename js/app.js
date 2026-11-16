@@ -1241,8 +1241,9 @@ async function restoreVoice(vid) {
   let existe = false;
   try { existe = (await fetch(publicUrl(v.chemin), { method: "HEAD", cache: "no-store" })).ok; } catch (e) {}
   if (!existe) { sbMsg = "Le fichier de cette voix a été supprimé : elle ne peut pas être remise."; refresh(); return; }
-  const r = await sb.from("voix").update({ etat: "publie", traite_par: me.id, traite_le: new Date().toISOString() }).eq("id", vid);
-  sbMsg = r.error ? "Action refusée : " + r.error.message : "Voix remise dans le partage.";
+  // .select() rend les lignes modifiées : aucune ligne veut dire que la base a refusé sans le dire (droits insuffisants)
+  const r = await sb.from("voix").update({ etat: "publie", traite_par: me.id, traite_le: new Date().toISOString() }).eq("id", vid).select("id");
+  sbMsg = r.error ? "Action refusée : " + r.error.message : !r.data || !r.data.length ? "Action refusée : il faut être contributeur." : "Voix remise dans le partage.";
   await loadVoices();
 }
 // Voix retirées qu'on peut remettre : pas celles qu'un envoi plus récent du même lecteur a remplacées
