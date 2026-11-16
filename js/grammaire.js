@@ -93,7 +93,7 @@ function gHoles(v) {
 // Le vers avec un mot remplacé par un trait (ou, une fois corrigé, par le mot mis en valeur)
 function gHoleHtml(v, hole, shown) {
   const half = h => v[h].split(" ").map((w, i) => (h === hole.h && i === hole.i
-    ? esc(w).replace(esc(hole.word), shown ? `<mark>${esc(hole.word)}</mark>` : `<span class="blank">ـــــــ</span>`) : esc(w))).join(" ");
+    ? esc(w).replace(esc(hole.word), shown ? `<mark>${esc(hole.word)}</mark>` : `<span class="blank"></span>`) : esc(w))).join(" ");
   return `<div class="verse"><span class="ar" lang="ar" dir="rtl">${half("a")}</span><span class="ar" lang="ar" dir="rtl">${half("b")}</span></div>`;
 }
 // Questions de mémorisation, fabriquées à partir du texte.

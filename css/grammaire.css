@@ -85,7 +85,8 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 .gsrc-nav .btn { width: auto; flex: 0 1 auto; }
 
 /* Mot manquant dans un vers : le trait du trou, puis le mot retrouvé mis en valeur */
-.verse .blank { color: var(--gold-ink); letter-spacing: 0; }
+/* Le trou : un trait d'une largeur de mot, quelle que soit la police */
+.verse .blank { display: inline-block; width: 3.2em; height: .9em; border-bottom: 3px solid var(--gold); vertical-align: baseline; }
 .verse mark { background: none; color: var(--gold-ink); border-bottom: 3px solid var(--gold); }
 /* Réponse en cours d'écriture */
 .gfield { min-height: 64px; margin-top: 12px; padding: 6px 16px; border-radius: 16px; border: 2px solid var(--line); border-bottom-width: 4px; background: var(--surface); font-size: 32px; line-height: 1.6; text-align: center; }
