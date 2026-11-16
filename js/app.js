@@ -29,7 +29,11 @@ function diffDays(a, b) { return Math.round((dateOf(b) - dateOf(a)) / 86400000);
 
 /* ---------- 3. STOCKAGE LOCAL ---------- */
 
-const KEY = "arabe-proto-u1-v1";
+// Version d'essai : une branche en cours de relecture, publiée à l'adresse …/essai/<nom de la branche>/.
+// Elle garde sa progression à part, pour ne jamais abîmer la vraie, et ne synchronise rien avec le compte.
+const ESSAI = (((typeof location !== "undefined" && location.pathname) || "").match(/\/essai\/([^/]+)\//) || [])[1] || "";
+const KEY_MAIN = "arabe-proto-u1-v1";
+const KEY = KEY_MAIN + (ESSAI ? "-essai-" + ESSAI : "");
 function blankState() {
   return {
     v: 2,
@@ -51,7 +55,11 @@ function blankState() {
 }
 // Le stockage du navigateur peut manquer ou refuser : l'application doit fonctionner sans.
 function loadState() {
-  try { const raw = localStorage.getItem(KEY); if (raw) return Object.assign(blankState(), JSON.parse(raw)); } catch (e) {}
+  try {
+    // À sa première ouverture, une version d'essai part d'une copie de la progression de la version principale
+    const raw = localStorage.getItem(KEY) || (ESSAI ? localStorage.getItem(KEY_MAIN) : null);
+    if (raw) return Object.assign(blankState(), JSON.parse(raw));
+  } catch (e) {}
   return blankState();
 }
 function saveState() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
@@ -456,7 +464,7 @@ function render() {
   } else {
     const known = ITEMS.filter(isKnown).length;
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
-      <span class="alpha">alpha</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
+      <span class="alpha">${ESSAI ? "essai · " + esc(ESSAI) : "alpha"}</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : viewHome();
     if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
     if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages") {
@@ -1047,6 +1055,7 @@ async function setName(nom) {
 // l'écriture est refusée, et on recommence avec la copie à jour.
 let syncMsg = "";
 async function syncAccount() {
+  if (ESSAI) return;   // une version d'essai n'écrit jamais dans la sauvegarde du compte
   if (!sb || !me) return;
   syncMsg = "Synchronisation en cours…"; refresh();
   try {

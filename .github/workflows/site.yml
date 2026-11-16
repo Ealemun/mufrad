@@ -1,9 +1,12 @@
-# À chaque envoi sur la branche principale : on lance le test de simulation, puis on met le site en ligne.
+# Test et mise en ligne.
+# - Envoi sur main : on teste, puis on publie le site.
+# - Envoi sur une autre branche : on teste, puis on redemande une mise en ligne depuis main,
+#   qui publie en plus chaque branche à l'adresse …/essai/<nom de la branche>/ pour qu'on puisse l'essayer
+#   avant de la fusionner. (Seule la branche principale a le droit de publier le site.)
 name: Test et mise en ligne
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -11,11 +14,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
-
-# Une seule mise en ligne à la fois
-concurrency:
-  group: pages
-  cancel-in-progress: true
+  actions: write
 
 jobs:
   test:
@@ -28,18 +27,55 @@ jobs:
       - name: Simulation d'une séance
         run: node tests/simulation.js
 
+  # Une branche testée avec succès demande à main de republier le site, versions d'essai comprises
+  demander-la-mise-en-ligne:
+    needs: test
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh workflow run site.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   mise-en-ligne:
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # Une seule mise en ligne à la fois ; la plus récente remplace celle qui attend
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deploiement.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       # On ne publie que les fichiers du site, pas les tests ni les outils
       - name: Rassembler les fichiers du site
         run: mkdir _site && cp -r index.html confidentialite.html manifest.webmanifest sw.js css js icons _site/
+      # Chaque autre branche dont le test passe est publiée dans essai/<nom>/ ; une branche supprimée disparaît d'elle-même
+      - name: Ajouter les versions d'essai des autres branches
+        run: |
+          mkdir -p _site/essai
+          liste=""
+          for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -v -e '^origin/main$' -e '^origin/HEAD$' -e '^origin$'); do
+            nom=$(echo "${ref#origin/}" | tr '/' '-')
+            git worktree add -q "/tmp/essai-$nom" "$ref"
+            if (cd "/tmp/essai-$nom" && node tests/simulation.js > /dev/null 2>&1); then
+              mkdir -p "_site/essai/$nom"
+              (cd "/tmp/essai-$nom" && cp -r index.html confidentialite.html manifest.webmanifest sw.js css js icons "$GITHUB_WORKSPACE/_site/essai/$nom/")
+              liste="$liste<li><a href=\"$nom/\">$nom</a> — $(git log -1 --format='%s (%cd)' --date=format:'%d/%m %H:%M' "$ref" | sed 's/&/\&amp;/g; s/</\&lt;/g')</li>"
+            else
+              liste="$liste<li>$nom — non publiée : son test échoue</li>"
+            fi
+          done
+          [ -n "$liste" ] || liste="<li>Aucune branche à l'essai pour le moment.</li>"
+          printf '<!DOCTYPE html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Mufrad — versions à l’essai</title><body style="font-family:sans-serif;max-width:40em;margin:2em auto;padding:0 1em;line-height:1.6"><h1>Versions à l’essai</h1><p>Chaque lien ouvre une branche en cours de relecture. Sa progression est séparée de celle de l’application principale.</p><ul>%s</ul><p><a href="../">Retour à l’application</a></p></body></html>' "$liste" > _site/essai/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
