@@ -190,11 +190,16 @@ const sessStats = () => ({ l: sess.l == null ? null : String(sess.l), rep: sess.
 
 // Apprendre : les prochains éléments jamais vus d'une leçon.
 // Chacun est présenté par une fiche, interrogé aussitôt, puis réinterrogé dans l'autre sens en fin de séance.
-function startLearn(l) {
-  const unseen = itemsOf(l).filter(it => !isSeen(it));
-  if (!unseen.length) return;
-  const fresh = unseen.slice(0, unseen[0].type === "letter" ? CHUNK_LETTERS : CHUNK_WORDS);
+// Apprendre : les nouveautés d'une leçon, par petits paquets (fiche, question, association, question inverse).
+// Refaire (redo) : le même déroulé, avec tout ce qui a déjà été vu de la leçon, fiches comprises.
+// La progression n'en souffre pas : un élément déjà connu revu en avance garde son calendrier,
+// seule une erreur le fait revenir plus tôt (voir finalize).
+function startLearn(l, redo) {
+  const pool = itemsOf(l).filter(it => redo ? isSeen(it) : !isSeen(it));
+  if (!pool.length) return;
+  const fresh = redo ? pool : pool.slice(0, pool[0].type === "letter" ? CHUNK_LETTERS : CHUNK_WORDS);
   sess = blankSession("learn", lessonLabel(l), l);
+  sess.redo = Boolean(redo);
   fresh.forEach(it => {
     sess.st[it.id] = { need: 2, err: false };
     sess.tasks.push({ kind: "intro", id: it.id });
@@ -585,7 +590,8 @@ function viewSheet(l) {
       <h3>${isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l}</h3><h2><bdi>${esc(LESSON_TITLE[l])}</bdi></h2>
       <div class="tiles"><div><b>${s.known}</b>acquis</div><div><b>${s.seen - s.known}</b>en cours</div><div><b>${unseen}</b>à découvrir</div></div>
       ${unseen ? `<button class="btn" data-act="learn" data-l="${l}">Apprendre ${plural(chunk, "nouveauté")}</button>` : ""}
-      ${s.seen ? `<button class="btn ${unseen ? "ghost" : ""}" data-act="review" data-l="${l}">Réviser ce que j'ai vu (${s.seen})</button>` : ""}
+      ${s.seen ? `<button class="btn ${unseen ? "ghost" : ""}" data-act="redo" data-l="${l}">Refaire la leçon${unseen ? ` (${plural(s.seen, "élément vu")})` : ""}</button>` : ""}
+      ${s.seen ? `<button class="btn ghost" data-act="review" data-l="${l}">Réviser ce que j'ai vu (${s.seen})</button>` : ""}
       ${unseen ? `<button class="btn ghost" data-act="known-lesson" data-l="${l}">Je connais déjà : passer en révision</button>` : ""}
       <button class="btn ghost" data-act="cram" data-l="${l}">Tout réviser d'un coup (${s.total})</button></div>`;
 }
@@ -681,7 +687,7 @@ function viewMatch(c, ro) {
 // Bilan de fin de séance
 function viewSummary() {
   const pct = sess.answers ? Math.round(100 * sess.correct / sess.answers) : 100;
-  const head = sess.kind === "drill" ? "Tout est maîtrisé" : sess.kind === "learn" ? "Leçon avancée" : "Révision terminée";
+  const head = sess.kind === "drill" ? "Tout est maîtrisé" : sess.kind === "learn" ? (sess.redo ? "Leçon refaite" : "Leçon avancée") : "Révision terminée";
   const tomorrow = addDays(today(), 1), dueTomorrow = ITEMS.filter(it => isSeen(it) && S.cards[it.id].due <= tomorrow).length;
   return `<p class="ask"><small>${esc(sess.title)}</small>${head}</p>
     <div class="tiles"><div><b>${sess.answers}</b>réponses</div><div><b>${pct} %</b>de réussite</div><div><b>${streak()}</b>${streak() > 1 ? "jours de suite" : "jour de suite"}</div></div>
@@ -1838,6 +1844,7 @@ document.addEventListener("click", e => {
     case "known-unit-yes": noter("lecon_validee", "unite:" + el.dataset.u, { n: markKnown(ITEMS.filter(it => it.u === Number(el.dataset.u))) }); askKnown = null; sfx("ok"); wantScroll = true; break;
     case "daily": startDaily(); return;
     case "learn": sheet = null; startLearn(Number(el.dataset.l)); return;
+    case "redo": sheet = null; startLearn(Number(el.dataset.l), true); return;   // refaire une leçon déjà vue, fiches comprises
     case "review": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l).filter(isSeen), lessonLabel(l)); return; }
     case "cram": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l), lessonLabel(l)); return; }
     // Onglet Réviser

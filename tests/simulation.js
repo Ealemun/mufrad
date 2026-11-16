@@ -367,6 +367,20 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
   pending = []; out.guidePrefixe = !/data-act="g-(start|keep|redo|skip)"/.test(v1 + v2 + voixCarte() + viewVoices());
   delete CLIPS[q[0]]; pending = []; guide = null; location.hash = "";
 }
+// Refaire une leçon déjà vue : toutes ses fiches reviennent ; tout réussir ne change pas le calendrier des éléments déjà connus
+{
+  const l = UNITS[1].lessons[0][0], its = itemsOf(l), sauf = JSON.stringify(S.cards);
+  markKnown(its);
+  its.forEach(it => { S.cards[it.id].due = addDays(today(), 5); });   // connus et pas encore dus
+  const avant = JSON.stringify(its.map(it => S.cards[it.id]));
+  const feuille = viewSheet(l);
+  startLearn(l, true);
+  const fiches = sess.tasks.filter(t => t.kind === "intro").length;
+  run(false);                                        // tout juste
+  out.refaire = { bouton: feuille.includes('data-act="redo"'), fiches: fiches === its.length, titre: sess.redo === true,
+    calendrier: JSON.stringify(its.map(it => S.cards[it.id])) === avant };
+  S.cards = JSON.parse(sauf); sess = null;
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -466,6 +480,7 @@ assert.deepStrictEqual(r.guide, { ordre: true, micro: true, choix: true, garde: 
 assert.ok(r.guideFin, "Enregistrement guidé : écran de fin");
 assert.ok(r.guideEdit, "Enregistrement guidé : « Éditer l'audio » ouvre la piste et le rognage");
 assert.ok(r.guidePrefixe, "Enregistrement guidé : actions hors du préfixe de la grammaire");
+assert.deepStrictEqual(r.refaire, { bouton: true, fiches: true, titre: true, calendrier: true }, "Refaire une leçon : fiches, et calendrier inchangé si tout est juste");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
