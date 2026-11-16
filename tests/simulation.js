@@ -347,18 +347,20 @@ S.cards = {};
 toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.includes('class="toast"') && $foot.innerHTML.includes("Voix remise"); toastMsg = ""; render();
 // Enregistrement guidé : les mots sans voix d'abord, un mot à la fois ; ✓ garde ce mot seulement et passe au suivant
 {
-  const l = UNITS[1].lessons[0][0], q = guideQueue(l);
+  const l = UNITS[1].lessons[0][0], q = guideQueue(l), autreId = ITEMS.find(it => !q.includes(it.id)).id;
   const ordreOk = q.every((id, k) => k === 0 || !(voiceState(id) === "aucun" && voiceState(q[k - 1]) === "autre"));
   startGuide(q); location.hash = "#enregistrer";
   const v1 = viewGuide();
-  pending = [{ id: q[0], url: "blob:g", data: null, preset: null }, { id: "autre-attente", url: "blob:x", data: null, preset: null }];
+  pending = [{ id: q[0], url: "blob:g", data: null, preset: null }, { id: autreId, url: "blob:x", data: null, preset: null }];
   const v2 = viewGuide();
   const avantClips = Object.keys(CLIPS).length;
   keepOne(q[0]); guide.faits++; guide.i++;
   out.guide = { ordre: ordreOk && q.length > 0, micro: v1.includes(BY_ID[q[0]].ar) && (v1.includes('data-act="rec"') || v1.includes("micro n'est pas disponible")),
-    choix: v2.includes('data-act="g-keep"') && v2.includes('data-act="g-redo"'), garde: Object.keys(CLIPS).length === avantClips + 1 && pending.length === 1 && pending[0].id === "autre-attente",
+    choix: v2.includes('data-act="rg-keep"') && v2.includes('data-act="rg-redo"'), garde: Object.keys(CLIPS).length === avantClips + 1 && pending.length === 1 && pending[0].id === autreId,
     suite: guide.i === 1 && viewGuide().includes((2) + "/" + q.length) };
   guide.i = q.length; out.guideFin = viewGuide().includes("1 mot enregistré");
+  // Aucune action du mode guidé ne doit commencer par « g- », réservé à la grammaire (sinon le clic n'arrive jamais)
+  pending = []; out.guidePrefixe = !/data-act="g-(start|keep|redo|skip)"/.test(v1 + v2 + voixCarte() + viewVoices());
   delete CLIPS[q[0]]; pending = []; guide = null; location.hash = "";
 }
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
@@ -458,6 +460,7 @@ assert.deepStrictEqual(r.remettre, { local: true, sansLocal: true, admin: true, 
 assert.ok(r.toast, "Message bref visible après une action sur les voix");
 assert.deepStrictEqual(r.guide, { ordre: true, micro: true, choix: true, garde: true, suite: true }, "Enregistrement guidé : ordre, micro, choix, garder un seul mot, mot suivant");
 assert.ok(r.guideFin, "Enregistrement guidé : écran de fin");
+assert.ok(r.guidePrefixe, "Enregistrement guidé : actions hors du préfixe de la grammaire");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

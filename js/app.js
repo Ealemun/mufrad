@@ -530,7 +530,7 @@ function markKnown(items) {
 function voixCarte() {
   const n = sb && canRecord() ? waitingVoices().length : 0;
   return n ? `<section class="card voixcarte"><span class="vstat aucun">${ICON_MIC}</span><span><b>${plural(n, "mot")}</b> ${n > 1 ? "attendent" : "attend"} une voix</span>
-      <button class="btn small gold" data-act="g-start">Enregistrer</button></section>` : "";
+      <button class="btn small gold" data-act="rg-start">Enregistrer</button></section>` : "";
 }
 function viewHome() {
   const all = ITEMS.length, known = ITEMS.filter(isKnown).length, seen = ITEMS.filter(isSeen).length, due = ITEMS.filter(isDue).length;
@@ -959,8 +959,8 @@ function viewGuide() {
         ${modele && !p && !on ? `<button class="mini" data-act="speak" data-id="${id}" aria-label="Écouter la voix actuelle">${ICON_SPEAK}</button>` : ""}</div>
       ${canRecord() ? gros : `<p>Le micro n'est pas disponible sur cet appareil.</p>`}
       ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
-      ${p && !on ? `<div class="row duo"><button class="btn ghost" data-act="g-redo" data-id="${id}" aria-label="Recommencer">↺</button><button class="btn good" data-act="g-keep" data-id="${id}" aria-label="Garder">✓</button></div>`
-        : `<button class="linkbtn" data-act="g-skip" ${on ? "disabled" : ""}>Passer ›</button>`}
+      ${p && !on ? `<div class="row duo"><button class="btn ghost" data-act="rg-redo" data-id="${id}" aria-label="Recommencer">↺</button><button class="btn good" data-act="rg-keep" data-id="${id}" aria-label="Garder">✓</button></div>`
+        : `<button class="linkbtn" data-act="rg-skip" ${on ? "disabled" : ""}>Passer ›</button>`}
     </section>`;
 }
 
@@ -1060,7 +1060,7 @@ function viewVoices() {
       ${micUi}${chips}</section>
     ${wait}
     <section class="panel"><h3>${lessonHtml(voiceLesson)} · ${have} / ${its.length}</h3>
-      ${micro && guideQueue(voiceLesson).length ? `<button class="btn gold" data-act="g-start" data-l="${voiceLesson}">${ICON_MIC} Enregistrer · ${guideQueue(voiceLesson).length}</button>` : ""}
+      ${micro && guideQueue(voiceLesson).length ? `<button class="btn gold" data-act="rg-start" data-l="${voiceLesson}">${ICON_MIC} Enregistrer · ${guideQueue(voiceLesson).length}</button>` : ""}
       <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup. Vous les écouterez avant de les déposer.</p>
       <label class="btn ghost" for="f-bulk">Ajouter les ${its.length} fichiers de la leçon, dans l'ordre</label>
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">
@@ -1915,11 +1915,11 @@ document.addEventListener("click", e => {
     }
     case "setname": { const f = document.getElementById("sb-nom"); setName(f ? f.value.trim() : ""); return; }
     case "rec": toggleRecord(el.dataset.id); return;                       // démarre ou arrête le micro
-    // Enregistrement guidé
-    case "g-start": startGuide(el.dataset.l ? guideQueue(Number(el.dataset.l)) : waitingVoices().slice(0, 10)); return;
-    case "g-keep": keepOne(el.dataset.id); guide.faits++; guide.i++; uiMsg = ""; break;    // ✓ : déposé, puis mot suivant
-    case "g-redo": dropPending(el.dataset.id); toggleRecord(el.dataset.id); return;         // ↺ : on efface et on réenregistre
-    case "g-skip": if (guide) { dropPending(guide.ids[guide.i]); guide.i++; } uiMsg = ""; break;
+    // Enregistrement guidé (préfixe « rg- » : les actions en « g- » sont celles de la grammaire)
+    case "rg-start": startGuide(el.dataset.l ? guideQueue(Number(el.dataset.l)) : waitingVoices().slice(0, 10)); return;
+    case "rg-keep": keepOne(el.dataset.id); guide.faits++; guide.i++; uiMsg = ""; break;    // ✓ : déposé, puis mot suivant
+    case "rg-redo": dropPending(el.dataset.id); toggleRecord(el.dataset.id); return;         // ↺ : on efface et on réenregistre
+    case "rg-skip": if (guide) { dropPending(guide.ids[guide.i]); guide.i++; } uiMsg = ""; break;
     case "pend-play": {                                                    // écoute d'un enregistrement en attente
       const p = pending.find(x => x.id === el.dataset.id);
       if (p) playPending(p);
