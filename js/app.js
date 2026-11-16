@@ -892,7 +892,7 @@ async function askMics() {
 }
 
 // État de la voix d'un élément, pour le repérer d'un coup d'œil dans l'onglet Voix :
-//   "moi"   : j'ai un enregistrement (sur cet appareil, ou partagé par moi) — doré, micro plein ;
+//   "moi"   : j'ai un enregistrement (sur cet appareil, ou partagé par moi) — doré, haut-parleur ;
 //   "autre" : seulement la voix d'autres personnes — bleu, haut-parleur ;
 //   "aucun" : personne ne l'a encore enregistré — cercle en pointillé, micro.
 function voiceState(id) {
@@ -900,7 +900,7 @@ function voiceState(id) {
   if (CLIPS[id] || mineShared) return "moi";
   return voicesFor(id).length ? "autre" : "aucun";
 }
-const VOICE_BADGE = { moi: ["Mon enregistrement", ICON_MIC], autre: ["Voix d'une autre personne", ICON_SPEAK], aucun: ["Pas encore enregistré", ICON_MIC] };
+const VOICE_BADGE = { moi: ["Mon enregistrement", ICON_SPEAK], autre: ["Voix d'une autre personne", ICON_SPEAK], aucun: ["Pas encore enregistré", ICON_MIC] };
 const voiceBadge = st => `<span class="vstat ${st}" role="img" aria-label="${VOICE_BADGE[st][0]}" title="${VOICE_BADGE[st][0]}">${VOICE_BADGE[st][1]}</span>`;
 function viewVoices() {
   const its = itemsOf(voiceLesson), have = its.filter(it => AUDIO[it.id]).length;
@@ -931,9 +931,11 @@ function viewVoices() {
     // Ma voix partagée pour cet élément, si elle existe : je peux la retirer du partage
     const mine = typeof voixRows !== "undefined" && me ? voixRows.find(v => v.element === it.id && v.auteur === me.id && (v.etat === "publie" || v.etat === "recommande")) : null;
     const st = voiceState(it.id);
-    return `<div class="vrow v-${st}">${voiceBadge(st)}${AR(it.ar)}
+    // Quand il y a une voix, la pastille d'état est elle-même le bouton pour l'écouter
+    const badge = nb && !waiting ? `<button class="vstat ${st}" data-act="speak" data-id="${it.id}" aria-label="Écouter (${VOICE_BADGE[st][0].toLowerCase()})" title="${VOICE_BADGE[st][0]}">${VOICE_BADGE[st][1]}</button>` : voiceBadge(st);
+    return `<div class="vrow v-${st}">${badge}${AR(it.ar)}
       <div class="vact">
-        ${waiting ? `<span class="pill learn">en attente</span>` : nb ? `<button class="mini" data-act="speak" data-id="${it.id}" aria-label="Écouter">${ICON_SPEAK}</button>${nb > 1 ? `<button class="mini txt" data-act="voice-next" data-id="${it.id}" aria-label="Écouter une autre voix">↻ ${voiceIndex(it.id) + 1}/${nb}</button>` : ""}` : ""}
+        ${waiting ? `<span class="pill learn">en attente</span>` : nb ? `${nb > 1 ? `<button class="mini txt" data-act="voice-next" data-id="${it.id}" aria-label="Écouter une autre voix">↻ ${voiceIndex(it.id) + 1}/${nb}</button>` : ""}` : ""}
         ${micro ? `<button class="mini txt ${on ? "rec" : ""}" data-act="rec" data-id="${it.id}" ${rec && !on ? "disabled" : ""}>${on ? "Arrêter" : "Enregistrer"}</button>` : ""}
         <label class="mini txt" for="f-${it.id}">Fichier</label>
         <input class="vh" type="file" accept="audio/*" id="f-${it.id}" data-clip="${it.id}">
