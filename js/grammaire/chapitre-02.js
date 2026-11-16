@@ -8,7 +8,7 @@
    jamais sans sa traduction. Les mots arabes proposés comme choix sont toujours suivis de leur sens. */
 GRAMMAIRE.push({
   n: 2,
-  titre: "Le {{irab}} : la fin des mots change",
+  titre: "Le {{irab}} et ses quatre états",
   ar: "بابُ الإِعْراب",
   conseil: "Conseillé après l'unité 4",
   relu: false,
@@ -20,9 +20,9 @@ GRAMMAIRE.push({
         { titre: "Un même mot, trois fins", blocs: [
           { p: "Regardez le mot [[كِتابٌ]] (« livre ») dans ces trois phrases. Le début et le milieu ne bougent pas. *Seule la fin change.*" },
           { ex: [
-            ["هٰذا كِتابٌ", "« Voici un livre. »", "La fin porte une {{damma}}, ici doublée par le {{tanwin}} : [[ـٌ]]"],
-            ["يَقْرَأُ الكِتابَ", "« Il lit le livre. »", "La fin porte une {{fatha}} : [[ـَ]]"],
-            ["في الكِتابِ", "« dans le livre »", "La fin porte une {{kasra}} : [[ـِ]]"]
+            ["هٰذا كِتابٌ", "Fin en {{damma}}, avec le {{tanwin}}", "« Voici un livre. »"],
+            ["يَقْرَأُ الكِتابَ", "Fin en {{fatha}}", "« Il lit le livre. »"],
+            ["في الكِتابِ", "Fin en {{kasra}}", "« dans le livre »"]
           ] },
           { p: "Ce changement de la dernière lettre a un nom : le {{irab}}. C'est le cœur du {{nahw}}." }
         ] },
@@ -30,8 +30,8 @@ GRAMMAIRE.push({
           { matn: "الإِعْرابُ هُوَ تَغْييرُ أَواخِرِ الكَلِمِ لِاخْتِلافِ العَوامِلِ الدّاخِلَةِ عَلَيْها لَفْظًا أَوْ تَقْديرًا", fr: "Le {{irab}} est le changement de la fin des mots, parce que les {{amil:pl}} qui entrent sur eux sont différents, de façon prononcée ou sous-entendue." },
           { p: "Un {{amil}} est un mot qui *agit* sur un autre et fait changer sa fin. Quand le {{amil}} change, la fin change avec lui." },
           { ex: [
-            ["في الكِتابِ", "[[في]] est le {{amil}} : il met la fin de [[الكِتابِ]] à la {{kasra}}.", ""],
-            ["يَقْرَأُ الكِتابَ", "Ici, c'est le {{fil}} [[يَقْرَأُ]] qui agit : la fin passe à la {{fatha}}.", ""]
+            ["في الكِتابِ", "{{amil}} : [[في]], fin en {{kasra}}", "« dans le livre »"],
+            ["يَقْرَأُ الكِتابَ", "{{amil}} : [[يَقْرَأُ]], fin en {{fatha}}", "« il lit le livre »"]
           ] },
           { regle: "Le {{irab}} ne touche que la *dernière lettre* du mot." }
         ] },
@@ -39,15 +39,15 @@ GRAMMAIRE.push({
           { p: "Le plus souvent, on entend et on voit la voyelle finale : le {{irab}} est {{lafzi}}." },
           { p: "Mais certains mots finissent par un alif (écrit parfois [[ى]]), qui ne peut porter aucune voyelle. La voyelle existe quand même, on la *suppose* : le {{irab}} est {{taqdiri}}." },
           { ex: [
-            ["في الكِتابِ", "« dans le livre »", "{{kasra}} visible : {{lafzi}}"],
-            ["في المُصَلّى", "« dans la salle de prière »", "{{kasra}} supposée sur l'alif final : {{taqdiri}}"]
+            ["في الكِتابِ", "{{kasra}} visible : {{lafzi}}", "« dans le livre »"],
+            ["في المُصَلّى", "{{kasra}} supposée : {{taqdiri}}", "« dans la salle de prière »"]
           ] },
           { p: "Le {{nazm}} reprend tout cela en deux {{bayt:pl}}, que vous allez lire maintenant." }
         ] }
       ],
       questions: [
-        { id: "g2a-01", q: "Qu'est-ce que le {{irab}} ?", choix: ["Le changement de la fin des mots, selon les {{amil:pl}}", "Le changement de la première lettre des mots", "La traduction d'un mot dans le dictionnaire"], bon: 0,
-          pourquoi: "Le {{irab}} est le changement de la *fin* des mots, provoqué par les {{amil:pl}} qui agissent sur eux." },
+        { id: "g2a-01", q: "Qu'est-ce que le {{irab}} ?", choix: ["Le changement de la fin des mots", "Le changement du début des mots", "Le sens d'un mot isolé"], bon: 0,
+          pourquoi: "Le {{irab}} est le changement de la fin des mots, provoqué par les {{amil:pl}} qui agissent sur eux." },
         { id: "g2a-02", q: "Dans laquelle de ces phrases le mot « livre » finit-il par une {{kasra}} ?", choix: ["[[في الكِتابِ]] « dans le livre »", "[[يَقْرَأُ الكِتابَ]] « il lit le livre »", "[[هٰذا كِتابٌ]] « voici un livre »"], bon: 0,
           pourquoi: "Après [[في]], la fin de [[الكِتابِ]] passe à la {{kasra}}. Ailleurs, c'est une {{fatha}} ou une {{damma}}." },
         { id: "g2a-03", q: "Comment appelle-t-on le mot qui fait changer la fin d'un autre ?", choix: ["Un {{amil}}", "Un {{irab}}", "Un {{kalam}}"], bon: 0,
@@ -65,24 +65,24 @@ GRAMMAIRE.push({
       ]
     },
     {
-      id: "g2b", titre: "Les quatre états : {{raf}}, {{nasb}}, {{khafd}}, {{jazm}}", resume: "Quatre états possibles pour la fin d'un mot, chacun avec son signe de base",
+      id: "g2b", titre: "Les quatre états du {{irab}}", resume: "Quatre états possibles pour la fin d'un mot, chacun avec son signe de base",
       vers: ["n015"],
       pages: [
         { titre: "Quatre états", blocs: [
           { matn: "وَأَقْسامُهُ أَرْبَعَةٌ: رَفْعٌ وَنَصْبٌ وَخَفْضٌ وَجَزْمٌ", fr: "Ses sortes sont quatre : le {{raf}}, le {{nasb}}, le {{khafd}} et le {{jazm}}." },
           { p: "Selon le {{amil}}, la fin d'un mot se trouve dans l'un de ces quatre états. Chacun a un *signe de base*, une voyelle qu'il faut savoir reconnaître." },
           { ex: [
-            ["رَفْع", "Le {{raf}} : signe de base, la {{damma}} [[ـُ]].", "[[هٰذا كِتابٌ]] « voici un livre »"],
-            ["نَصْب", "Le {{nasb}} : signe de base, la {{fatha}} [[ـَ]].", "[[يَقْرَأُ الكِتابَ]] « il lit le livre »"],
-            ["خَفْض", "Le {{khafd}} : signe de base, la {{kasra}} [[ـِ]].", "[[في الكِتابِ]] « dans le livre »"],
-            ["جَزْم", "Le {{jazm}} : signe de base, le {{sukun}} [[ـْ]].", "[[لَمْ يَذْهَبْ]] « il n'est pas parti »"]
+            ["رَفْع", "Signe de base : la {{damma}}", "[[هٰذا كِتابٌ]] « voici un livre »"],
+            ["نَصْب", "Signe de base : la {{fatha}}", "[[يَقْرَأُ الكِتابَ]] « il lit le livre »"],
+            ["خَفْض", "Signe de base : la {{kasra}}", "[[في الكِتابِ]] « dans le livre »"],
+            ["جَزْم", "Signe de base : le {{sukun}}", "[[لَمْ يَذْهَبْ]] « il n'est pas parti »"]
           ] }
         ] },
         { titre: "Le {{jazm}}, un état à part", blocs: [
           { p: "Le {{jazm}} ne se pose que sur un {{fil}}. Dans [[لَمْ يَذْهَبْ]] (« il n'est pas parti »), le petit mot [[لَمْ]] est un {{amil}} : il fait tomber la voyelle finale de [[يَذْهَبُ]], qui prend un {{sukun}}." },
           { ex: [
-            ["يَذْهَبُ", "« il part »", "{{raf}} : {{damma}} finale"],
-            ["لَمْ يَذْهَبْ", "« il n'est pas parti »", "{{jazm}} : {{sukun}} final"]
+            ["يَذْهَبُ", "{{raf}} : {{damma}} finale", "« il part »"],
+            ["لَمْ يَذْهَبْ", "{{jazm}} : {{sukun}} final", "« il n'est pas parti »"]
           ] },
           { regle: "{{raf}} : {{damma}} · {{nasb}} : {{fatha}} · {{khafd}} : {{kasra}} · {{jazm}} : {{sukun}}. Ce sont les signes de base ; le {{bab}} suivant montre que chaque état en a d'autres." }
         ] }
@@ -114,18 +114,18 @@ GRAMMAIRE.push({
           { matn: "فَلِلأَسْماءِ مِنْ ذٰلِكَ الرَّفْعُ وَالنَّصْبُ وَالخَفْضُ وَلا جَزْمَ فيها، وَلِلأَفْعالِ مِنْ ذٰلِكَ الرَّفْعُ وَالنَّصْبُ وَالجَزْمُ وَلا خَفْضَ فيها", fr: "Aux {{ism:pl}} reviennent le {{raf}}, le {{nasb}} et le {{khafd}}, sans {{jazm}} ; aux {{fil:pl}}, le {{raf}}, le {{nasb}} et le {{jazm}}, sans {{khafd}}." },
           { p: "Le {{raf}} et le {{nasb}} se trouvent *des deux côtés* : sur le {{ism}} et sur le {{fil}}." },
           { ex: [
-            ["هٰذا كِتابٌ", "« Voici un livre. »", "{{raf}} sur un {{ism}}"],
-            ["يَذْهَبُ", "« Il part. »", "{{raf}} sur un {{fil}}"],
-            ["يَقْرَأُ الكِتابَ", "« Il lit le livre. »", "{{nasb}} sur un {{ism}} : [[الكِتابَ]]"],
-            ["لَنْ يَذْهَبَ", "« Il ne partira pas. »", "{{nasb}} sur un {{fil}}, après [[لَنْ]]"]
+            ["هٰذا كِتابٌ", "{{raf}} sur un {{ism}}", "« Voici un livre. »"],
+            ["يَذْهَبُ", "{{raf}} sur un {{fil}}", "« Il part. »"],
+            ["يَقْرَأُ الكِتابَ", "{{nasb}} sur un {{ism}} : [[الكِتابَ]]", "« Il lit le livre. »"],
+            ["لَنْ يَذْهَبَ", "{{nasb}} sur un {{fil}}, après [[لَنْ]]", "« Il ne partira pas. »"]
           ] },
           { p: "Attention : parmi les {{fil:pl}}, seul le {{mudari}} change de fin. Le {{madi}}, comme [[وَضَعَ]] « il a posé », garde toujours la même. Le {{nazm}} le précise : [[الْفِعْلِ الْمُضَارِعِ]]." }
         ] },
         { titre: "Un état réservé à chacun", blocs: [
           { p: "Les deux autres états ne se partagent pas." },
           { ex: [
-            ["في المَدْرَسَةِ", "« à l'école »", "Le {{khafd}} : seulement sur un {{ism}}"],
-            ["لَمْ يَذْهَبْ", "« il n'est pas parti »", "Le {{jazm}} : seulement sur un {{fil}}"]
+            ["في المَدْرَسَةِ", "{{khafd}} : seulement sur un {{ism}}", "« à l'école »"],
+            ["لَمْ يَذْهَبْ", "{{jazm}} : seulement sur un {{fil}}", "« il n'est pas parti »"]
           ] },
           { p: "C'est logique : les {{huruf-khafd}}, comme [[في]], se placent devant un {{ism}}, jamais devant un {{fil}}." },
           { regle: "{{khafd}} : jamais sur un {{fil}}. {{jazm}} : jamais sur un {{ism}}." }
