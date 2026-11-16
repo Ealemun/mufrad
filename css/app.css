@@ -243,11 +243,11 @@ select.field { appearance: auto; }
 a.linkbtn { display: inline-flex; align-items: center; }
 .legal .btn.small { align-self: flex-start; }
 /* « Réviser au choix » : panneau haut qui défile, un titre d'unité repliable par ligne,
-   et le bouton de départ collé en bas du panneau */
+   et le bouton de départ collé en bas du panneau (bottom négatif : la marge intérieure du panneau ne compte pas) */
 .sheet.tall { max-height: 88vh; overflow-y: auto; }
 .sheet h2 { margin: 0; }
 .ugroup { padding: 6px 0; border-top: 2px solid var(--line); }
-.dock { position: sticky; bottom: 0; margin: 0 -18px -24px; padding: 12px 18px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 2px solid var(--line); z-index: 2; }
+.dock { position: sticky; bottom: -24px; margin: 0 -18px -24px; padding: 12px 18px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 2px solid var(--line); z-index: 2; }
 /* Révision du jour et révision au choix côte à côte : la première prend plus de place */
 .row.duo { flex-wrap: nowrap; }
 .row.duo .btn { width: auto; flex: 1; }
