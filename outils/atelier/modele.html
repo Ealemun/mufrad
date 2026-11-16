@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mufrad — atelier des tracés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Scheherazade+New:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Couleurs de l'application (thème clair) : le tableau les lit dans ces variables */
+:root { --paper: #f3eee2; --surface: #fffdf7; --ink: #191c2c; --muted: #6b6f86; --line: #ddd3bd; --gold: #c9962a; --gold-ink: #7a580b; --ok: #3f7d4e; --revoir: #b5532f; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.4 Fredoka, sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 2px solid var(--line); padding: 12px 20px 10px; }
+.titre { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 22px; font-weight: 600; }
+h1 span { font-family: "Scheherazade New", serif; font-size: 28px; color: var(--gold-ink); margin-left: 6px; }
+.compte { color: var(--muted); }
+.reglages { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-top: 8px; }
+.groupe { display: flex; align-items: center; gap: 6px; }
+.groupe > b { font-weight: 500; color: var(--muted); font-size: 13px; }
+.seg { display: inline-flex; border: 2px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: none; font: inherit; font-size: 14px; padding: 4px 12px; cursor: pointer; color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--gold); color: #fff; }
+.btn { border: 2px solid var(--line); background: var(--surface); border-radius: 999px; font: inherit; font-size: 14px; padding: 4px 12px; cursor: pointer; color: var(--ink); }
+.btn:hover, .seg button:hover { border-color: var(--gold); }
+input[type=range] { accent-color: var(--gold); }
+.plume { display: none; } body.main .plume { display: flex; }
+main { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; padding: 16px 20px 60px; }
+.carte { background: var(--surface); border: 2px solid var(--line); border-bottom-width: 4px; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+.carte.bon { border-color: #9cc5a6; } .carte.revoir { border-color: #e2a387; }
+.vue { position: relative; aspect-ratio: 0.6 / 0.6; overflow: hidden; cursor: zoom-in; }
+.vue canvas { position: absolute; top: 0; height: 100%; }
+.pied { padding: 6px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+.nom { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.nom b { font-weight: 500; } .nom small { font-weight: 400; color: var(--muted); font-size: 11px; } .nom .ar { font-family: "Scheherazade New", serif; font-size: 22px; line-height: 1; }
+.ligne { display: flex; align-items: center; gap: 6px; }
+.ligne input[type=range] { flex: 1; min-width: 0; }
+.rond { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); cursor: pointer; font-size: 13px; padding: 0; color: var(--ink); }
+.etat { display: flex; gap: 6px; }
+.etat button { flex: 1; border: 2px solid var(--line); background: none; border-radius: 10px; font: inherit; font-size: 13px; padding: 3px 0; cursor: pointer; color: var(--ink); }
+.etat button.oui[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+.etat button.non[aria-pressed="true"] { background: var(--revoir); border-color: var(--revoir); color: #fff; }
+textarea { width: 100%; font: inherit; font-size: 13px; border: 2px solid var(--line); border-radius: 10px; padding: 4px 8px; resize: vertical; min-height: 34px; background: #fff; color: var(--ink); }
+.carte:not(.revoir) textarea { display: none; }
+/* Vue agrandie */
+.grand { position: fixed; inset: 0; z-index: 10; background: rgba(25, 28, 44, .55); display: none; align-items: center; justify-content: center; padding: 16px; }
+.grand.ouvert { display: flex; }
+.boite { background: var(--surface); border-radius: 18px; padding: 14px; width: min(920px, 100%); max-height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.boite .vueG { position: relative; width: 100%; aspect-ratio: 1 / 0.6; border: 2px solid var(--line); border-radius: 14px; overflow: hidden; }
+.boite canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.boite .ligne { gap: 10px; }
+.temps { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 44px; text-align: right; }
+#bilanTexte { display: none; width: 100%; min-height: 120px; }
+footer { padding: 0 20px 30px; color: var(--muted); font-size: 13px; }
+</style></head>
+<body class="main">
+<header>
+  <div class="titre"><h1>Atelier des tracés <span>مُفْرَد</span></h1><span class="compte" id="compte"></span></div>
+  <div class="reglages">
+    <div class="groupe"><b>Forme</b><div class="seg" id="forme"><button data-v="isolee" aria-pressed="true">Isolée</button><button data-v="debut" aria-pressed="false">Début</button><button data-v="milieu" aria-pressed="false">Milieu</button><button data-v="fin" aria-pressed="false">Fin</button></div></div>
+    <div class="groupe"><b>Modèle</b><div class="seg" id="modele"><button data-v="main" aria-pressed="true">À la main</button><button data-v="police" aria-pressed="false">Police</button></div></div>
+    <div class="groupe"><b>Vitesse</b><div class="seg" id="vitesse"><button data-v="0.5" aria-pressed="false">0,5×</button><button data-v="1" aria-pressed="true">1×</button><button data-v="2" aria-pressed="false">2×</button></div></div>
+    <div class="groupe"><b>Repos</b><div class="seg" id="fleches"><button data-v="1" aria-pressed="true">Flèches</button><button data-v="0" aria-pressed="false">Lettre seule</button></div></div>
+    <div class="groupe plume"><b>Plume</b><label>largeur <input type="range" id="largeur" min="14" max="60" value="34"></label><label>angle <input type="range" id="angle" min="0" max="90" value="60"></label><span class="temps" id="plumeVal"></span></div>
+    <button class="btn" id="rejouer">Tout rejouer</button>
+    <button class="btn" id="bilan">Copier le bilan</button>
+  </div>
+  <textarea id="bilanTexte" readonly></textarea>
+</header>
+<main id="grille"></main>
+<footer>« Forme » : la lettre seule, ou telle qu'elle s'écrit au début, au milieu ou à la fin d'un mot (les formes de position sont un premier jet, à vérifier). Chaque carte se joue en boucle. Le curseur sous une lettre arrête l'animation et montre l'instant choisi ; ▶ relance. Un clic sur la lettre l'ouvre en grand.
+« Police » : la lettre de l'application qui s'allume (comme sur le tableau). « À la main » : la même lettre écrite par une plume qui suit exactement le chemin, sans police.
+Vos « Bon » et « À revoir » (avec la note) restent dans ce navigateur ; « Copier le bilan » donne le texte à me renvoyer.</footer>
+<div class="grand" id="grand"><div class="boite">
+  <div class="nom"><b id="gNom"></b><button class="btn" id="gFermer">Fermer</button></div>
+  <div class="vueG"><canvas id="gToile"></canvas></div>
+  <div class="ligne"><button class="rond" id="gPlay">▶</button><button class="rond" id="gMoins">◀</button><input type="range" id="gCurseur" min="0" max="1000" value="0"><button class="rond" id="gPlus">▶︎</button><span class="temps" id="gTemps"></span></div>
+</div></div>
+<script>/*TB_LETTRES*/</script>
+<script>/*TABLEAU*/</script>
+<script>/*ATELIER*/</script>
+</body></html>
