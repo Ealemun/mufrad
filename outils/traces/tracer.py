@@ -56,6 +56,9 @@ def rdp(p, eps):
     return [p[0], p[-1]]
 
 def tracer(L, f, traits):
+    # Une forme peut être tracée sur le dessin d'une autre : {"glyphe": "fin", "traits": [...]} (la forme isolée de د
+    # reprend le dessin de sa forme de fin, pour que la lettre ait la même allure partout)
+    if isinstance(traits, dict): f, traits = traits["glyphe"], traits["traits"]
     a, sq, pts = analyse(L, f); info = graphe(sq); xs, ys, idx = info
     def accroche(w):
         d = (xs - w[0]) ** 2 + (ys - w[1]) ** 2; i = int(d.argmin()); return i, float(np.sqrt(d[i]))

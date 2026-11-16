@@ -8,7 +8,12 @@ lignes = []
 for L in ordre:
     if L not in ch: continue
     parts = [f'{f}: ' + json.dumps(ch[L][f], separators=(",", ":")) for f in ["debut", "milieu", "fin"] if f in ch[L]]
-    lignes.append(f'  "{L}": {{ ' + ", ".join(parts) + ' }')
+    if parts: lignes.append(f'  "{L}": {{ ' + ", ".join(parts) + ' }')
 s = open(F).read()
+# Une forme isolée tracée ici remplace la ligne de la lettre dans TB_LETTRES
+for L in ordre:
+    if L in ch and "isolee" in ch[L]:
+        s, n = re.subn(r'^  "' + L + r'": \[.*?\],?$', lambda m: f'  "{L}": ' + json.dumps(ch[L]["isolee"], separators=(",", ":")) + ("," if m.group(0).endswith(",") else ""), s, count=1, flags=re.M)
+        assert n == 1, L
 s = re.sub(r'const TB_FORMES = \{\n.*?\n\};\n', 'const TB_FORMES = {\n' + ",\n".join(lignes) + '\n};\n', s, flags=re.S)
 open(F, 'w').write(s); print("TB_FORMES réécrit :", len(lignes), "lettres")
