@@ -325,3 +325,4 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 .voixcarte { display: flex; align-items: center; gap: 12px; flex-direction: row; }
 .voixcarte > span:nth-child(2) { flex: 1; }
 .voixcarte .btn { width: auto; }
+.guide a.icon { text-decoration: none; display: grid; place-items: center; }   /* ✕ de sortie : un bouton, pas un lien souligné */
