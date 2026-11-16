@@ -345,6 +345,22 @@ S.cards = {};
 }
 // Après une action sur les voix, un message bref s'affiche au-dessus des onglets
 toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.includes('class="toast"') && $foot.innerHTML.includes("Voix remise"); toastMsg = ""; render();
+// Enregistrement guidé : les mots sans voix d'abord, un mot à la fois ; ✓ garde ce mot seulement et passe au suivant
+{
+  const l = UNITS[1].lessons[0][0], q = guideQueue(l);
+  const ordreOk = q.every((id, k) => k === 0 || !(voiceState(id) === "aucun" && voiceState(q[k - 1]) === "autre"));
+  startGuide(q); location.hash = "#enregistrer";
+  const v1 = viewGuide();
+  pending = [{ id: q[0], url: "blob:g", data: null, preset: null }, { id: "autre-attente", url: "blob:x", data: null, preset: null }];
+  const v2 = viewGuide();
+  const avantClips = Object.keys(CLIPS).length;
+  keepOne(q[0]); guide.faits++; guide.i++;
+  out.guide = { ordre: ordreOk && q.length > 0, micro: v1.includes(BY_ID[q[0]].ar) && (v1.includes('data-act="rec"') || v1.includes("micro n'est pas disponible")),
+    choix: v2.includes('data-act="g-keep"') && v2.includes('data-act="g-redo"'), garde: Object.keys(CLIPS).length === avantClips + 1 && pending.length === 1 && pending[0].id === "autre-attente",
+    suite: guide.i === 1 && viewGuide().includes((2) + "/" + q.length) };
+  guide.i = q.length; out.guideFin = viewGuide().includes("1 mot enregistré");
+  delete CLIPS[q[0]]; pending = []; guide = null; location.hash = "";
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -440,6 +456,8 @@ assert.deepStrictEqual(r.tableauFiche, ["w37", null, 240, "exo:fr2ar", false, 2]
 assert.deepStrictEqual(r.retirees, { liste: "a", bouton: true }, "Voix retirées : seules celles qui n'ont pas été remplacées peuvent être remises");
 assert.deepStrictEqual(r.remettre, { local: true, sansLocal: true, admin: true, sansAccord: true }, "Onglet Voix : remettre dans le partage un enregistrement retiré");
 assert.ok(r.toast, "Message bref visible après une action sur les voix");
+assert.deepStrictEqual(r.guide, { ordre: true, micro: true, choix: true, garde: true, suite: true }, "Enregistrement guidé : ordre, micro, choix, garder un seul mot, mot suivant");
+assert.ok(r.guideFin, "Enregistrement guidé : écran de fin");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

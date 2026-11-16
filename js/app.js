@@ -487,7 +487,7 @@ function render() {
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">${ESSAI ? "essai · " + esc(ESSAI) : "alpha"}</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     const sh = document.querySelector ? document.querySelector(".sheet") : null, shTop = sh ? sh.scrollTop : 0;
-    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : viewHome();
+    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "enregistrer" ? viewGuide() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
     if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
@@ -496,7 +496,7 @@ function render() {
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
     }
-    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && r === "partage") || (h === "reglages" && r === "statistiques") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage" && r !== "statistiques") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
+    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && (r === "partage" || r === "enregistrer")) || (h === "reglages" && r === "statistiques") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage" && r !== "statistiques" && r !== "enregistrer") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
   }
 }
 
@@ -525,6 +525,13 @@ function markKnown(items) {
   return n;
 }
 
+// Carte du parcours : les mots des leçons déjà vues que personne n'a encore enregistrés, avec un raccourci
+// vers l'enregistrement guidé. Seulement si le micro est disponible et que la base est joignable.
+function voixCarte() {
+  const n = sb && canRecord() ? waitingVoices().length : 0;
+  return n ? `<section class="card voixcarte"><span class="vstat aucun">${ICON_MIC}</span><span><b>${plural(n, "mot")}</b> ${n > 1 ? "attendent" : "attend"} une voix</span>
+      <button class="btn small gold" data-act="g-start">Enregistrer</button></section>` : "";
+}
 function viewHome() {
   const all = ITEMS.length, known = ITEMS.filter(isKnown).length, seen = ITEMS.filter(isSeen).length, due = ITEMS.filter(isDue).length;
   const next = nextLesson();
@@ -564,6 +571,7 @@ function viewHome() {
       <div class="legend"><span class="a"><i></i>${known} acquis</span><span class="b"><i></i>${seen - known} en cours</span><span><i></i>${all - seen} à découvrir</span></div>
       ${daily}${revs}${resume}
       ${gramDue().length ? `<a class="btn ghost" href="#grammaire">Grammaire : ${plural(gramDue().length, "carte")} à revoir</a>` : ""}</section>
+    ${voixCarte()}
     <div class="row between"><h3>Parcours</h3><button class="linkbtn" data-act="${anyOpen ? "fold-all" : "unfold-all"}">${anyOpen ? "Tout replier" : "Tout déplier"}</button></div>
     ${path}${sheet === "choix" ? viewPick() : sheet ? viewSheet(sheet) : ""}`;
 }
@@ -901,6 +909,61 @@ async function toggleRecord(id) {
   }
 }
 
+// --- Enregistrement guidé (#enregistrer) : un mot à la fois, en grand, sans rien à lire.
+//   1. le mot arabe en grand (et sa voix actuelle, s'il en a une, pour s'en inspirer) ;
+//   2. un gros bouton micro : on touche pour enregistrer, on retouche pour arrêter ;
+//   3. on réécoute, puis ✓ (garder : déposé et envoyé comme d'habitude) ou ↺ (recommencer) ;
+//   4. mot suivant. On commence par les mots que personne n'a encore enregistrés.
+let guide = null;   // { ids: [éléments à enregistrer, dans l'ordre], i: position, faits: nombre gardés }
+// Mots d'une leçon à proposer : d'abord ceux sans aucune voix, puis ceux qui n'ont que la voix d'autres personnes
+function guideQueue(l) {
+  const its = itemsOf(l).filter(it => voiceState(it.id) !== "moi");
+  return its.filter(it => voiceState(it.id) === "aucun").concat(its.filter(it => voiceState(it.id) === "autre")).map(it => it.id);
+}
+// Mots qui attendent une voix, dans les leçons déjà vues (pour la carte du parcours)
+function waitingVoices() {
+  return UNITS.flatMap(u => u.lessons.map(x => x[0])).filter(l => lessonStats(l).seen > 0)
+    .flatMap(l => itemsOf(l)).filter(it => voiceState(it.id) === "aucun").map(it => it.id);
+}
+function startGuide(ids) {
+  if (!ids.length) return;
+  guide = { ids, i: 0, faits: 0 };
+  if (route() === "enregistrer") render(); else location.hash = "#enregistrer";
+}
+// Garde l'enregistrement en attente de ce mot seulement (les autres attentes de l'onglet Voix ne bougent pas)
+function keepOne(id) {
+  const autres = pending.filter(p => p.id !== id);
+  pending = pending.filter(p => p.id === id);
+  const n = confirmPending();
+  pending = autres.concat(pending);
+  return n;
+}
+function viewGuide() {
+  const quitter = `<a class="icon" href="#voix" aria-label="Quitter">✕</a>`;
+  if (!guide || guide.i >= guide.ids.length) {
+    const n = guide ? guide.faits : 0;
+    return `<section class="card guide"><div class="row between">${quitter}</div>
+        <div class="gfin">${n ? "✓" : ""}</div><h2>${n ? plural(n, "mot enregistré") : "Rien à enregistrer"}</h2>
+        ${n && !(sb && me && hasConsent) ? `<p class="muted">Ils restent sur cet appareil. Pour les partager, connectez-vous et signez l'accord (roue dentée de l'onglet Voix).</p>` : ""}
+        <a class="btn" href="#voix">Terminer</a></section>`;
+  }
+  const id = guide.ids[guide.i], it = BY_ID[id], p = pending.find(x => x.id === id), on = rec && rec.id === id;
+  const pct = 100 * guide.i / guide.ids.length, modele = voicesFor(id).length;
+  // Le gros bouton change selon l'étape : micro (enregistrer), carré rouge (arrêter), lecture (réécouter)
+  const gros = on ? `<button class="gmic rec" data-act="rec" data-id="${id}" aria-label="Arrêter l'enregistrement"><span class="carre"></span></button>`
+    : p ? `<button class="gmic play" data-act="pend-play" data-id="${id}" aria-label="Réécouter">${ICON_SPEAK}</button>`
+    : `<button class="gmic" data-act="rec" data-id="${id}" aria-label="Enregistrer">${ICON_MIC}</button>`;
+  return `<section class="card guide">
+      <div class="sess-head">${quitter}<div class="bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div><span class="muted">${guide.i + 1}/${guide.ids.length}</span></div>
+      <div class="gmot">${AR(it.ar)}<p class="muted">${esc(it.type === "letter" ? it.name : it.fr)}</p>
+        ${modele && !p && !on ? `<button class="mini" data-act="speak" data-id="${id}" aria-label="Écouter la voix actuelle">${ICON_SPEAK}</button>` : ""}</div>
+      ${canRecord() ? gros : `<p>Le micro n'est pas disponible sur cet appareil.</p>`}
+      ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
+      ${p && !on ? `<div class="row duo"><button class="btn ghost" data-act="g-redo" data-id="${id}" aria-label="Recommencer">↺</button><button class="btn good" data-act="g-keep" data-id="${id}" aria-label="Garder">✓</button></div>`
+        : `<button class="linkbtn" data-act="g-skip" ${on ? "disabled" : ""}>Passer ›</button>`}
+    </section>`;
+}
+
 // Micros disponibles (leurs noms ne sont connus qu'une fois le micro autorisé)
 let mics = [];
 async function loadMics() {
@@ -997,6 +1060,7 @@ function viewVoices() {
       ${micUi}${chips}</section>
     ${wait}
     <section class="panel"><h3>${lessonHtml(voiceLesson)} · ${have} / ${its.length}</h3>
+      ${micro && guideQueue(voiceLesson).length ? `<button class="btn gold" data-act="g-start" data-l="${voiceLesson}">${ICON_MIC} Enregistrer · ${guideQueue(voiceLesson).length}</button>` : ""}
       <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup. Vous les écouterez avant de les déposer.</p>
       <label class="btn ghost" for="f-bulk">Ajouter les ${its.length} fichiers de la leçon, dans l'ordre</label>
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">
@@ -1851,6 +1915,11 @@ document.addEventListener("click", e => {
     }
     case "setname": { const f = document.getElementById("sb-nom"); setName(f ? f.value.trim() : ""); return; }
     case "rec": toggleRecord(el.dataset.id); return;                       // démarre ou arrête le micro
+    // Enregistrement guidé
+    case "g-start": startGuide(el.dataset.l ? guideQueue(Number(el.dataset.l)) : waitingVoices().slice(0, 10)); return;
+    case "g-keep": keepOne(el.dataset.id); guide.faits++; guide.i++; uiMsg = ""; break;    // ✓ : déposé, puis mot suivant
+    case "g-redo": dropPending(el.dataset.id); toggleRecord(el.dataset.id); return;         // ↺ : on efface et on réenregistre
+    case "g-skip": if (guide) { dropPending(guide.ids[guide.i]); guide.i++; } uiMsg = ""; break;
     case "pend-play": {                                                    // écoute d'un enregistrement en attente
       const p = pending.find(x => x.id === el.dataset.id);
       if (p) playPending(p);

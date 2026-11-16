@@ -307,3 +307,21 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 .st-hit:hover + .st-bar, g:hover .st-bar { fill: var(--primary-deep); }
 .st-axe { stroke: var(--line); stroke-width: 1; }
 .st-lbl { fill: var(--muted); font-size: 11px; font-family: var(--font-ui); }
+/* Enregistrement guidé : le mot en très grand, un gros bouton rond au centre, ✓ et ↺ en dessous */
+.guide { display: flex; flex-direction: column; gap: 18px; align-items: stretch; text-align: center; }
+.guide .sess-head { padding: 0; }
+.gmot .ar { font-size: 64px; line-height: 1.5; }
+.gmot .mini { margin: 6px auto 0; }
+.gmic { width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; border: 0; background: var(--gold); color: #1c1503; display: grid; place-items: center; cursor: pointer; box-shadow: 0 6px 0 var(--gold-deep); }
+.gmic svg { width: 52px; height: 52px; display: block; }
+.gmic.play { background: var(--primary-soft); color: var(--mid); box-shadow: 0 6px 0 var(--line-deep); }
+.gmic.rec { background: var(--bad); box-shadow: 0 6px 0 var(--bad-deep); }
+.gmic.rec .carre { width: 36px; height: 36px; border-radius: 6px; background: #fff; }
+@media (prefers-reduced-motion: no-preference) { .gmic.rec { animation: pulse 1.2s ease-in-out infinite; } }
+@keyframes pulse { 50% { transform: scale(1.06); } }
+.guide .row.duo .btn { font-size: 28px; }
+.gfin { font-size: 64px; color: var(--good); }
+.btn svg { width: 22px; height: 22px; vertical-align: -4px; }
+.voixcarte { display: flex; align-items: center; gap: 12px; flex-direction: row; }
+.voixcarte > span:nth-child(2) { flex: 1; }
+.voixcarte .btn { width: auto; }
