@@ -85,7 +85,8 @@ function gBuildQuestion(q) {
 }
 // --- Comparer de l'arabe écrit par l'apprenant : on ne tient compte ni des voyelles ni de la ponctuation,
 // et on ne distingue pas les formes de l'alif ni le ى final du ي (l'écriture est déjà assez difficile au clavier).
-const gBare = t => String(t).replace(/[\u064B-\u0652\u0670\u0640«»،؛:.!؟\s]/g, "");
+// On retire aussi le petit wāw (ۥ, U+06E5) que l'édition du poème imprime après هُ pour l'allonger
+const gBare = t => String(t).replace(/[\u064B-\u0652\u0670\u0640\u06E5«»،؛:.!؟\s]/g, "");
 const gNorm = t => gBare(t).replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي");
 // Avec les voyelles : on compare lettres ET voyelles, mais sans exiger ce que personne n'écrit à la main :
 // le sukūn, la voyelle brève qui précède sa lettre d'allongement (ـَا ـِي ـُو ـَى), et l'ordre shadda / voyelle.
