@@ -257,3 +257,5 @@ a.linkbtn { display: inline-flex; align-items: center; }
 .filters select:first-of-type { grid-column: 1 / -1; }
 .lrow { padding: 8px 0; border-bottom: 2px solid var(--line); }
 .mini.ok { color: var(--good); border-color: var(--good); }
+.arow > .pill { align-self: flex-start; }   /* « sans voix » garde sa taille au lieu de s'étirer */
+.filters select { min-width: 0; text-overflow: ellipsis; }

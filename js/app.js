@@ -1238,8 +1238,8 @@ function viewAdminPage() {
     const scope = (adminLesson === "all" ? ITEMS : itemsOf(Number(adminLesson))).filter(it => keep(count(it)));
     const opt = (v, t, cur) => `<option value="${v}" ${String(cur) === String(v) ? "selected" : ""}>${esc(t)}</option>`;
     const lecons = opt("all", "Toutes les leçons", adminLesson) + UNITS.flatMap(u => u.lessons.map(([l, title]) => opt(l, lessonShort(l) + " · " + title, adminLesson))).join("");
-    const etats = [["all", "Tous les éléments"], ["none", "Sans voix"], ["some", "Avec voix"], ["multi", "Plusieurs voix"]].map(([k, t]) => opt(k, t, adminState)).join("");
-    const lects = opt("", "Tous les lecteurs", adminReader || "") + READERS.map(a => opt(a, readerLabel(a), adminReader || "")).join("");
+    const etats = [["all", "Avec ou sans voix"], ["none", "Sans voix"], ["some", "Avec voix"], ["multi", "Plusieurs voix"]].map(([k, t]) => opt(k, t, adminState)).join("");
+    const lects = opt("", "Tous lecteurs", adminReader || "") + READERS.map(a => opt(a, readerLabel(a), adminReader || "")).join("");
     body = `<div class="filters">
         <label class="vh" for="adm-l">Leçon</label><select id="adm-l" class="field" data-adm="lesson">${lecons}</select>
         <label class="vh" for="adm-e">État</label><select id="adm-e" class="field" data-adm="state">${etats}</select>
