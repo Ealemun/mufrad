@@ -270,3 +270,16 @@ a.linkbtn { display: inline-flex; align-items: center; }
 .seg.quatre { display: grid; grid-template-columns: 1fr 1fr; }
 /* Mes envois : une ligne par envoi */
 .avoice .ar { font-size: 24px; }
+/* Voix : l'état de chaque élément se voit sans lire.
+   Doré = mon enregistrement ; bleu = la voix d'une autre personne ; pointillé = à enregistrer. */
+.vstat { flex: none; width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center; border: 2px solid transparent; }
+.vstat svg { width: 18px; height: 18px; }
+.vstat.moi { background: var(--gold); color: #1c1503; }
+.vstat.autre { background: var(--primary-soft); color: var(--mid); border-color: var(--mid); }
+.vstat.aucun { border: 2px dashed var(--muted); color: var(--muted); }
+.vrow.v-moi { background: color-mix(in srgb, var(--gold) 14%, transparent); border-radius: 12px; padding-left: 8px; padding-right: 8px; }
+.vrow .vstat + .ar { margin-right: auto; }
+.dot-moi { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--gold); margin-right: 6px; vertical-align: middle; }
+.vlegend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 14px; color: var(--muted); }
+.vlegend span { display: inline-flex; align-items: center; gap: 6px; }
+.vlegend .vstat { width: 26px; height: 26px; } .vlegend .vstat svg { width: 14px; height: 14px; }

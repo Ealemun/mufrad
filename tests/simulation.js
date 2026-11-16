@@ -195,6 +195,10 @@ drillSel = {};
   ({ sb, me, myLevel, hasConsent, recos, voixRows } = sauf);
   adminTab = null; adminLesson = "all"; adminState = "all";
 }
+// Voix : chaque élément affiche son état (moi / autre voix / à enregistrer) ; la leçon où j'ai enregistré a un point doré
+const idV = itemsOf(voiceLesson)[0].id, avantV = voiceState(idV);
+CLIPS[idV] = { url: "blob:essai" }; const pageV = viewVoices(); delete CLIPS[idV];
+out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-moi"'), badge: pageV.includes('class="vstat aucun"'), point: pageV.includes('class="dot-moi"') };
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -259,6 +263,7 @@ assert.deepStrictEqual(r.reviser, { unitesRepliees: true, inactif: true, actif: 
 assert.deepStrictEqual(r.admin, { attente: true, lecteurs: true, filtres: true, envois: true, roue: true, plusDansVoix: true },
   "Partage des voix : vues de gestion, mes envois, roue dentée et pastille ; l'onglet Voix allégé");
 assert.ok(r.adminSimple, "Partage des voix : un utilisateur voit seulement l'accord et ses envois");
+assert.deepStrictEqual(r.voixEtat, { aucun: true, moi: true, badge: true, point: true }, "Voix : état de chaque élément visible (moi, autre, à enregistrer)");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

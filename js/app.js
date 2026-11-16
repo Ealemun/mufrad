@@ -438,6 +438,7 @@ const $top = document.getElementById("top"), $view = document.getElementById("vi
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const AR = (txt, cls) => `<span class="ar ${cls || ""}" lang="ar" dir="rtl">${esc(txt)}</span>`;
 const ICON_SPEAK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+const ICON_MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>';
 const ICON_FLAME = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 3.5 5 5.5 5 10.5A5 5 0 0 1 12 18a5 5 0 0 1-5-5.5c0-1.8.8-3.2 1.8-4.3.3 1.6 1 2.5 2 3C10.300 8.500 10.800 5 12 2z"/><path d="M6 20.500h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const speakBtn = (id, label) => {
   if (!canSpeak(id)) return "";
@@ -890,12 +891,24 @@ async function askMics() {
   render();
 }
 
+// État de la voix d'un élément, pour le repérer d'un coup d'œil dans l'onglet Voix :
+//   "moi"   : j'ai un enregistrement (sur cet appareil, ou partagé par moi) — doré, micro plein ;
+//   "autre" : seulement la voix d'autres personnes — bleu, haut-parleur ;
+//   "aucun" : personne ne l'a encore enregistré — cercle en pointillé, micro.
+function voiceState(id) {
+  const mineShared = typeof voixRows !== "undefined" && me && voixRows.some(v => v.element === id && v.auteur === me.id && (v.etat === "publie" || v.etat === "recommande"));
+  if (CLIPS[id] || mineShared) return "moi";
+  return voicesFor(id).length ? "autre" : "aucun";
+}
+const VOICE_BADGE = { moi: ["Mon enregistrement", ICON_MIC], autre: ["Voix d'une autre personne", ICON_SPEAK], aucun: ["Pas encore enregistré", ICON_MIC] };
+const voiceBadge = st => `<span class="vstat ${st}" role="img" aria-label="${VOICE_BADGE[st][0]}" title="${VOICE_BADGE[st][0]}">${VOICE_BADGE[st][1]}</span>`;
 function viewVoices() {
   const its = itemsOf(voiceLesson), have = its.filter(it => AUDIO[it.id]).length;
   const total = ITEMS.filter(it => AUDIO[it.id]).length, micro = canRecord();
   const chips = UNITS.map(u => `<div class="chips">` + u.lessons.map(([l]) => {
     const n = itemsOf(l).filter(it => AUDIO[it.id]).length, t = itemsOf(l).length;
-    return `<button class="chip" data-act="voice-lesson" data-l="${l}" aria-pressed="${l === voiceLesson}">${lessonShort(l)} · ${n}/${t}</button>`;
+    const moi = itemsOf(l).some(it => voiceState(it.id) === "moi");
+    return `<button class="chip" data-act="voice-lesson" data-l="${l}" aria-pressed="${l === voiceLesson}">${moi ? `<i class="dot-moi" aria-label="j'y ai enregistré"></i>` : ""}${lessonShort(l)} · ${n}/${t}</button>`;
   }).join("") + `</div>`).join("");
   // Choix du micro : utile sur ordinateur, où il y en a souvent plusieurs
   const micUi = !micro ? "" : mics.length
@@ -917,9 +930,10 @@ function viewVoices() {
     const waiting = pending.some(p => p.id === it.id), on = rec && rec.id === it.id, nb = voicesFor(it.id).length;
     // Ma voix partagée pour cet élément, si elle existe : je peux la retirer du partage
     const mine = typeof voixRows !== "undefined" && me ? voixRows.find(v => v.element === it.id && v.auteur === me.id && (v.etat === "publie" || v.etat === "recommande")) : null;
-    return `<div class="vrow">${AR(it.ar)}
+    const st = voiceState(it.id);
+    return `<div class="vrow v-${st}">${voiceBadge(st)}${AR(it.ar)}
       <div class="vact">
-        ${waiting ? `<span class="pill learn">en attente</span>` : nb ? `<button class="mini" data-act="speak" data-id="${it.id}" aria-label="Écouter">${ICON_SPEAK}</button>${nb > 1 ? `<button class="mini txt" data-act="voice-next" data-id="${it.id}" aria-label="Écouter une autre voix">↻ ${voiceIndex(it.id) + 1}/${nb}</button>` : ""}` : `<span class="pill">sans voix</span>`}
+        ${waiting ? `<span class="pill learn">en attente</span>` : nb ? `<button class="mini" data-act="speak" data-id="${it.id}" aria-label="Écouter">${ICON_SPEAK}</button>${nb > 1 ? `<button class="mini txt" data-act="voice-next" data-id="${it.id}" aria-label="Écouter une autre voix">↻ ${voiceIndex(it.id) + 1}/${nb}</button>` : ""}` : ""}
         ${micro ? `<button class="mini txt ${on ? "rec" : ""}" data-act="rec" data-id="${it.id}" ${rec && !on ? "disabled" : ""}>${on ? "Arrêter" : "Enregistrer"}</button>` : ""}
         <label class="mini txt" for="f-${it.id}">Fichier</label>
         <input class="vh" type="file" accept="audio/*" id="f-${it.id}" data-clip="${it.id}">
@@ -937,6 +951,7 @@ function viewVoices() {
       <label class="btn ghost" for="f-bulk">Ajouter les ${its.length} fichiers de la leçon, dans l'ordre</label>
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">
       ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
+      <div class="vlegend">${["moi", "autre", "aucun"].map(st => `<span>${voiceBadge(st)}${st === "moi" ? "moi" : st === "autre" ? "autre voix" : "à enregistrer"}</span>`).join("")}</div>
       <div>${rows}</div></section>
 `;
 }
