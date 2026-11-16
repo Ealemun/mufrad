@@ -3,6 +3,11 @@
 import json, os, re
 ICI = os.path.dirname(os.path.abspath(__file__)); F = os.path.join(ICI, '..', '..', 'js', 'tableau-lettres.js')
 ch = json.load(open('chemins.json'))
+# Les retouches faites à la main dans GIMP (gimp.py retouches) passent avant les tracés calculés depuis la police
+R = os.path.join(ICI, 'retouches.json')
+if os.path.exists(R):
+    for L, fs in json.load(open(R)).items():
+        for f, traits in fs.items(): ch.setdefault(L, {})[f] = traits
 ordre = "ا ب ت ث ج ح خ د ذ ر ز س ش ص ض ط ظ ع غ ف ق ك ل م ن ه و ي".split()
 lignes = []
 for L in ordre:
