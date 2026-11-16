@@ -158,12 +158,16 @@ out.gramFaite = gDone(gLessons()[0]); out.gramCartes = Object.keys(S.cards).filt
 S.offset = (S.offset || 0) + 3; out.gramDues = gramDue().length; gStartReview(); out.gramRevues = gJoue(true); gs = null; S.offset -= 3;
 S.nazm = false; gStartLesson("g1b"); out.gramSansPoeme = gs.steps.every(s => s.t !== "verses" && !(s.q && s.q.verse)); gs = null; S.nazm = true;
 S.cards = {}; S.days = {}; location.hash = "";
-// Réviser : les unités sont repliées sauf celle en cours ; cocher une leçon fait apparaître le bouton collé en bas
+// « Réviser au choix » (panneau du parcours) : les unités sont repliées sauf celle en cours ;
+// le bouton de départ, collé en bas, s'active dès qu'une leçon est cochée. Le glossaire ne contient plus ce choix.
 drillSel = {}; drillOpen = {};
-const vide = viewWords(), deplies = (vide.match(/data-act="drill-unit"[^>]*aria-expanded="true"/g) || []).length;
-drillSel[1] = true; const coche = viewWords();
+const vide = viewPick(), deplies = (vide.match(/data-act="drill-unit"[^>]*aria-expanded="true"/g) || []).length;
+drillSel[1] = true; const coche = viewPick();
+sheet = "choix"; const accueil = viewHome(); sheet = null;
 out.reviser = { unitesRepliees: deplies === 1 && (vide.match(/data-act="drill-unit"/g) || []).length > 2,
-  sansDock: !vide.includes('class="dock"'), dock: /class="dock"><button class="btn" data-act="drill-start">Réviser/.test(coche) };
+  inactif: /data-act="drill-start" disabled/.test(vide), actif: /data-act="drill-start" >Réviser/.test(coche),
+  boutonParcours: viewHome().includes('data-act="pick-open"'), panneau: accueil.includes('aria-label="Réviser au choix"'),
+  glossaire: !viewWords().includes("drill-toggle") };
 drillSel = {};
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
@@ -224,7 +228,8 @@ assert.ok(/^p+vq+$/.test(r.gramEtapes), "une leçon enchaîne les pages, les ver
 assert.ok(r.gramPosees === 11 && r.gramFaite && r.gramCartes === 11 && r.gramSerie === 1, "la leçon faite crée une carte par question et par vers, et compte pour la série");
 assert.ok(r.gramDues > 0 && r.gramRevues === Math.min(15, r.gramDues), "les cartes de grammaire reviennent en révision");
 assert.ok(r.gramSansPoeme, "sans le poème, la leçon ne montre ni vers ni question de mémorisation");
-assert.deepStrictEqual(r.reviser, { unitesRepliees: true, sansDock: true, dock: true }, "Réviser : unités repliées et bouton de départ collé en bas");
+assert.deepStrictEqual(r.reviser, { unitesRepliees: true, inactif: true, actif: true, boutonParcours: true, panneau: true, glossaire: true },
+  "Réviser au choix : panneau du parcours, unités repliées, bouton de départ ; le glossaire n'a plus ce choix");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

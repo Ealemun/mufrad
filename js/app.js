@@ -451,9 +451,9 @@ const lessonHtml = l => esc(isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l
 const plural = (n, w) => n + " " + w + (n > 1 ? "s" : "");
 
 function route() { return (location.hash || "#accueil").slice(1); }
-let sheet = null; // numéro de la leçon dont le panneau est ouvert sur le parcours
+let sheet = null; // panneau ouvert sur le parcours : numéro de leçon, ou "choix" pour « Réviser au choix »
 
-const TABS = [["accueil", "Parcours"], ["mots", "Réviser"], ["grammaire", "Grammaire"], ["voix", "Voix"], ["reglages", "Réglages"]];
+const TABS = [["accueil", "Parcours"], ["mots", "Glossaire"], ["grammaire", "Grammaire"], ["voix", "Voix"], ["reglages", "Réglages"]];
 function render() {
   const r = route(), inSess = sess && r === "accueil";
   if (gramRender(r)) return;   // une leçon de grammaire en cours dessine elle-même tout l'écran (js/grammaire.js)
@@ -465,7 +465,10 @@ function render() {
     const known = ITEMS.filter(isKnown).length;
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">${ESSAI ? "essai · " + esc(ESSAI) : "alpha"}</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
+    const sh = document.querySelector ? document.querySelector(".sheet") : null, shTop = sh ? sh.scrollTop : 0;
     $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : viewHome();
+    const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
+    if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
     if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
     if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages") {
       wantScroll = false;
@@ -505,8 +508,10 @@ function viewHome() {
   const all = ITEMS.length, known = ITEMS.filter(isKnown).length, seen = ITEMS.filter(isSeen).length, due = ITEMS.filter(isDue).length;
   const next = nextLesson();
   const daily = due
-    ? `<p><b>${plural(due, "élément")} à revoir aujourd'hui.</b></p><button class="btn gold" data-act="daily">Révision du jour</button>`
+    ? `<p><b>${plural(due, "élément")} à revoir aujourd'hui.</b></p>`
     : `<p class="muted">${seen ? "Aucune révision due aujourd'hui." : "Touchez la première leçon pour commencer."}</p>`;
+  // Révision du jour et révision au choix côte à côte (la seconde seule s'il n'y a rien de dû)
+  const revs = `<div class="row duo">${due ? `<button class="btn gold" data-act="daily">Révision du jour</button>` : ""}<button class="btn ghost" data-act="pick-open">${due ? "Au choix" : "Réviser au choix"}</button></div>`;
   // Raccourci vers la leçon en cours : pas besoin de faire défiler le parcours
   const resume = next !== undefined ? `<button class="btn ${due ? "ghost" : ""}" data-act="node" data-l="${next}">${lessonStats(next).seen ? "Continuer" : "Commencer"} : ${lessonHtml(next)}</button>` : "";
   const OFF = [0, 46, 70, 46, 0, -46, -70, -46]; // décalages qui font serpenter le parcours
@@ -536,10 +541,10 @@ function viewHome() {
   return `<section class="card"><h3>Ce que je connais</h3>
       <div class="tri" role="img" aria-label="${known} acquis, ${seen - known} en cours, ${all - seen} à découvrir"><span class="a" style="width:${100 * known / all}%"></span><span class="b" style="width:${100 * (seen - known) / all}%"></span></div>
       <div class="legend"><span class="a"><i></i>${known} acquis</span><span class="b"><i></i>${seen - known} en cours</span><span><i></i>${all - seen} à découvrir</span></div>
-      ${daily}${resume}
+      ${daily}${revs}${resume}
       ${gramDue().length ? `<a class="btn ghost" href="#grammaire">Grammaire : ${plural(gramDue().length, "carte")} à revoir</a>` : ""}</section>
     <div class="row between"><h3>Parcours</h3><button class="linkbtn" data-act="${anyOpen ? "fold-all" : "unfold-all"}">${anyOpen ? "Tout replier" : "Tout déplier"}</button></div>
-    ${path}${sheet ? viewSheet(sheet) : ""}`;
+    ${path}${sheet === "choix" ? viewPick() : sheet ? viewSheet(sheet) : ""}`;
 }
 
 // Panneau d'une leçon : où j'en suis, et les actions possibles
@@ -702,10 +707,11 @@ function wordList() {
     }).join("");
   }).join("");
 }
-let drillOpen = {};  // unités dépliées à la main dans « Réviser ce que je veux » : numéro d'unité -> true ou false
-function viewWords() {
-  // Les leçons sont rangées par unité, repliées : seule l'unité en cours est dépliée au départ,
-  // ainsi que celles où une leçon est cochée. Chaque unité repliée tient sur une ligne.
+let drillOpen = {};  // unités dépliées à la main dans « Réviser au choix » : numéro d'unité -> true ou false
+// Panneau « Réviser au choix », ouvert depuis le parcours : on coche des leçons, rangées par unité repliable
+// (seule l'unité en cours est dépliée au départ, ainsi que celles où une leçon est cochée),
+// et le bouton de départ reste collé en bas du panneau dès qu'une leçon est cochée.
+function viewPick() {
   const next = nextLesson();
   const chips = UNITS.map(u => {
     const nSel = u.lessons.filter(([l]) => drillSel[l]).length;
@@ -715,17 +721,21 @@ function viewWords() {
       (ouverte ? `<div class="chips">` + u.lessons.map(([l, title]) => `<button class="chip" data-act="drill-toggle" data-l="${l}" aria-pressed="${Boolean(drillSel[l])}">${lessonShort(l)} · ${esc(title)}</button>`).join("") + `</div>` : "");
   }).join("");
   const n = drillItems().length, hard = hardItems().length, nL = Object.keys(drillSel).filter(l => drillSel[l]).length;
-  return `<section class="panel"><h3>Réviser ce que je veux</h3>
-      <p>Cochez une ou plusieurs leçons. Les questions s'enchaînent jusqu'à ce que chaque élément soit réussi deux fois de suite.</p>
+  return `<button class="scrim" data-act="sheet-close" aria-label="Fermer"></button>
+    <div class="sheet tall" role="dialog" aria-label="Réviser au choix">
+      <div class="row between"><h2>Réviser au choix</h2><button class="icon" data-act="sheet-close" aria-label="Fermer">✕</button></div>
+      <p class="muted">Cochez des leçons : les questions s'enchaînent jusqu'à ce que chaque élément soit réussi deux fois de suite.</p>
+      ${hard ? `<button class="btn ghost" data-act="drill-hard">Mes ${plural(hard, "élément")} en difficulté</button>` : ""}
       ${chips}
       <div class="row"><button class="btn small ghost" data-act="drill-all">Tout cocher</button><button class="btn small ghost" data-act="drill-none">Tout décocher</button></div>
-      ${n ? "" : `<button class="btn" disabled>Choisissez une leçon</button>`}
-      ${hard ? `<button class="btn ghost" data-act="drill-hard">Reprendre mes ${plural(hard, "élément")} en difficulté</button>` : ""}</section>` + viewContentRecos() +
+      <div class="dock"><button class="btn" data-act="drill-start" ${n ? "" : "disabled"}>${n ? "Réviser " + plural(n, "élément") + " · " + plural(nL, "leçon") : "Choisissez une leçon"}</button></div></div>`;
+}
+// Onglet Glossaire : tous les mots, avec recherche, corrections et ajouts
+function viewWords() {
+  return viewContentRecos() +
     `<div class="row between"><h3>Tous les mots</h3><button class="linkbtn" data-act="${UNITS.some(u => isOpen(u, nextLesson())) ? "fold-all" : "unfold-all"}">${UNITS.some(u => isOpen(u, nextLesson())) ? "Tout replier" : "Tout déplier"}</button></div>
     <label class="vh" for="wq">Chercher un mot</label><input type="search" id="wq" class="field" placeholder="Chercher un mot, en arabe ou en français" value="${esc(wordQuery)}" data-wq="1">
-    <div id="wlist">${wordList()}</div>` + viewEditForm() +
-    // Dès qu'une leçon est cochée, le bouton de départ reste collé en bas de l'écran, où qu'on soit dans la page
-    (n ? `<div class="dock"><button class="btn" data-act="drill-start">Réviser ${plural(n, "élément")} · ${plural(nL, "leçon")}</button></div>` : "");
+    <div id="wlist">${wordList()}</div>` + viewEditForm();
 }
 
 // --- Voix : enregistrer soi-même les lettres et les mots, à la place de la voix de l'appareil.
@@ -1457,6 +1467,7 @@ document.addEventListener("click", e => {
   switch (act) {
     // Parcours
     case "node": sheet = Number(el.dataset.l); break;
+    case "pick-open": sheet = "choix"; break;                // panneau « Réviser au choix »
     case "sheet-close": sheet = null; break;
     case "fold": {                                         // plier ou déplier une unité
       const u = UNITS.find(x => x.n === Number(el.dataset.u));
@@ -1484,8 +1495,8 @@ document.addEventListener("click", e => {
     }
     case "drill-all": UNITS.forEach(u => u.lessons.forEach(([l]) => { drillSel[l] = true; })); break;
     case "drill-none": drillSel = {}; break;
-    case "drill-start": startDrill(drillItems(), "Révision choisie"); location.hash = "#accueil"; return;
-    case "drill-hard": startDrill(hardItems(), "Éléments en difficulté"); location.hash = "#accueil"; return;
+    case "drill-start": sheet = null; startDrill(drillItems(), "Révision choisie"); location.hash = "#accueil"; return;
+    case "drill-hard": sheet = null; startDrill(hardItems(), "Éléments en difficulté"); location.hash = "#accueil"; return;
     // Séance
     case "speak": speak(el.dataset.id); return;
     case "quit": case "home": sess = null; wantScroll = true; break;          // les réponses déjà données sont conservées

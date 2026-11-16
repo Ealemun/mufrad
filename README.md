@@ -12,8 +12,9 @@ encore entièrement relu.
 
 - **Parcours** : une pastille par leçon, avec un anneau qui montre ce qui est acquis, en cours, à découvrir.
 - **Apprendre** : chaque mot est présenté, interrogé aussitôt, puis réinterrogé dans l'autre sens.
-- **Réviser** : la révision du jour reprend ce qui est dû ; on peut aussi choisir une ou plusieurs leçons
-  et enchaîner les questions jusqu'à tout réussir deux fois de suite.
+- **Réviser** (depuis le parcours) : la révision du jour reprend ce qui est dû ; « Réviser au choix » ouvre un panneau
+  où l'on coche une ou plusieurs leçons, pour enchaîner les questions jusqu'à tout réussir deux fois de suite.
+- **Glossaire** : tous les mots, leçon par leçon, avec recherche, corrections et ajouts.
 - **Voix** : chacun peut ajouter ses propres enregistrements ; ils remplacent alors la voix de l'appareil.
 - **Révision espacée** : algorithme FSRS-4.5, calculé dans le navigateur.
 
