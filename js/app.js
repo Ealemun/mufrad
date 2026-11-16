@@ -987,6 +987,9 @@ function viewSettings() {
     <section class="panel"><h3>Statistiques anonymes</h3>
       <p class="muted">Mufrad compte ses visiteurs et les boutons touchés, sans savoir qui vous êtes, pour s'améliorer. <a href="confidentialite.html">En savoir plus</a></p>
       <div class="seg"><button data-act="mesure" data-on="1" aria-pressed="${S.mesure !== false}">Je participe</button><button data-act="mesure" data-on="0" aria-pressed="${S.mesure === false}">Ne pas me compter</button></div></section>
+    <section class="panel"><h3>Tableau d'écriture</h3>
+      <p class="muted">Ce que vous écrivez sur le tableau est gardé, sans votre nom ni votre compte, pour entraîner la future reconnaissance d'écriture de Mufrad. Arrêter ne supprime pas ce qui a déjà été envoyé. <a href="confidentialite.html">En savoir plus</a></p>
+      <div class="seg"><button data-act="traces" data-on="1" aria-pressed="${S.traces !== false}">Garder mes tracés</button><button data-act="traces" data-on="0" aria-pressed="${S.traces === false}">Ne pas les garder</button></div></section>
     <section class="panel"><h3>Bruitages</h3>
       <div class="seg"><button data-act="sfx" data-on="1" aria-pressed="${S.sfx !== false}">Activés</button><button data-act="sfx" data-on="0" aria-pressed="${S.sfx === false}">Coupés</button></div></section>
     <section class="panel"><h3>Sauvegarde</h3>
@@ -1692,13 +1695,14 @@ document.addEventListener("click", e => {
     case "pend-ok": { const n = confirmPending(); uiMsg = plural(n, "enregistrement") + (n > 1 ? " déposés." : " déposé."); break; }
     // Réglages
     case "mesure": choisirMesure(el.dataset.on === "1"); break;
+    case "traces": S.traces = el.dataset.on === "1"; saveState(); break;   // tableau d'écriture : garder ou non ce qu'on y écrit
     case "sfx": S.sfx = el.dataset.on === "1"; saveState(); if (S.sfx) sfx("ok"); break;
     case "goal": S.goal = Number(el.dataset.g); saveState(); break;
     case "translit": S.translit = el.dataset.on === "1"; saveState(); break;
     case "skip": S.offset = (S.offset || 0) + 1; saveState(); break;
     case "reset": askReset = true; break;
     case "reset-no": askReset = false; break;
-    case "reset-yes": { const m = S.mesure; S = blankState(); S.mesure = m; } saveState();   // le choix sur les statistiques est gardé
+    case "reset-yes": { const m = S.mesure, t = S.traces; S = blankState(); S.mesure = m; S.traces = t; } saveState();   // le choix sur les statistiques est gardé
       askReset = false; sess = null; break;
     case "copy": {
       const ta = document.getElementById("io");

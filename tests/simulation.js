@@ -6,7 +6,7 @@ const lire = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const unites = fs.readdirSync(path.join(__dirname, "..", "js", "unites")).filter(f => f.endsWith(".js")).sort();
 const gram = fs.readdirSync(path.join(__dirname, "..", "js", "grammaire")).filter(f => f.endsWith(".js")).sort();
 const code = [lire("js/contenu.js"), ...unites.map(f => lire("js/unites/" + f)), lire("js/assemblage.js"),
-  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/tableau.js"), lire("js/app.js")].join("\n");
+  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/tableau-lettres.js"), lire("js/tableau.js"), lire("js/app.js")].join("\n");
 gram.forEach(f => assert.ok(lire("index.html").includes("js/grammaire/" + f), "index.html ne charge pas js/grammaire/" + f));
 // Chaque fichier d'unité doit aussi être déclaré dans la page, sinon il ne serait jamais chargé
 unites.forEach(f => assert.ok(lire("index.html").includes("js/unites/" + f), "index.html ne charge pas js/unites/" + f));
@@ -276,6 +276,11 @@ const tc1 = tbContext(); sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "fr2ar
 out.tableau = [tc1.contexte, tc1.montre, Boolean(tc1.lettre), tc2.contexte, tc2.montre, tc2.text === BY_ID.w37.ar, tc3.montre];
 const trec = tbRecord(tc2, "isolee", [[[10, 20, 0], [30, 40, 16]]], 400, "touch", false, false);
 out.tableauFiche = [trec.element, trec.forme, trec.hauteur, trec.contexte, trec.modele, trec.traits[0].length];
+// Sens d'écriture : chacune des 28 lettres a son tracé, dans les limites du tableau, et le nombre de points attendu
+const PTS = { "ب": 1, "ت": 2, "ث": 3, "ج": 1, "خ": 1, "ذ": 1, "ز": 1, "ش": 3, "ض": 1, "ظ": 1, "غ": 1, "ف": 1, "ق": 2, "ن": 1, "ي": 2 };
+out.lettresFautes = LETTERS.filter(l => { const t = TB_LETTRES[l.ar];
+  return !t || !t.length || t[0].length < 2 || t.flat().some(p => p[0] < 0 || p[0] > 1000 || p[1] < 0 || p[1] > 600) || t.filter(x => x.length === 1).length !== (PTS[l.ar] || 0); }).map(l => l.ar);
+out.courbe = tbSpline([[0, 0], [100, 50], [200, 0]]).length;
 S.cards = {};
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
@@ -361,6 +366,8 @@ assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognag
 // Les réponses de la base factice arrivent après coup (promesses) : on vérifie au tour suivant
 setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true }, "Version d'essai : lecture seule de la vraie base"), 0);
 assert.deepStrictEqual(r.tableau, ["cours", true, true, "exo:fr2ar", false, true, true], "tableau : la cible suit l'écran, et le modèle ne donne pas la réponse");
+assert.deepStrictEqual(r.lettresFautes, [], "sens d'écriture : tracé absent, hors du tableau, ou nombre de points de la lettre incorrect");
+assert.ok(r.courbe > 15, "un trait est arrondi en courbe");
 assert.deepStrictEqual(r.tableauFiche, ["w37", null, 240, "exo:fr2ar", false, 2], "tableau : fiche d'un tracé");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");

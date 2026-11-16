@@ -6,9 +6,12 @@
    Ce que le tableau fait :
    - un modèle en filigrane (le mot dans la police de l'application), qu'on peut masquer ;
    - pour une lettre, le sens d'écriture : des traits numérotés et fléchés, et une animation qui les repasse en gras.
-     Ces tracés de référence ne sont pas inventés : un contributeur les écrit lui-même sur le tableau (« modèle de tracé ») ;
-   - chaque tracé terminé peut être gardé pour entraîner la future reconnaissance d'écriture, si la personne l'accepte :
-     les traits (points et instants), et ce qui était à l'écran comme étiquette, à confirmer plus tard par un relecteur.
+     Les tracés de départ sont dans js/tableau-lettres.js ; un contributeur peut en remplacer un en écrivant lui-même
+     la lettre sur le tableau (« modèle de tracé ») ;
+   - le tableau n'occupe que le bas de l'écran : la carte ou la question en cours reste visible au-dessus ;
+   - chaque tracé est gardé pour entraîner la future reconnaissance d'écriture, que l'on termine ou que l'on ferme,
+     sauf si la personne l'a désactivé dans les réglages : les traits (points et instants), et ce qui était à l'écran
+     comme étiquette, à confirmer plus tard par un relecteur. Aucun nom ni compte n'y est attaché.
 
    Un trait = une liste de points [x, y, t] : x et y en millièmes de la largeur du tableau, t en millisecondes depuis le début.
    Le tableau a toujours les mêmes proportions (TB_RATIO), pour que modèle, tracés de référence et écritures se superposent
@@ -17,7 +20,6 @@
 const TB_RATIO = 0.6;                 // hauteur du tableau = largeur × 0,6
 const TB_QUEUE = "mufrad-traces-attente";   // tracés pas encore envoyés (hors ligne, ou table pas encore créée)
 const TB_REFS_KEY = "mufrad-traces-modeles";
-const TB_FORMS = [["isolee", "Seule"], ["debut", "Début"], ["milieu", "Milieu"], ["fin", "Fin"]];
 let tbl = null;                        // tableau ouvert : éléments de la page, traits en cours, cible
 let tbRefs = null;                    // tracés de référence connus : "identifiant:forme" -> { traits, hauteur }
 
@@ -39,9 +41,28 @@ function tbContext() {
   }
   return libre;
 }
-// Le texte à écrire pour la forme choisie (une lettre a quatre formes ; un mot n'en a qu'une)
-const tbTargetText = () => (tbl.ctx.lettre ? formsOf(tbl.ctx.lettre)[tbl.forme] : tbl.ctx.text);
+// Le texte à écrire. Les lettres ne sont proposées que seules pour l'instant (pas encore début, milieu, fin).
+const tbTargetText = () => tbl.ctx.text;
 const tbRefKey = () => (tbl.ctx.id ? tbl.ctx.id + ":" + tbl.forme : "");
+
+// Arrondit un trait donné par quelques points de passage en une courbe de nombreux points (pour le dessin et l'animation)
+function tbSpline(p) {
+  if (p.length < 3) return p;
+  const q = [p[0], ...p, p[p.length - 1]], out = [];
+  for (let i = 1; i < q.length - 2; i++) for (let k = 0; k < 10; k++) {
+    const t = k / 10, [a, b, c, d] = [q[i - 1], q[i], q[i + 1], q[i + 2]];
+    out.push([0, 1].map(j => 0.5 * (2 * b[j] + (c[j] - a[j]) * t + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * t * t + (3 * b[j] - a[j] - 3 * c[j] + d[j]) * t * t * t)));
+  }
+  out.push(p[p.length - 1]); return out;
+}
+// Le tracé de référence de ce qui est à l'écran : d'abord celui qu'un contributeur a écrit, sinon celui du fichier des lettres
+function tbRef() {
+  if (!tbl.ctx.lettre) return null;
+  const posed = tbRefs && tbRefs[tbRefKey()];
+  if (posed) return posed;
+  const base = typeof TB_LETTRES !== "undefined" && TB_LETTRES[tbl.ctx.lettre.ar];
+  return base ? { traits: base.map(tbSpline), ratio: TB_RATIO } : null;
+}
 
 // --- Ce qu'on garde d'un tracé terminé
 function tbRecord(ctx, forme, traits, largeur, appareil, modeleVisible, commeModele) {
@@ -76,11 +97,10 @@ function tableauOpen() {
   if (tbl) return;
   const ctx = tbContext(), root = document.createElement("div");
   root.className = "tb"; root.setAttribute("role", "dialog"); root.setAttribute("aria-label", "Tableau d'écriture");
-  root.innerHTML = `<div class="tb-bar"><button class="icon" data-tb="close" aria-label="Fermer le tableau">✕</button><b>Tableau d'écriture</b></div>
-    <div class="tb-target"></div><div class="tb-forms"></div>
+  root.innerHTML = `<div class="tb-bar"><button class="icon" data-tb="close" aria-label="Fermer le tableau">✕</button><b>Tableau</b><span class="tb-target"></span></div>
     <div class="tb-stage"><canvas class="tb-guide"></canvas><canvas class="tb-ink" aria-label="Zone d'écriture"></canvas></div>
     <div class="tb-tools"></div><div class="tb-msg" role="status"></div>
-    <div class="tb-foot"><button class="btn ghost" data-tb="again">Recommencer</button><button class="btn" data-tb="done">Terminé</button></div>`;
+    <div class="tb-foot"><button class="btn small ghost" data-tb="again">Recommencer</button><button class="btn small" data-tb="done">Terminé</button></div>`;
   document.body.appendChild(root);
   tbl = { root, ctx, forme: "isolee", modele: ctx.montre, fleches: true, traits: [], cur: null, t0: 0, appareil: "", anim: 0,
     guide: root.querySelector(".tb-guide"), ink: root.querySelector(".tb-ink") };
@@ -98,7 +118,7 @@ function tableauClose() {
 }
 // Taille : toute la largeur disponible, proportions fixes ; les deux calques (guide et encre) ont la netteté de l'écran
 function tbResize() {
-  const stage = tbl.root.querySelector(".tb-stage"), w = Math.min(stage.parentNode.clientWidth - 24, (window.innerHeight * 0.5) / TB_RATIO, 720), h = w * TB_RATIO, d = window.devicePixelRatio || 1;
+  const stage = tbl.root.querySelector(".tb-stage"), w = Math.min(stage.parentNode.clientWidth - 24, (window.innerHeight * 0.34) / TB_RATIO, 560), h = w * TB_RATIO, d = window.devicePixelRatio || 1;
   stage.style.width = w + "px"; stage.style.height = h + "px";
   [tbl.guide, tbl.ink].forEach(c => { c.width = Math.round(w * d); c.height = Math.round(h * d); c.getContext("2d").setTransform(d, 0, 0, d, 0, 0); });
   tbl.w = w; tbl.h = h;
@@ -108,15 +128,13 @@ const tbColor = name => getComputedStyle(document.documentElement).getPropertyVa
 
 // --- Les boutons et textes autour du tableau, refaits à chaque changement d'état
 function tbChrome() {
-  const c = tbl.ctx, ref = tbRefs && tbRefs[tbRefKey()], contrib = typeof isContributor === "function" && me && isContributor() && c.lettre;
-  tbl.root.querySelector(".tb-target").innerHTML = c.text && (tbl.modele || c.montre)
-    ? `<span class="ar" lang="ar" dir="rtl">${esc(tbTargetText())}</span>` : `<span class="muted">${c.id ? "Écrivez la réponse de mémoire." : "Écrivez ce que vous voulez retenir."}</span>`;
-  tbl.root.querySelector(".tb-forms").innerHTML = c.lettre ? TB_FORMS.map(([k, nom]) => `<button class="chip" data-tb="forme" data-k="${k}" aria-pressed="${tbl.forme === k}">${nom}</button>`).join("") : "";
+  const c = tbl.ctx, ref = tbRef(), contrib = typeof isContributor === "function" && me && isContributor() && c.lettre;
+  // Rappel discret de ce qu'on écrit, seulement quand cela ne donne pas la réponse
+  tbl.root.querySelector(".tb-target").innerHTML = c.text && c.montre ? `<span class="ar" lang="ar" dir="rtl">${esc(tbTargetText())}</span>` : "";
   tbl.root.querySelector(".tb-tools").innerHTML = `<button class="mini txt" data-tb="undo" ${tbl.traits.length ? "" : "disabled"}>Annuler le trait</button>
     ${c.text && c.montre ? `<button class="mini txt" data-tb="modele" aria-pressed="${tbl.modele}">${tbl.modele ? "Masquer le modèle" : "Montrer le modèle"}</button>` : ""}
     ${ref && tbl.modele ? `<button class="mini txt" data-tb="play">Voir le tracé</button><button class="mini txt" data-tb="fleches" aria-pressed="${tbl.fleches}">${tbl.fleches ? "Sans les flèches" : "Avec les flèches"}</button>` : ""}
-    ${contrib ? `<button class="mini txt" data-tb="ref" ${tbl.traits.length ? "" : "disabled"}>Enregistrer comme modèle de tracé</button>` : ""}
-    <button class="mini txt" data-tb="partage">Garder mes tracés pour Mufrad : ${S.traces === true ? "oui" : S.traces === false ? "non" : "à choisir"}</button>`;
+    ${contrib ? `<button class="mini txt" data-tb="ref" ${tbl.traits.length ? "" : "disabled"}>Enregistrer comme modèle de tracé</button>` : ""}`;
 }
 function tbMsg(html) { tbl.root.querySelector(".tb-msg").innerHTML = html || ""; }
 
@@ -126,7 +144,8 @@ function tbDrawGuide(upTo) {
   g.clearRect(0, 0, w, h);
   g.strokeStyle = tbColor("--line"); g.lineWidth = 2; g.setLineDash([6, 8]);
   g.beginPath(); g.moveTo(12, h * 0.66); g.lineTo(w - 12, h * 0.66); g.stroke(); g.setLineDash([]);
-  const text = tbl.ctx.text && tbl.modele ? tbTargetText() : "";
+  const ref = tbl.modele ? tbRef() : null;
+  const text = tbl.ctx.text && tbl.modele && !ref ? tbTargetText() : "";
   if (text) {
     // Le mot occupe au plus 86 % de la largeur ; sa taille ne dépend que de la largeur, donc elle est la même partout
     let size = h * 0.62; g.font = `${size}px "Scheherazade New", serif`;
@@ -134,7 +153,6 @@ function tbDrawGuide(upTo) {
     g.font = `${size}px "Scheherazade New", serif`; g.textAlign = "center"; g.textBaseline = "alphabetic"; g.direction = "rtl";
     g.globalAlpha = 0.22; g.fillStyle = tbColor("--ink"); g.fillText(text, w / 2, h * 0.66); g.globalAlpha = 1;
   }
-  const ref = tbl.modele && tbRefs && tbRefs[tbRefKey()];
   if (!ref) return;
   const k = w / 1000, gold = tbColor("--gold");
   // upTo : pendant l'animation, nombre de points déjà repassés ; sinon tout le tracé, en trait fin
@@ -142,22 +160,25 @@ function tbDrawGuide(upTo) {
   ref.traits.forEach((tr, n) => {
     const pts = upTo == null ? tr : tr.slice(0, Math.max(0, upTo - seen)); seen += tr.length;
     if (pts.length > 1) {
-      g.strokeStyle = gold; g.lineCap = "round"; g.lineJoin = "round"; g.lineWidth = upTo == null ? 3 : 9; g.globalAlpha = upTo == null ? 0.55 : 1;
+      g.strokeStyle = gold; g.lineCap = "round"; g.lineJoin = "round"; g.lineWidth = upTo == null ? Math.max(8, w / 40) : Math.max(10, w / 32); g.globalAlpha = upTo == null ? 0.3 : 1;
       g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(p[0] * k, p[1] * k) : g.moveTo(p[0] * k, p[1] * k))); g.stroke(); g.globalAlpha = 1;
     }
-    if (upTo != null || !tbl.fleches || tr.length < 2) return;
+    // Un trait d'un seul point est un point de la lettre : un petit rond
+    if (tr.length === 1 && (upTo == null || upTo - (seen - 1) > 0)) { g.fillStyle = gold; g.globalAlpha = upTo == null ? 0.3 : 1; g.beginPath(); g.arc(tr[0][0] * k, tr[0][1] * k, Math.max(5, w / 60), 0, 7); g.fill(); g.globalAlpha = 1; }
+    if (upTo != null || !tbl.fleches) return;
+    if (tr.length === 1) { g.fillStyle = gold; g.font = "600 13px Fredoka, sans-serif"; g.textAlign = "left"; g.textBaseline = "middle"; g.direction = "ltr"; g.fillText(String(n + 1), tr[0][0] * k + 9, tr[0][1] * k - 9); return; }
     // Numéro du trait à son départ, et une flèche un peu plus loin, dans le sens de l'écriture
     const a = tr[0], i = Math.min(tr.length - 1, Math.max(1, Math.round(tr.length * 0.3))), b = tr[i], p0 = tr[i - 1], ang = Math.atan2(b[1] - p0[1], b[0] - p0[0]);
-    g.fillStyle = gold; g.beginPath(); g.arc(a[0] * k, a[1] * k, 11, 0, 7); g.fill();
+    g.fillStyle = gold; g.beginPath(); g.arc(a[0] * k, a[1] * k, 10, 0, 7); g.fill();
     g.fillStyle = tbColor("--paper"); g.font = "600 13px Fredoka, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.direction = "ltr"; g.fillText(String(n + 1), a[0] * k, a[1] * k + 1);
     g.save(); g.translate(b[0] * k, b[1] * k); g.rotate(ang); g.fillStyle = gold; g.beginPath(); g.moveTo(9, 0); g.lineTo(-6, -7); g.lineTo(-6, 7); g.closePath(); g.fill(); g.restore();
   });
 }
 // Animation : le tracé de référence se repasse en gras, trait après trait, à la vitesse où il a été écrit (bornée)
 function tbPlay() {
-  const ref = tbRefs && tbRefs[tbRefKey()]; if (!ref) return;
+  const ref = tbRef(); if (!ref) return;
   cancelAnimationFrame(tbl.anim);
-  const total = ref.traits.reduce((n, t) => n + t.length, 0), dur = Math.min(4000, Math.max(1200, total * 18)), start = performance.now();
+  const total = ref.traits.reduce((n, t) => n + t.length, 0), dur = Math.min(4500, Math.max(1500, total * 22)), start = performance.now();
   const step = now => {
     if (!tbl) return;
     const f = Math.min(1, (now - start) / dur); tbDrawGuide(Math.ceil(f * total));
@@ -190,34 +211,21 @@ function tbDrawInk() {
   });
 }
 
-// --- Garder un tracé terminé (si la personne l'a accepté), puis vider le tableau
+// --- Garder le tracé en cours, puis vider le tableau. Les tracés sont gardés sauf si le réglage « Garder mes tracés »
+// a été désactivé ; un modèle de tracé posé par un contributeur est toujours envoyé.
 function tbKeep(commeModele) {
   if (!tbl.traits.length) return;
   const rec = tbRecord(tbl.ctx, tbl.forme, tbl.traits, tbl.w, tbl.appareil, tbl.modele, commeModele);
-  if (commeModele || S.traces === true) { tbSetQueue([...tbQueue(), rec]); tbFlush().then(ok => { if (commeModele) { if (ok) tbLoadRefs(); if (tbl) tbMsg(ok ? "<b>Modèle de tracé enregistré.</b>" : ESSAI ? "Version d'essai : rien n'est envoyé à la base." : "Pas encore envoyé : nouvel essai à la prochaine ouverture."); } }); }
+  if (commeModele || S.traces !== false) { tbSetQueue([...tbQueue(), rec]); tbFlush().then(ok => { if (commeModele) { if (ok) tbLoadRefs(); if (tbl) tbMsg(ok ? "<b>Modèle de tracé enregistré.</b>" : ESSAI ? "Version d'essai : rien n'est envoyé à la base." : "Pas encore envoyé : nouvel essai à la prochaine ouverture."); } }); }
   if (commeModele && tbRefs) { tbRefs[tbRefKey()] = { traits: tbl.traits, ratio: TB_RATIO }; }   // visible tout de suite sur cet appareil
   tbl.traits = []; tbl.cur = null; tbDrawInk(); tbDrawGuide(); tbChrome();
-}
-// La question n'est posée qu'une fois, au premier tracé terminé ; la réponse se change ensuite par le bouton du tableau
-function tbAskShare(then) {
-  tbMsg(`<p>Voulez-vous que vos tracés soient gardés, sans votre nom, pour entraîner la future reconnaissance d'écriture de Mufrad ? Avec chaque tracé est noté le mot qui était à l'écran.</p>
-    <div class="row center"><button class="btn small" data-tb="share-yes" data-then="${then}">Oui</button><button class="btn small ghost" data-tb="share-no" data-then="${then}">Non merci</button></div>`);
-}
-function tbFinish(then) {
-  if (tbl.traits.length && S.traces === undefined) { tbAskShare(then); return; }
-  tbKeep(false); tbMsg("");
-  if (then === "close") tableauClose();
 }
 function tbClick(e) {
   const el = e.target.closest("[data-tb]"); if (!el || !tbl) return;
   switch (el.dataset.tb) {
-    case "close": tableauClose(); return;
-    case "done": tbFinish("close"); return;
-    case "again": tbFinish("stay"); return;
-    case "share-yes": case "share-no": S.traces = el.dataset.tb === "share-yes"; saveState(); tbFinish(el.dataset.then); return;
-    case "partage": S.traces = S.traces !== true; saveState(); break;
+    case "close": case "done": tbKeep(false); tableauClose(); return;   // la croix garde le tracé comme « Terminé »
+    case "again": tbKeep(false); tbMsg(""); return;
     case "undo": tbl.traits.pop(); tbDrawInk(); break;
-    case "forme": tbl.forme = el.dataset.k; tbl.traits = []; tbDrawInk(); tbDrawGuide(); break;
     case "modele": tbl.modele = !tbl.modele; tbDrawGuide(); break;
     case "fleches": tbl.fleches = !tbl.fleches; tbDrawGuide(); break;
     case "play": tbPlay(); return;

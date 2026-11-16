@@ -1,15 +1,17 @@
-/* Mufrad — tableau d'écriture : plein écran, par-dessus la séance */
-.tb { position: fixed; inset: 0; z-index: 70; background: var(--paper); color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 12px calc(12px + env(safe-area-inset-bottom)); overflow-y: auto; }
-.tb-bar { align-self: stretch; display: flex; align-items: center; gap: 8px; padding: 8px 0; }
-.tb-target { min-height: 56px; display: flex; align-items: center; justify-content: center; text-align: center; }
-.tb-target .ar { font-size: 40px; line-height: 1.5; }
-.tb-forms { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+/* Mufrad — tableau d'écriture : un panneau posé en bas de l'écran. La carte ou la question en cours reste visible
+   au-dessus, et on peut toujours la faire défiler. */
+.tb { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; background: var(--paper); color: var(--ink); border-top: 3px solid var(--line); border-radius: 20px 20px 0 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, .28);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0 12px calc(10px + env(safe-area-inset-bottom)); max-height: 72vh; overflow-y: auto; }
+.tb-bar { align-self: stretch; display: flex; align-items: center; gap: 8px; padding: 4px 0 0; }
+/* Rappel de ce qu'on écrit, en petit à droite de la barre */
+.tb-target { margin-left: auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tb-target .ar { font-size: 24px; line-height: 1.6; }
 /* Les deux calques superposés : le guide dessous, l'encre dessus. Le doigt écrit, il ne fait pas défiler la page. */
 .tb-stage { position: relative; flex: 0 0 auto; border-radius: 16px; border: 2px solid var(--line); border-bottom-width: 4px; background: var(--surface); overflow: hidden; }
 .tb-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .tb-ink { touch-action: none; cursor: crosshair; }
 .tb-tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .tb-msg { max-width: 520px; text-align: center; font-size: 15px; }
-.tb-msg p { margin-bottom: 8px; }
-.tb-foot { display: flex; gap: 10px; width: 100%; max-width: 520px; margin-top: auto; }
+.tb-msg:empty { display: none; }
+.tb-foot { display: flex; gap: 10px; width: 100%; max-width: 520px; }
 .tb-foot .btn { flex: 1; }

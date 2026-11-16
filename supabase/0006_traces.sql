@@ -9,7 +9,7 @@ begin;
 create table public.traces (
   id uuid primary key default gen_random_uuid(),
   cree_le timestamptz not null default now(),
-  auteur uuid references auth.users (id) on delete set null,   -- vide pour une personne sans compte
+  auteur uuid references auth.users (id) on delete set null,   -- rempli seulement pour un tracé de référence ; les écritures des apprenants sont sans auteur
   element text,                          -- identifiant de la lettre ou du mot qui était à l'écran (étiquette proposée)
   forme text,                            -- pour une lettre : isolee, debut, milieu ou fin
   texte text,                            -- le texte arabe qui était à l'écran
@@ -28,15 +28,16 @@ create index traces_modeles on public.traces (element, forme) where modele;
 create index traces_a_relire on public.traces (cree_le) where etiquette_verifiee is null and not modele;
 
 -- À la création, le serveur impose ce que l'envoyeur n'a pas à décider :
--- l'auteur réel, pas de relecture déjà faite, et « modèle » réservé aux contributeurs.
+-- pas de relecture déjà faite, « modèle » réservé aux contributeurs, et pas d'auteur sur les écritures des apprenants.
 create function public.imposer_trace() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  new.auteur := auth.uid();
   new.cree_le := now();
   new.etiquette_verifiee := null;
   new.etiquette_corrigee := null;
   if not public.est_contributeur() then new.modele := false; end if;
+  -- Les écritures des apprenants ne sont rattachées à aucun compte ; seul un tracé de référence garde son auteur
+  new.auteur := case when new.modele then auth.uid() else null end;
   return new;
 end $$;
 create trigger traces_avant_creation before insert on public.traces
