@@ -490,8 +490,8 @@ function render() {
     $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "enregistrer" ? viewGuide() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
-    if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
-    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques") {
+    if (r === "voix" || r === "enregistrer") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
+    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer") {
       wantScroll = false;
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
@@ -827,9 +827,15 @@ async function decodePending(p) {
     p.data = monoData(buf); p.rate = buf.sampleRate; p.dur = buf.duration;
     [p.a, p.b] = autoTrim(p.data, p.rate);
     if (p.preset && p.preset.b != null) { p.a = Math.min(p.preset.a, p.dur); p.b = Math.min(p.preset.b, p.dur); }
-    if (route() === "voix") render();
+    if (route() === "voix" || route() === "enregistrer") render();   // la piste et la coupe automatique sont prêtes
   } catch (e) { p.data = null; }
 }
+// Piste d'un enregistrement en attente, avec ses poignées de début et de fin (onglet Voix et enregistrement guidé).
+// Rien tant que l'enregistrement n'est pas analysé (la coupe automatique des silences est faite à ce moment-là).
+const trimUi = p => !p.data ? "" : `<canvas class="wave" id="wv-${p.id}" width="600" height="72" role="img" aria-label="Piste de l'enregistrement"></canvas>
+  <div class="trim"><label for="ta-${p.id}">Début</label><input type="range" id="ta-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.a / p.dur)}" data-trim="a" data-id="${p.id}">
+    <label for="tb-${p.id}">Fin</label><input type="range" id="tb-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.b / p.dur)}" data-trim="b" data-id="${p.id}"></div>
+  <p class="muted" id="tl-${p.id}">Gardé : ${sec(p.b - p.a)} sur ${sec(p.dur)}</p>`;
 // Dessine la piste : en couleur ce qui est gardé, en gris ce qui sera coupé
 function drawWave(p) {
   const cv = document.getElementById("wv-" + p.id);
@@ -914,7 +920,7 @@ async function toggleRecord(id) {
 //   2. un gros bouton micro : on touche pour enregistrer, on retouche pour arrêter ;
 //   3. on réécoute, puis ✓ (garder : déposé et envoyé comme d'habitude) ou ↺ (recommencer) ;
 //   4. mot suivant. On commence par les mots que personne n'a encore enregistrés.
-let guide = null;   // { ids: [éléments à enregistrer, dans l'ordre], i: position, faits: nombre gardés }
+let guide = null;   // { ids: [éléments à enregistrer, dans l'ordre], i: position, faits: nombre gardés, edit: piste ouverte }
 // Mots d'une leçon à proposer : d'abord ceux sans aucune voix, puis ceux qui n'ont que la voix d'autres personnes
 function guideQueue(l) {
   const its = itemsOf(l).filter(it => voiceState(it.id) !== "moi");
@@ -959,6 +965,7 @@ function viewGuide() {
         ${modele && !p && !on ? `<button class="mini" data-act="speak" data-id="${id}" aria-label="Écouter la voix actuelle">${ICON_SPEAK}</button>` : ""}</div>
       ${canRecord() ? gros : `<p>Le micro n'est pas disponible sur cet appareil.</p>`}
       ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
+      ${p && !on && p.data ? (guide.edit ? `<div class="gtrim">${trimUi(p)}</div>` : `<button class="linkbtn" data-act="rg-edit">Éditer l'audio</button>`) : ""}
       ${p && !on ? `<div class="row duo"><button class="btn ghost" data-act="rg-redo" data-id="${id}" aria-label="Recommencer">↺</button><button class="btn good" data-act="rg-keep" data-id="${id}" aria-label="Garder">✓</button></div>`
         : `<button class="linkbtn" data-act="rg-skip" ${on ? "disabled" : ""}>Passer ›</button>`}
     </section>`;
@@ -1030,10 +1037,7 @@ function viewVoices() {
           <button class="mini${ancien ? " txt" : ""}" data-act="pend-play" data-id="${p.id}" aria-label="Écouter le passage gardé">${ICON_SPEAK}${ancien ? " Nouveau" : ""}</button>
           ${ancien ? "" : `<button class="mini txt" data-act="pend-drop" data-id="${p.id}">Écarter</button>`}</div></div>
         ${ancien ? `<div class="seg choix"><button data-act="pend-drop" data-id="${p.id}">Garder l'ancien</button><button aria-pressed="true" disabled>Garder le nouveau</button></div>` : ""}
-        ${p.data ? `<canvas class="wave" id="wv-${p.id}" width="600" height="72" role="img" aria-label="Piste de l'enregistrement"></canvas>
-          <div class="trim"><label for="ta-${p.id}">Début</label><input type="range" id="ta-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.a / p.dur)}" data-trim="a" data-id="${p.id}">
-            <label for="tb-${p.id}">Fin</label><input type="range" id="tb-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.b / p.dur)}" data-trim="b" data-id="${p.id}"></div>
-          <p class="muted" id="tl-${p.id}">Gardé : ${sec(p.b - p.a)} sur ${sec(p.dur)}</p>` : ""}</div>`;
+        ${trimUi(p)}</div>`;
       }).join("")}</div>
       <button class="btn good" data-act="pend-ok">Déposer ${plural(pending.length, "enregistrement")}</button>
       <button class="btn ghost" data-act="pend-none">Tout écarter</button></section>` : "";
@@ -1917,9 +1921,10 @@ document.addEventListener("click", e => {
     case "rec": toggleRecord(el.dataset.id); return;                       // démarre ou arrête le micro
     // Enregistrement guidé (préfixe « rg- » : les actions en « g- » sont celles de la grammaire)
     case "rg-start": startGuide(el.dataset.l ? guideQueue(Number(el.dataset.l)) : waitingVoices().slice(0, 10)); return;
-    case "rg-keep": keepOne(el.dataset.id); guide.faits++; guide.i++; uiMsg = ""; break;    // ✓ : déposé, puis mot suivant
+    case "rg-keep": keepOne(el.dataset.id); guide.faits++; guide.i++; guide.edit = false; uiMsg = ""; break;   // ✓ : déposé, puis mot suivant
+    case "rg-edit": guide.edit = true; break;                                                // piste et rognage, comme dans l'onglet Voix
     case "rg-redo": dropPending(el.dataset.id); toggleRecord(el.dataset.id); return;         // ↺ : on efface et on réenregistre
-    case "rg-skip": if (guide) { dropPending(guide.ids[guide.i]); guide.i++; } uiMsg = ""; break;
+    case "rg-skip": if (guide) { dropPending(guide.ids[guide.i]); guide.i++; guide.edit = false; } uiMsg = ""; break;
     case "pend-play": {                                                    // écoute d'un enregistrement en attente
       const p = pending.find(x => x.id === el.dataset.id);
       if (p) playPending(p);

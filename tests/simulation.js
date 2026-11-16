@@ -353,6 +353,10 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
   const v1 = viewGuide();
   pending = [{ id: q[0], url: "blob:g", data: null, preset: null }, { id: autreId, url: "blob:x", data: null, preset: null }];
   const v2 = viewGuide();
+  // Enregistrement analysé : « Éditer l'audio » ouvre la piste et les poignées, comme dans l'onglet Voix
+  pending[0].data = new Float32Array(100); pending[0].rate = 100; pending[0].dur = 1; pending[0].a = 0.1; pending[0].b = 0.9;
+  const vLien = viewGuide(); guide.edit = true; const vPiste = viewGuide(); guide.edit = false; pending[0].data = null;
+  out.guideEdit = vLien.includes('data-act="rg-edit"') && !vLien.includes('data-trim="a"') && vPiste.includes('id="wv-' + q[0] + '"') && vPiste.includes('data-trim="b"');
   const avantClips = Object.keys(CLIPS).length;
   keepOne(q[0]); guide.faits++; guide.i++;
   out.guide = { ordre: ordreOk && q.length > 0, micro: v1.includes(BY_ID[q[0]].ar) && (v1.includes('data-act="rec"') || v1.includes("micro n'est pas disponible")),
@@ -460,6 +464,7 @@ assert.deepStrictEqual(r.remettre, { local: true, sansLocal: true, admin: true, 
 assert.ok(r.toast, "Message bref visible après une action sur les voix");
 assert.deepStrictEqual(r.guide, { ordre: true, micro: true, choix: true, garde: true, suite: true }, "Enregistrement guidé : ordre, micro, choix, garder un seul mot, mot suivant");
 assert.ok(r.guideFin, "Enregistrement guidé : écran de fin");
+assert.ok(r.guideEdit, "Enregistrement guidé : « Éditer l'audio » ouvre la piste et le rognage");
 assert.ok(r.guidePrefixe, "Enregistrement guidé : actions hors du préfixe de la grammaire");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
