@@ -44,3 +44,13 @@
 .glesson span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .glesson small { color: var(--muted); font-size: 14px; }
 .ask .ar { font-size: 1.3em; }
+
+/* Termes arabes du glossaire : dans le texte, un appui rouvre la définition */
+.term { font-family: var(--font-ar); font-size: 1.35em; line-height: 1.4; background: none; border: 0; border-bottom: 2px dotted var(--gold); color: inherit; padding: 0 2px; cursor: pointer; }
+.gloss { color: var(--muted); font-size: .9em; font-weight: 400; }
+.gterm { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 2px solid var(--line); }
+.gterm:last-child { border-bottom: 0; }
+.gterm > .ar { font-size: 26px; flex: 0 0 auto; }
+.gterm > span:last-child { flex: 1; min-width: 0; font-size: 15px; }
+.gterm small { display: block; color: var(--muted); font-size: 14px; }
+.seg button { padding: 4px 6px; }

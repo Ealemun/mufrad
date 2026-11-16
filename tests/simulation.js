@@ -134,10 +134,19 @@ out.gramFautes = [
   ...gq.filter(x => !x.pourquoi).map(x => x.id + " (sans explication)"),
   ...gLessons().flatMap(l => (l.vers || []).filter(v => !gVerse(v)).map(v => l.id + " -> " + v)),
   ...NAZM.filter(v => !(v.a && v.b && v.fr && v.bab && v.babAr)).map(v => v.id)];
+// Tout {{terme}} cité existe dans le glossaire ; aucune translittération savante ne reste dans les textes
+const gTxt = JSON.stringify(GRAMMAIRE) + JSON.stringify(GLOSSAIRE.map(t => t.def));
+out.gramTermes = [...gTxt.matchAll(/\{\{([a-z-]+)(:pl)?\}\}/g)].filter(m => !gTermOf(m[1]) || (m[2] && !gTermOf(m[1]).pl)).map(m => m[0]);
+// Un terme est traduit tant que sa leçon n'est pas terminée, puis reste seul ; les réglages forcent l'un ou l'autre
+S.connus = {}; S.termes = "auto"; gSeen = {}; out.termeAvant = gText("{{ism}}").includes("gloss");
+S.connus = { ism: true }; gSeen = {}; out.termeApres = !gText("{{ism}}").includes("gloss");
+S.termes = "fr"; gSeen = {}; out.termeFr = gText("{{ism}}").includes("gloss"); S.termes = "ar"; S.connus = {}; gSeen = {}; out.termeAr = !gText("{{ism}}").includes("gloss");
+S.termes = "auto"; gTerm = "bayt"; out.termeFiche = gTermSheet().includes("أَبْيات"); gTerm = null;
 S.cards = {}; S.days = {}; location.hash = "#grammaire"; viewGrammar(); gOpen = { poem: true, src: true }; viewGrammar();
 const gJoue = rate => { let n = 0; while (gs && !gs.over && n < 500) { n++; render(); const st = gs.steps[gs.i];
   if (st.t === "q") { gs.picked = rate && n % 3 === 0 ? (st.q.bon + 1) % st.q.opts.length : st.q.bon; gCheck(); render(); } gNext(); } render(); return gs.asked; };
 gStartLesson("g1a"); out.gramEtapes = gs.steps.map(s => s.t[0]).join(""); out.gramPosees = gJoue(false); gs = null;
+out.termesAppris = ["ism", "fil", "harf", "kalam", "bayt", "ajuz"].every(id => S.connus[id]) && !S.connus.tanwin;
 out.gramFaite = gDone(gLessons()[0]); out.gramCartes = Object.keys(S.cards).filter(k => /^[gn]/.test(k)).length; out.gramSerie = streak();
 S.offset = (S.offset || 0) + 3; out.gramDues = gramDue().length; gStartReview(); out.gramRevues = gJoue(true); gs = null; S.offset -= 3;
 S.nazm = false; gStartLesson("g1b"); out.gramSansPoeme = gs.steps.every(s => s.t !== "verses" && !(s.q && s.q.verse)); gs = null; S.nazm = true;
@@ -190,6 +199,9 @@ assert.deepStrictEqual(r.mesure, { file: ["clic/learn:3", "seance_debut/learn"],
   "statistiques : file d'événements, identifiant stable puis renouvelé, refus respecté");
 assert.deepStrictEqual(r.gramDoubles, [], "grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
+assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");
+assert.ok(r.termeAvant && r.termeApres && r.termeFr && r.termeAr && r.termeFiche, "un terme est traduit à la première rencontre, puis reste seul, selon le réglage");
+assert.ok(r.termesAppris, "les termes d'une leçon terminée sont tenus pour connus, pas ceux des leçons suivantes");
 assert.ok(/^p+vq+$/.test(r.gramEtapes), "une leçon enchaîne les pages, les vers, puis les questions");
 assert.ok(r.gramPosees === 11 && r.gramFaite && r.gramCartes === 11 && r.gramSerie === 1, "la leçon faite crée une carte par question et par vers, et compte pour la série");
 assert.ok(r.gramDues > 0 && r.gramRevues === Math.min(15, r.gramDues), "les cartes de grammaire reviennent en révision");
