@@ -6,7 +6,7 @@ const lire = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const unites = fs.readdirSync(path.join(__dirname, "..", "js", "unites")).filter(f => f.endsWith(".js")).sort();
 const gram = fs.readdirSync(path.join(__dirname, "..", "js", "grammaire")).filter(f => f.endsWith(".js")).sort();
 const code = [lire("js/contenu.js"), ...unites.map(f => lire("js/unites/" + f)), lire("js/assemblage.js"),
-  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/app.js")].join("\n");
+  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/tableau.js"), lire("js/app.js")].join("\n");
 gram.forEach(f => assert.ok(lire("index.html").includes("js/grammaire/" + f), "index.html ne charge pas js/grammaire/" + f));
 // Chaque fichier d'unité doit aussi être déclaré dans la page, sinon il ne serait jamais chargé
 unites.forEach(f => assert.ok(lire("index.html").includes("js/unites/" + f), "index.html ne charge pas js/unites/" + f));
@@ -270,6 +270,13 @@ out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-m
   out.essai = () => ({ refus: [res.update, res.delete, res.remove, res.rpcEcrit].every(m => m === ESSAI_REFUS), lecture: res.select && res.rpcLu && true,
     jamaisAppele: !appels.some(a => /update|delete|remove|noter/.test(a)), auth: ls.auth.essai === true });
 }
+// Tableau d'écriture : ce qu'on écrit est déduit de l'écran ; le modèle ne s'affiche pas quand il donnerait la réponse
+S.cards = {}; location.hash = ""; startLearn(101); render();
+const tc1 = tbContext(); sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "fr2ar" }; const tc2 = tbContext(); sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "ar2fr" }; const tc3 = tbContext(); sess = null;
+out.tableau = [tc1.contexte, tc1.montre, Boolean(tc1.lettre), tc2.contexte, tc2.montre, tc2.text === BY_ID.w37.ar, tc3.montre];
+const trec = tbRecord(tc2, "isolee", [[[10, 20, 0], [30, 40, 16]]], 400, "touch", false, false);
+out.tableauFiche = [trec.element, trec.forme, trec.hauteur, trec.contexte, trec.modele, trec.traits[0].length];
+S.cards = {};
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -353,6 +360,8 @@ assert.deepStrictEqual(r.voixEtat, { aucun: true, moi: true, badge: true, point:
 assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognage: true }, "Voix : choisir entre l'ancien et le nouvel enregistrement");
 // Les réponses de la base factice arrivent après coup (promesses) : on vérifie au tour suivant
 setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true }, "Version d'essai : lecture seule de la vraie base"), 0);
+assert.deepStrictEqual(r.tableau, ["cours", true, true, "exo:fr2ar", false, true, true], "tableau : la cible suit l'écran, et le modèle ne donne pas la réponse");
+assert.deepStrictEqual(r.tableauFiche, ["w37", null, 240, "exo:fr2ar", false, 2], "tableau : fiche d'un tracé");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

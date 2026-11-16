@@ -568,6 +568,7 @@ function sessHead() {
   const pct = sess.kind === "drill" ? 100 * Object.values(sess.st).filter(x => x.need <= 0).length / sess.n : 100 * sess.i / sess.tasks.length;
   return `<div class="sess-head"><button class="icon" data-act="quit" aria-label="Quitter la séance">✕</button>
     <button class="icon" data-act="back" aria-label="Carte précédente" ${canBack ? "" : "disabled"}>‹</button>
+    <button class="icon" data-act="t-open" aria-label="Ouvrir le tableau pour écrire">✎</button>
     <div class="bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div></div>`;
 }
 // Carte affichée : la carte en cours, ou une carte déjà faite quand on est revenu en arrière
@@ -1557,6 +1558,7 @@ document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act;
   noter("clic", act + (el.dataset.l ? ":" + el.dataset.l : ""));   // statistiques anonymes : quel bouton, jamais quel mot ni qui
+  if (act === "t-open") { tableauOpen(); return; }             // tableau d'écriture : traité dans js/tableau.js
   if (act.startsWith("g-")) { gramClick(act, el); return; }   // grammaire : traitée dans js/grammaire.js
   if (act !== "copy" && act !== "import") uiMsg = "";
   switch (act) {
