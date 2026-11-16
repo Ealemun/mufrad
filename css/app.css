@@ -273,8 +273,9 @@ a.linkbtn { display: inline-flex; align-items: center; }
 /* Voix : l'état de chaque élément se voit sans lire.
    Doré = mon enregistrement ; bleu = la voix d'une autre personne ; pointillé = à enregistrer. */
 .vstat { flex: none; width: 44px; height: 44px; font: inherit; padding: 0; cursor: default; border-radius: 50%; display: inline-grid; place-items: center; border: 2px solid transparent; }
-.vstat svg { width: 20px; height: 20px; }
-button.vstat { cursor: pointer; border-bottom-width: 4px; }   /* pastille qui joue la voix : elle a l'épaisseur d'un bouton */
+.vstat svg { width: 20px; height: 20px; display: block; }   /* en bloc : pas de décalage dû à la ligne de texte */
+.vstat.moi svg, .vstat.autre svg { transform: translateX(1px); }   /* le haut-parleur est dessiné à gauche de son cadre : on le recentre à l'œil */
+button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pastille qui joue la voix : relief de bouton par une ombre, pour ne pas décentrer l'icône */
 .vstat.moi { background: var(--gold); color: #1c1503; }
 .vstat.autre { background: var(--primary-soft); color: var(--mid); border-color: var(--mid); }
 .vstat.aucun { border: 2px dashed var(--muted); color: var(--muted); }
