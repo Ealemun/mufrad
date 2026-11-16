@@ -301,10 +301,16 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 .st-mot .ar { display: block; font-size: 22px; white-space: nowrap; }
 .st-mot small { display: block; color: var(--muted); font-size: 12px; line-height: 1.25; }
 .st-table td:first-child { min-width: 7em; }
+.st-chart-box { position: relative; padding-top: 104px; touch-action: pan-y; cursor: crosshair; }   /* place réservée à la bulle */
 .st-chart { width: 100%; height: auto; display: block; }
 .st-bar { fill: var(--primary); }
-.st-hit { fill: transparent; }
-.st-hit:hover + .st-bar, g:hover .st-bar { fill: var(--primary-deep); }
+.st-bar.vide { fill: var(--line); }
+.st-bar.on { fill: var(--gold); }   /* jour sous le curseur ou le doigt */
+.st-tip { position: absolute; top: 0; left: 0; background: var(--ink); color: var(--paper); border-radius: 10px; padding: 6px 10px;
+  font-size: 13px; line-height: 1.35; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums;
+  display: flex; flex-direction: column; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+.st-tip[hidden] { display: none; }
+.st-tip b { font-weight: 600; }
 .st-axe { stroke: var(--line); stroke-width: 1; }
 .st-lbl { fill: var(--muted); font-size: 11px; font-family: var(--font-ui); }
 /* Enregistrement guidé : le mot en très grand, un gros bouton rond au centre, ✓ et ↺ en dessous */
