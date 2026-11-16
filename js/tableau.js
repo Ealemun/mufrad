@@ -180,7 +180,11 @@ function tbPath() {
   if (!tbl.ctx.lettre) return null;
   if (tbl.path) return tbl.path;
   const posed = tbRefs && tbRefs[tbRefKey()];
-  const base = typeof TB_LETTRES !== "undefined" && TB_LETTRES[tbl.ctx.lettre.ar], boite = tbGlyphBox(tbl.ctx.text);
+  // Forme isolée : TB_LETTRES ; forme de début, de milieu ou de fin de mot : TB_FORMES (la fin sert aussi au milieu pour
+  // les lettres qui ne s'attachent pas à la suivante)
+  const ar = tbl.ctx.lettre.ar, fs = typeof TB_FORMES !== "undefined" && TB_FORMES[ar];
+  const base = tbl.forme === "isolee" ? typeof TB_LETTRES !== "undefined" && TB_LETTRES[ar] : fs && (fs[tbl.forme] || (tbl.forme === "milieu" && fs.fin));
+  const boite = tbGlyphBox(tbl.ctx.text);
   const traits = posed ? posed.traits.map(t => t.map(p => [p[0], p[1]])) : base && boite ? tbFit(base, boite).map(tbSpline) : null;
   return traits ? (tbl.path = tbMeasure({ traits, boite })) : null;
 }

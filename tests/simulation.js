@@ -308,6 +308,10 @@ out.tableauFiche = [trec.element, trec.forme, trec.hauteur, trec.contexte, trec.
 const PTS = { "ب": 1, "ت": 2, "ث": 3, "ج": 1, "خ": 1, "ذ": 1, "ز": 1, "ش": 3, "ض": 1, "ظ": 1, "غ": 1, "ف": 1, "ق": 2, "ن": 1, "ي": 2 };
 out.lettresFautes = LETTERS.filter(l => { const t = TB_LETTRES[l.ar];
   return !t || !t.length || t[0].length < 2 || t.flat().some(p => p[0] < 0 || p[0] > 1000 || p[1] < 0 || p[1] > 600) || t.filter(x => x.length === 1).length !== (PTS[l.ar] || 0); }).map(l => l.ar);
+// Formes de début, milieu et fin : présentes pour chaque lettre (seulement la fin pour les six qui ne s'attachent pas),
+// dans les limites du tableau, avec les mêmes points que la forme isolée
+out.formesFautes = LETTERS.flatMap(l => (l.join ? ["debut", "milieu", "fin"] : ["fin"]).filter(f => { const t = (TB_FORMES[l.ar] || {})[f];
+  return !t || !t.length || t[0].length < 2 || t.flat().some(p => p[0] < 0 || p[0] > 1000 || p[1] < 0 || p[1] > 600) || t.filter(x => x.length === 1).length !== (PTS[l.ar] || 0); }).map(f => l.ar + ":" + f));
 out.courbe = tbSpline([[0, 0], [100, 50], [200, 0]]).length;
 // Longueur du chemin : régulière le long d'un trait, avec un temps de pose pour un point de lettre
 const mes = tbMeasure({ traits: [[[0, 0], [30, 40], [60, 80]], [[500, 500]]] }); out.cheminMesure = [mes.cumul[0], mes.longueurs, mes.total];
@@ -452,6 +456,7 @@ assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognag
 // Les réponses de la base factice arrivent après coup (promesses) : on vérifie au tour suivant
 setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true, stats: true }, "Version d'essai : lecture seule de la vraie base, sauf les statistiques"), 0);
 assert.deepStrictEqual(r.tableau, ["cours", true, true, "exo:fr2ar", false, true, true], "tableau : la cible suit l'écran, et le modèle ne donne pas la réponse");
+assert.deepStrictEqual(r.formesFautes, [], "sens d'écriture des formes de position : tracé absent, hors du tableau, ou nombre de points incorrect");
 assert.deepStrictEqual(r.lettresFautes, [], "sens d'écriture : tracé absent, hors du tableau, ou nombre de points de la lettre incorrect");
 assert.deepStrictEqual(r.cadre, [400, 600, 300, 420], "un chemin est ramené au cadre de la lettre");
 assert.deepStrictEqual(r.alifCentre, [500, 500], "une lettre sans largeur est centrée dans son cadre");
