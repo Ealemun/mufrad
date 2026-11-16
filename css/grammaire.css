@@ -69,6 +69,8 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 .gloss { white-space: nowrap; }
 /* Chaque mot arabe est isolé : dans une phrase française, une suite de mots arabes garde l'ordre de la phrase (de gauche à droite) */
 .gi { unicode-bidi: isolate; }
+/* Une expression arabe de quelques mots ne se coupe pas en fin de ligne : coupée, elle se lirait dans le désordre */
+.gi { white-space: nowrap; }
 
 /* Nom arabe du bab, à droite du conseil */
 .gbabname { font-size: 32px; line-height: 1.5; color: var(--gold-ink); margin-left: auto; }
