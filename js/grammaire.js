@@ -129,7 +129,7 @@ function gramRender(r) {
       if (gs.checked && k === q.bon) cls += " right"; else if (gs.checked && k === gs.picked) cls += " wrong"; else if (!gs.checked && k === gs.picked) cls += " sel";
       return `<button class="${cls}"${o.ar ? ' lang="ar" dir="rtl"' : ""} data-act="g-pick" data-k="${k}" ${gs.checked ? "disabled" : ""}>${o.html}</button>`;
     }).join("");
-    $view.innerHTML = `<p class="ask"><small>${esc(gs.title)}</small>${esc(q.ask)}</p>${q.prompt ? `<div class="prompt gprompt">${q.prompt}</div>` : ""}<div class="opts">${opts}</div>`;
+    $view.innerHTML = `<p class="ask"><small>${esc(gs.title)}</small>${gText(q.ask)}</p>${q.prompt ? `<div class="prompt gprompt">${q.prompt}</div>` : ""}<div class="opts">${opts}</div>`;
     if (gs.checked) {
       const ok = gs.picked === q.bon;
       // Le verdict est porté par un signe et un texte, pas seulement par la couleur ; l'explication suit toujours
@@ -161,12 +161,12 @@ function viewGrammar() {
       ${c.relu ? "" : `<p class="muted">Contenu à relire par un enseignant.</p>`}</section>`).join("");
   const showPoem = gOpen.poem === true;
   const poem = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="poem" aria-expanded="${showPoem}"><span>Le poème · ${learned} / ${NAZM.length} vers appris</span><span class="muted">${showPoem ? "▾" : "▸"}</span></button>
-      <p class="muted">Naẓm al-Ājurrūmiyya, de Muḥammad b. Ābb al-Qalāwī ash-Shinqīṭī : la grammaire d'Ibn Ājurrūm mise en vers pour être retenue. Les vers s'apprennent au fil des leçons.</p>
+      <p class="muted">Nazm al-Ājurrūmiyya, de Muhammad b. Ābb ash-Shinqiti : la grammaire d'Ibn Ājurrūm mise en vers pour être retenue. Les vers s'apprennent au fil des leçons.</p>
       <div class="seg"><button data-act="g-nazm" data-on="1" aria-pressed="${gNazmOn()}">Je l'apprends</button><button data-act="g-nazm" data-on="0" aria-pressed="${!gNazmOn()}">Sans le poème</button></div>
       ${showPoem ? NAZM.map((v, k) => `${k === 0 || NAZM[k - 1].bab !== v.bab ? `<p class="gbab">${AR(v.babAr)}</p>` : ""}<div class="gverse ${gCard(v.id) ? "" : "todo"}">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("") : ""}</section>`;
   const showSrc = gOpen.src === true;
   const sources = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="src" aria-expanded="${showSrc}"><span>Sources</span><span class="muted">${showSrc ? "▾" : "▸"}</span></button>
-      ${showSrc ? `<p>Le plan et les définitions suivent <b>al-Ājurrūmiyya</b> d'Ibn Ājurrūm (m. 723 H), cité en arabe dans chaque leçon. Les vers sont ceux du <b>naẓm</b> de Muḥammad b. Ābb ash-Shinqīṭī. Les explications en français sont rédigées pour Mufrad à partir des commentaires classiques du texte ; les exemples viennent du vocabulaire des unités.</p>` : ""}</section>`;
+      ${showSrc ? `<p>Le plan et les définitions suivent <b>al-Ājurrūmiyya</b> d'Ibn Ājurrūm (m. 723 H), cité en arabe dans chaque leçon. Les vers sont ceux du <b>nazm</b> de Muhammad b. Ābb ash-Shinqiti. Les explications en français sont rédigées pour Mufrad à partir des commentaires classiques du texte ; les exemples viennent du vocabulaire des unités.</p>` : ""}</section>`;
   return `<section class="card"><h3>Grammaire</h3>
       <div class="tiles"><div><b>${done} / ${lessons.length}</b>leçons faites</div><div><b>${due}</b>à revoir</div><div><b>${learned}</b>vers appris</div></div>
       ${due ? `<button class="btn gold" data-act="g-review">Réviser ${due > 15 ? "15 cartes sur " + due : plural(due, "carte")}</button>` : ""}

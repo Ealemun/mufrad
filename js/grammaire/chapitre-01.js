@@ -22,7 +22,7 @@ GRAMMAIRE.push({
       pages: [
         { titre: "Qu'est-ce qu'une parole ?", blocs: [
           { p: "La grammaire arabe commence par une question simple : à partir de quand a-t-on vraiment *dit quelque chose* ? Ibn Ājurrūm ouvre son livre par cette définition." },
-          { matn: "الكَلامُ هُوَ اللَّفْظُ المُرَكَّبُ المُفيدُ بِالوَضْعِ", fr: "La parole (*kalām*) est l'énoncé prononcé, composé, porteur d'un sens complet, selon l'usage établi." },
+          { matn: "الكَلامُ هُوَ اللَّفْظُ المُرَكَّبُ المُفيدُ بِالوَضْعِ", fr: "La parole ([[كَلام]], *kalam*) est l'énoncé prononcé, composé, porteur d'un sens complet, selon l'usage établi." },
           { p: "Quatre conditions, donc : des sons *prononcés* (un geste ou un écrit ne compte pas), *au moins deux mots* assemblés, un *sens complet* après lequel on peut se taire, et des mots employés *comme les Arabes les emploient*." },
           { ex: [
             ["هٰذا طَبيبٌ", "« Voici un médecin. »", "Deux mots, un sens complet : c'est une parole."],
@@ -35,12 +35,12 @@ GRAMMAIRE.push({
           { p: "Tout mot arabe appartient à l'une de ces trois familles, et à une seule." },
           { ex: [
             ["اِسْم", "*Le nom* (*ism*) désigne quelqu'un ou quelque chose, sans indiquer de temps.", "[[طَبيب]] médecin · [[مَسْجِد]] mosquée"],
-            ["فِعْل", "*Le verbe* (*fiʿl*) désigne une action située dans le temps.", "[[يَقْرَأُ]] il lit · [[وَضَعَ]] il a posé"],
-            ["حَرْف", "*La particule* (*ḥarf*) est un mot-outil : elle ne prend son sens qu'avec d'autres mots.", "[[مِنْ]] de · [[في]] dans · [[هَلْ]] est-ce que"]
+            ["فِعْل", "*Le verbe* (*fi’l*) désigne une action située dans le temps.", "[[يَقْرَأُ]] il lit · [[وَضَعَ]] il a posé"],
+            ["حَرْف", "*La particule* (*harf*) est un mot-outil : elle ne prend son sens qu'avec d'autres mots.", "[[مِنْ]] de · [[في]] dans · [[هَلْ]] est-ce que"]
           ] }
         ] },
         { titre: "Le nom arabe est une grande famille", blocs: [
-          { p: "Attention : *ism* couvre bien plus que le « nom » du français. Les pronoms, les adjectifs, les démonstratifs et les nombres sont tous des *ism*." },
+          { p: "Attention : le mot [[اِسْم]] couvre bien plus que le « nom » du français. Les pronoms, les adjectifs, les démonstratifs et les nombres sont tous des *ism*." },
           { ex: [
             ["هُوَ · أَنا", "il · je", "Les pronoms sont des noms."],
             ["جَميلَة · كَبير", "belle · grand", "Les adjectifs sont des noms."],
@@ -70,18 +70,18 @@ GRAMMAIRE.push({
       pages: [
         { titre: "Les signes du nom", blocs: [
           { p: "Comment être sûr qu'un mot est un nom ? Il porte, ou peut porter, l'un des signes que voici. *Un seul suffit.*" },
-          { matn: "فَالاسْمُ يُعْرَفُ بِالخَفْضِ وَالتَّنْوينِ وَدُخولِ الأَلِفِ وَاللّامِ وَحُروفِ الخَفْضِ", fr: "Le nom se reconnaît au *khafḍ*, au *tanwīn*, à l'entrée de l'*alif-lām* et aux particules du *khafḍ*." },
+          { matn: "فَالاسْمُ يُعْرَفُ بِالخَفْضِ وَالتَّنْوينِ وَدُخولِ الأَلِفِ وَاللّامِ وَحُروفِ الخَفْضِ", fr: "Le nom se reconnaît au *khafd*, au *tanwin*, à l'entrée de l'*alif-lam* et aux particules du *khafd*." },
           { ex: [
-            ["كِتابٌ", "*Le tanwīn* : la voyelle finale doublée, prononcée avec un « n ».", "kitābun, « un livre »"],
-            ["الكِتابُ", "*L'article* [[ال]] au début du mot.", "al-kitābu, « le livre »"],
-            ["في البَيْتِ", "*Une particule du khafḍ* placée avant lui…", "ici [[في]], « dans »"],
-            ["البَيْتِ", "…et *le khafḍ* lui-même : la fin du mot passe le plus souvent à la kasra.", "al-bayti"]
+            ["كِتابٌ", "*Le tanwin* ([[تَنْوين]]) : la voyelle finale doublée, prononcée avec un « n ».", "kitabun, « un livre »"],
+            ["الكِتابُ", "*L'article* [[ال]] au début du mot.", "al-kitabu, « le livre »"],
+            ["في البَيْتِ", "*Une particule du khafd* placée avant lui…", "ici [[في]], « dans »"],
+            ["البَيْتِ", "…et *le khafd* ([[خَفْض]]) lui-même : la fin du mot passe le plus souvent à la kasra.", "al-bayti"]
           ] },
-          { regle: "L'article et le tanwīn ne vont jamais ensemble : [[كِتابٌ]] ou [[الكِتابُ]], jamais les deux." }
+          { regle: "L'article et le tanwin ne vont jamais ensemble : [[كِتابٌ]] ou [[الكِتابُ]], jamais les deux." }
         ] },
-        { titre: "Les particules du khafḍ", blocs: [
-          { p: "Ce sont les prépositions de l'arabe. Le nom qui les suit se met au *khafḍ* (on dit aussi *jarr*)." },
-          { matn: "وَهِيَ: مِنْ وَإِلى وَعَنْ وَعَلى وَفي وَرُبَّ وَالباءُ وَالكافُ وَاللّامُ", fr: "Ce sont : *min*, *ilā*, *ʿan*, *ʿalā*, *fī*, *rubba*, le *bāʾ*, le *kāf* et le *lām*." },
+        { titre: "Les particules du khafd", blocs: [
+          { p: "Ce sont les prépositions de l'arabe. Le nom qui les suit se met au khafd (on dit aussi *jarr*, [[جَرّ]])." },
+          { matn: "وَهِيَ: مِنْ وَإِلى وَعَنْ وَعَلى وَفي وَرُبَّ وَالباءُ وَالكافُ وَاللّامُ", fr: "Ce sont : *min*, *ila*, *’an*, *’ala*, *fi*, *rubba*, le *ba’*, le *kaf* et le *lam*." },
           { ex: [
             ["مِنَ البَيْتِ", "de la maison", ""],
             ["إِلى المَدْرَسَةِ", "vers l'école", ""],
@@ -91,26 +91,26 @@ GRAMMAIRE.push({
           { p: "Vous connaissez déjà quatre d'entre elles par les unités : [[مِنْ]], [[إِلى]], [[عَلى]] et [[في]]. Les trois dernières de la liste ne font qu'une lettre et s'attachent au mot : [[بِـ]], [[كَـ]], [[لِـ]]." }
         ] },
         { titre: "Les particules du serment", blocs: [
-          { matn: "وَحُروفِ القَسَمِ وَهِيَ: الواوُ وَالباءُ وَالتّاءُ", fr: "Et aux particules du serment, qui sont : le *wāw*, le *bāʾ* et le *tāʾ*." },
-          { p: "Pour jurer, l'arabe place l'une de ces trois lettres devant le nom, qui se met alors au khafḍ." },
+          { matn: "وَحُروفِ القَسَمِ وَهِيَ: الواوُ وَالباءُ وَالتّاءُ", fr: "Et aux particules du serment, qui sont : le *waw*, le *ba’* et le *ta’*." },
+          { p: "Pour jurer, l'arabe place l'une de ces trois lettres devant le nom, qui se met alors au khafd." },
           { ex: [["وَاللهِ", "par Allah !", "Le [[وَ]] du serment, puis le nom avec une kasra."]] },
           { p: "Le poème range ces lettres avec les autres particules du jarr, et en ajoute quatre que le texte en prose ne cite pas : [[مُذْ]], [[مُنْذُ]], [[لَعَلَّ]] et [[حَتّى]]." }
         ] }
       ],
       questions: [
-        { id: "g1b-01", q: "À quel signe voit-on que ce mot est un nom ?", ar: "كِتابٌ", fr: "un livre", choix: ["Le tanwīn", "L'article [[ال]]", "Une particule du khafḍ"], bon: 0,
-          pourquoi: "La voyelle finale est doublée ([[ـٌ]]) : c'est le tanwīn, qui ne se pose que sur un nom." },
-        { id: "g1b-02", q: "À quel signe voit-on que ce mot est un nom ?", ar: "المَطارُ", fr: "l'aéroport", choix: ["L'article [[ال]]", "Le tanwīn", "Une particule du khafḍ"], bon: 0,
-          pourquoi: "Le mot commence par [[ال]]. Et comme il a l'article, il ne peut pas avoir de tanwīn." },
-        { id: "g1b-03", q: "Quels signes du nom le mot [[البَيْتِ]] porte-t-il ici ?", ar: "في البَيْتِ", fr: "dans la maison", choix: ["L'article, la particule [[في]] avant lui et la kasra finale", "Le tanwīn seulement", "Aucun : c'est un verbe"], bon: 0,
-          pourquoi: "Trois signes à la fois : [[ال]], la particule du khafḍ [[في]] placée avant, et le khafḍ lui-même (la kasra finale)." },
-        { id: "g1b-04", q: "Laquelle de ces particules met le nom qui suit au khafḍ ?", arChoix: true, choix: ["إِلى", "هَلْ", "لا"], bon: 0,
+        { id: "g1b-01", q: "À quel signe voit-on que ce mot est un nom ?", ar: "كِتابٌ", fr: "un livre", choix: ["Le tanwin", "L'article [[ال]]", "Une particule du khafd"], bon: 0,
+          pourquoi: "La voyelle finale est doublée ([[ـٌ]]) : c'est le tanwin, qui ne se pose que sur un nom." },
+        { id: "g1b-02", q: "À quel signe voit-on que ce mot est un nom ?", ar: "المَطارُ", fr: "l'aéroport", choix: ["L'article [[ال]]", "Le tanwin", "Une particule du khafd"], bon: 0,
+          pourquoi: "Le mot commence par [[ال]]. Et comme il a l'article, il ne peut pas avoir de tanwin." },
+        { id: "g1b-03", q: "Quels signes du nom le mot [[البَيْتِ]] porte-t-il ici ?", ar: "في البَيْتِ", fr: "dans la maison", choix: ["L'article, la particule [[في]] avant lui et la kasra finale", "Le tanwin seulement", "Aucun : c'est un verbe"], bon: 0,
+          pourquoi: "Trois signes à la fois : [[ال]], la particule du khafd [[في]] placée avant, et le khafd lui-même (la kasra finale)." },
+        { id: "g1b-04", q: "Laquelle de ces particules met le nom qui suit au khafd ?", arChoix: true, choix: ["إِلى", "هَلْ", "لا"], bon: 0,
           pourquoi: "[[إِلى]] (« vers ») fait partie de la liste. [[هَلْ]] sert à interroger et [[لا]] à nier." },
         { id: "g1b-05", q: "Quelle écriture est correcte ?", arChoix: true, choix: ["الطَّبيبُ", "الطَّبيبٌ"], bon: 0,
-          pourquoi: "L'article et le tanwīn ne vont jamais ensemble : avec [[ال]], une seule voyelle finale." },
+          pourquoi: "L'article et le tanwin ne vont jamais ensemble : avec [[ال]], une seule voyelle finale." },
         { id: "g1b-06", q: "Lequel de ces mots peut recevoir l'article [[ال]] ?", arChoix: true, choix: ["مَسْجِد", "يَذْهَب", "في"], bon: 0,
           pourquoi: "Seul un nom accepte l'article : [[المَسْجِد]]. [[يَذْهَب]] est un verbe et [[في]] une particule." },
-        { id: "g1b-07", q: "Quel rôle joue le [[وَ]] au début ?", ar: "وَاللهِ", fr: "par Allah !", choix: ["C'est une particule du serment : le nom se met au khafḍ", "Il veut dire « et »", "C'est la première lettre du mot"], bon: 0,
+        { id: "g1b-07", q: "Quel rôle joue le [[وَ]] au début ?", ar: "وَاللهِ", fr: "par Allah !", choix: ["C'est une particule du serment : le nom se met au khafd", "Il veut dire « et »", "C'est la première lettre du mot"], bon: 0,
           pourquoi: "C'est le [[وَ]] du serment, l'une des trois particules citées avec [[بِـ]] et [[تَـ]]. Le nom qui suit prend la kasra." }
       ]
     },
@@ -119,21 +119,21 @@ GRAMMAIRE.push({
       vers: ["n011", "n012"],
       pages: [
         { titre: "Les signes du verbe", blocs: [
-          { matn: "وَالفِعْلُ يُعْرَفُ بِقَدْ وَالسّينِ وَسَوْفَ وَتاءِ التَّأْنيثِ السّاكِنَةِ", fr: "Le verbe se reconnaît à *qad*, au *sīn*, à *sawfa* et au *tāʾ* du féminin portant un sukūn." },
+          { matn: "وَالفِعْلُ يُعْرَفُ بِقَدْ وَالسّينِ وَسَوْفَ وَتاءِ التَّأْنيثِ السّاكِنَةِ", fr: "Le verbe se reconnaît à *qad*, au *sin*, à *sawfa* et au *ta’* du féminin portant un sukun." },
           { p: "Trois de ces signes se placent *avant* le verbe, le quatrième s'accroche *à la fin*." },
           { ex: [
             ["قَدْ وَضَعَ", "*qad* devant un verbe au passé : l'action a bien eu lieu.", "« il a bel et bien posé »"],
-            ["سَيَذْهَبُ", "*Le sīn* collé au verbe : futur proche.", "« il va partir »"],
+            ["سَيَذْهَبُ", "*Le sin* collé au verbe : futur proche.", "« il va partir »"],
             ["سَوْفَ يَذْهَبُ", "*sawfa* : futur plus lointain.", "« il partira »"],
-            ["وَضَعَتْ", "*Le tāʾ du féminin* à la fin d'un verbe au passé : le sujet est féminin.", "« elle a posé »"]
+            ["وَضَعَتْ", "*Le ta’ du féminin* à la fin d'un verbe au passé : le sujet est féminin.", "« elle a posé »"]
           ] },
-          { regle: "Le sīn et sawfa ne se mettent que devant le présent, et en font un futur." }
+          { regle: "Le sin et sawfa ne se mettent que devant le présent, et en font un futur." }
         ] },
         { titre: "La particule : aucun signe", blocs: [
           { matn: "وَالحَرْفُ ما لا يَصْلُحُ مَعَهُ دَليلُ الاسْمِ وَلا دَليلُ الفِعْلِ", fr: "La particule est ce qui n'admet ni le signe du nom ni le signe du verbe." },
           { p: "On reconnaît donc la particule *par élimination*. Essayez les signes un par un : si aucun ne convient, c'est une particule." },
           { ex: [
-            ["هَلْ", "est-ce que", "Ni article, ni tanwīn, ni qad, ni sīn."],
+            ["هَلْ", "est-ce que", "Ni article, ni tanwin, ni qad, ni sin."],
             ["في", "dans", "Même chose."],
             ["لا", "non", "Même chose."]
           ] },
@@ -141,19 +141,19 @@ GRAMMAIRE.push({
         ] }
       ],
       questions: [
-        { id: "g1c-01", q: "À quel signe reconnaît-on un verbe ici ?", ar: "سَيَقْرَأُ", fr: "il va lire", choix: ["Le sīn placé devant", "Le tanwīn", "L'article [[ال]]"], bon: 0,
+        { id: "g1c-01", q: "À quel signe reconnaît-on un verbe ici ?", ar: "سَيَقْرَأُ", fr: "il va lire", choix: ["Le sin placé devant", "Le tanwin", "L'article [[ال]]"], bon: 0,
           pourquoi: "Le [[سَـ]] collé au début annonce le futur, et il ne se met que devant un verbe." },
-        { id: "g1c-02", q: "À quel signe reconnaît-on un verbe ici ?", ar: "وَضَعَتْ", fr: "elle a posé", choix: ["Le tāʾ du féminin, avec un sukūn", "Le mot qad", "Le mot sawfa"], bon: 0,
+        { id: "g1c-02", q: "À quel signe reconnaît-on un verbe ici ?", ar: "وَضَعَتْ", fr: "elle a posé", choix: ["Le ta’ du féminin, avec un sukun", "Le mot qad", "Le mot sawfa"], bon: 0,
           pourquoi: "Le [[تْ]] final indique que celle qui agit est féminine. Il ne s'accroche qu'à un verbe au passé." },
         { id: "g1c-03", q: "Que veut dire cette expression ?", ar: "سَوْفَ يَذْهَبُ", choix: ["Il partira (plus tard)", "Il est parti", "Il ne part pas"], bon: 0,
-          pourquoi: "[[سَوْفَ]] devant le présent en fait un futur, plus lointain qu'avec le sīn." },
+          pourquoi: "[[سَوْفَ]] devant le présent en fait un futur, plus lointain qu'avec le sin." },
         { id: "g1c-04", q: "Lequel de ces mots peut suivre [[قَدْ]] ?", arChoix: true, choix: ["يَسْمَع", "مَسْجِد", "في"], bon: 0,
           pourquoi: "[[قَدْ]] ne se place que devant un verbe : [[قَدْ يَسْمَعُ]]. [[مَسْجِد]] est un nom et [[في]] une particule." },
-        { id: "g1c-05", nature: "harf", mot: "x33", pourquoi: "[[إِلى]] n'accepte ni l'article, ni le tanwīn, ni qad, ni le sīn : c'est une particule." },
-        { id: "g1c-06", q: "Comment reconnaît-on une particule ?", choix: ["Elle n'accepte aucun signe du nom ni du verbe", "Elle porte toujours l'article [[ال]]", "Elle se termine par un tanwīn"], bon: 0,
+        { id: "g1c-05", nature: "harf", mot: "x33", pourquoi: "[[إِلى]] n'accepte ni l'article, ni le tanwin, ni qad, ni le sin : c'est une particule." },
+        { id: "g1c-06", q: "Comment reconnaît-on une particule ?", choix: ["Elle n'accepte aucun signe du nom ni du verbe", "Elle porte toujours l'article [[ال]]", "Elle se termine par un tanwin"], bon: 0,
           pourquoi: "C'est la définition même d'Ibn Ājurrūm : on la reconnaît par élimination." },
         { id: "g1c-07", nature: "fil", mot: "u6-06", pourquoi: "On peut dire [[قَدْ يَسْمَعُ]], [[سَيَسْمَعُ]], [[سَوْفَ يَسْمَعُ]] : il accepte les signes du verbe." },
-        { id: "g1c-08", nature: "ism", mot: "u4-28", pourquoi: "On peut dire [[كِتابٌ]] et [[الكِتابُ]] : il accepte le tanwīn et l'article, c'est un nom." }
+        { id: "g1c-08", nature: "ism", mot: "u4-28", pourquoi: "On peut dire [[كِتابٌ]] et [[الكِتابُ]] : il accepte le tanwin et l'article, c'est un nom." }
       ]
     }
   ]

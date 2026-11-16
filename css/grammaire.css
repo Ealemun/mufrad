@@ -43,3 +43,4 @@
 .glesson { font: inherit; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; padding: 12px 14px; min-height: 60px; border-radius: 16px; border: 2px solid var(--line); border-bottom-width: 4px; background: var(--surface); color: var(--ink); cursor: pointer; }
 .glesson span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .glesson small { color: var(--muted); font-size: 14px; }
+.ask .ar { font-size: 1.3em; }
