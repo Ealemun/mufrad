@@ -60,6 +60,7 @@ Le test joue une leçon, une révision avec une erreur et plusieurs révisions d
 | `supabase/0004_sauvegarde.sql` | Copie de la progression dans le compte, fusionnée entre appareils (bouton « Synchroniser avec mon compte ») |
 | `supabase/0005_mesure_audience.sql` | Première mesure d'audience (remplacée et complétée par 0007) |
 | `supabase/0007_statistiques.sql` | Statistiques d'usage : événements (identifiant d'appareil renouvelé chaque jour) et vues de calcul, réservées aux administrateurs |
+| `supabase/0008_stats_ancien_systeme.sql` | Écarte des statistiques les événements de l'ancienne mesure (0005), qui gonflaient les visiteurs |
 | `js/statistiques.js` | Écran « Statistiques » des administrateurs (Réglages → Statistiques d'usage, adresse `#statistiques`) |
 
 ## Installer l'application sur un téléphone
