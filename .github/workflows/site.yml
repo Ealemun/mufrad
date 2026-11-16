@@ -58,17 +58,22 @@ jobs:
       # On ne publie que les fichiers du site, pas les tests ni les outils
       - name: Rassembler les fichiers du site
         run: mkdir _site && cp -r index.html confidentialite.html manifest.webmanifest sw.js css js icons _site/
-      # Chaque autre branche dont le test passe est publiée dans essai/<nom>/ ; une branche supprimée disparaît d'elle-même
+      # Chaque autre branche non fusionnée dont le test passe est publiée dans essai/<nom>/ ; fusionnée ou supprimée, elle disparaît
       - name: Ajouter les versions d'essai des autres branches
         run: |
           mkdir -p _site/essai
           liste=""
           for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -v -e '^origin/main$' -e '^origin/HEAD$' -e '^origin$'); do
             nom=$(echo "${ref#origin/}" | tr '/' '-')
+            # Une branche déjà fusionnée dans main n'a plus rien à montrer
+            if git merge-base --is-ancestor "$ref" origin/main; then continue; fi
             git worktree add -q "/tmp/essai-$nom" "$ref"
             if (cd "/tmp/essai-$nom" && node tests/simulation.js > /dev/null 2>&1); then
               mkdir -p "_site/essai/$nom"
-              (cd "/tmp/essai-$nom" && cp -r index.html confidentialite.html manifest.webmanifest sw.js css js icons "$GITHUB_WORKSPACE/_site/essai/$nom/")
+              # On copie ce qui existe dans cette branche : une branche ancienne peut ne pas avoir tous les fichiers
+              for f in index.html confidentialite.html manifest.webmanifest sw.js css js icons; do
+                if [ -e "/tmp/essai-$nom/$f" ]; then cp -r "/tmp/essai-$nom/$f" "_site/essai/$nom/"; fi
+              done
               liste="$liste<li><a href=\"$nom/\">$nom</a> — $(git log -1 --format='%s (%cd)' --date=format:'%d/%m %H:%M' "$ref" | sed 's/&/\&amp;/g; s/</\&lt;/g')</li>"
             else
               liste="$liste<li>$nom — non publiée : son test échoue</li>"
