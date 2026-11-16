@@ -252,3 +252,8 @@ a.linkbtn { display: inline-flex; align-items: center; }
 .row.duo { flex-wrap: nowrap; }
 .row.duo .btn { width: auto; flex: 1; }
 .row.duo .btn.gold { flex: 2; }
+/* Page Gestion des voix : filtres en listes déroulantes côte à côte, lecteurs en lignes à toucher */
+.filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.filters select:first-of-type { grid-column: 1 / -1; }
+.lrow { padding: 8px 0; border-bottom: 2px solid var(--line); }
+.mini.ok { color: var(--good); border-color: var(--good); }

@@ -466,16 +466,16 @@ function render() {
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">${ESSAI ? "essai · " + esc(ESSAI) : "alpha"}</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     const sh = document.querySelector ? document.querySelector(".sheet") : null, shTop = sh ? sh.scrollTop : 0;
-    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : viewHome();
+    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "admin" ? viewAdminPage() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
     if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
-    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages") {
+    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "admin") {
       wantScroll = false;
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
     }
-    $foot.innerHTML = `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "accueil" && !TABS.some(t => t[0] === r)) ? 'aria-current="page"' : ""}>${label}</a>`).join("") + `</nav>`;
+    $foot.innerHTML = `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "admin") ? 'aria-current="page"' : ""}>${label}</a>`).join("") + `</nav>`;
   }
 }
 
@@ -939,7 +939,7 @@ function viewVoices() {
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">
       ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
       <div>${rows}</div></section>
-    ${viewAdmin()}`;
+`;
 }
 
 // --- Réglages : objectif, translittération, sauvegarde, outils de test
@@ -1191,53 +1191,77 @@ function viewShare() {
       <p class="muted"><a href="confidentialite.html">Ce que deviennent vos enregistrements</a></p>
       <button class="btn" data-act="consent">Je signe l'accord</button>${msg}</section>`;
   const n = unsharedIds().length;
-  const recoRows = recos.map(v => `<div class="vrow">${AR(BY_ID[v.element].ar)}<div class="vact"><span class="pill">${esc(readerLabel(v.auteur))}</span>
-      <button class="mini" data-act="reco-play" data-url="${esc(publicUrl(v.chemin))}" aria-label="Écouter la recommandation">${ICON_SPEAK}</button>
-      <button class="mini txt" data-act="reco-ok" data-id="${v.id}">Accepter</button><button class="mini txt" data-act="reco-no" data-id="${v.id}">Refuser</button></div></div>`).join("");
   return `<section class="panel"><h3>Partage</h3>
       <p>${isContributor() ? "Niveau " + esc(myLevel) + " : vos enregistrements sont disponibles pour tous dès leur dépôt." : "Vos enregistrements sont envoyés en recommandation ; un contributeur les écoute avant de les rendre disponibles pour tous."}</p>
       ${n ? `<button class="btn" data-act="share-all">Partager ${plural(n, "enregistrement")} de cet appareil</button>` : `<p class="muted">Tout ce qui est déposé sur cet appareil a été envoyé.</p>`}
-      ${msg}<button class="btn small ghost" data-act="consent-off">Retirer mon accord de partage</button></section>
-    ${recoRows ? `<section class="panel"><h3>Recommandations à traiter · ${recos.length}</h3><div>${recoRows}</div></section>` : ""}`;
+      ${msg}${adminLink()}<button class="btn small ghost" data-act="consent-off">Retirer mon accord de partage</button></section>`;
 }
 
-// Suivi des voix, pour les contributeurs et les administrateurs : qui a enregistré quoi, ce qui manque, avec des filtres
+// --- Page « Gestion des voix » (#admin), pour les contributeurs et les administrateurs.
+// Tout ce qui sert à gérer les voix quitte l'onglet Voix et vient ici, en trois vues qu'on choisit en haut :
+//   « À traiter » : les recommandations à écouter, accepter ou refuser ;
+//   « Voix »      : élément par élément, qui l'a enregistré, avec des filtres (leçon, état, lecteur) ;
+//   « Lecteurs »  : une ligne par lecteur ; en toucher un montre ses voix.
+let adminTab = "attente";  // attente, voix, lecteurs
 let adminState = "all";    // all, none (sans voix), some (avec voix), multi (plusieurs voix)
 let adminReader = null;    // ne montrer que les voix de ce lecteur
-let adminAll = false;      // tout le contenu, ou seulement la leçon choisie plus haut
+let adminLesson = "all";   // numéro de leçon, ou "all" pour tout le contenu
 const jour = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7);
-function viewAdmin() {
-  if (!sb || !me || !isContributor()) return "";
+function viewAdminPage() {
+  if (!sb || !me || !isContributor()) return `<section class="panel"><h3>Gestion des voix</h3><p>Cette page est réservée aux contributeurs. Connectez-vous avec un compte contributeur.</p><a class="btn ghost" href="#reglages">Réglages</a></section>`;
   const pub = voixRows.filter(v => v.etat === "publie");
   const couverts = ITEMS.filter(it => (SHARED[it.id] || []).length).length;
-  // Un lecteur par ligne : ce qu'il a publié, ce qui attend, sa dernière contribution
   const auteurs = [...new Set(voixRows.filter(v => v.etat === "publie" || v.etat === "recommande").map(v => v.auteur))];
-  const lecteurs = auteurs.map(a => {
-    const rows = voixRows.filter(v => v.auteur === a);
-    const p = new Set(rows.filter(v => v.etat === "publie").map(v => v.element)).size, r = rows.filter(v => v.etat === "recommande").length;
-    return `<button class="chip" data-act="admin-reader" data-a="${a}" aria-pressed="${adminReader === a}"><b>${esc(readerLabel(a))}</b>${LEVELS[a] && LEVELS[a] !== "utilisateur" ? " · " + esc(LEVELS[a]) : ""}<br>${p} publiés${r ? " · " + r + " en attente" : ""} · dernier le ${jour(rows[rows.length - 1].cree_le)}</button>`;
-  }).join("");
-  const count = it => (SHARED[it.id] || []).filter(v => !adminReader || v.auteur === adminReader).length;
-  const keep = { all: () => true, none: n => n === 0, some: n => n > 0, multi: n => n > 1 }[adminState];
-  const scope = (adminAll ? ITEMS : itemsOf(voiceLesson)).filter(it => keep(count(it)));
-  const etats = [["all", "Tout"], ["none", "Sans voix"], ["some", "Avec voix"], ["multi", "Plusieurs voix"]]
-    .map(([k, t]) => `<button class="chip" data-act="admin-state" data-k="${k}" aria-pressed="${adminState === k}">${t}</button>`).join("");
-  const rows = scope.map(it => {
-    const vs = (SHARED[it.id] || []).filter(v => !adminReader || v.auteur === adminReader);
-    return `<div class="arow"><div class="ahead">${AR(it.ar)}<span class="pill">${lessonShort(it.l)}</span></div>
-      ${vs.length ? vs.map(v => `<div class="avoice"><span>${esc(readerLabel(v.auteur))}</span>
-          <button class="mini" data-act="reco-play" data-url="${esc(v.url)}" aria-label="Écouter cette voix">${ICON_SPEAK}</button>
-          <button class="mini txt" data-act="voice-del" data-vid="${v.vid}">Supprimer</button></div>`).join("") : `<span class="pill">sans voix</span>`}</div>`;
-  }).join("");
-  return `<section class="panel"><h3>Suivi des voix</h3>
-      <p><b>${couverts} / ${ITEMS.length}</b> éléments ont au moins une voix publiée · ${plural(pub.length, "enregistrement")} · ${plural(READERS.length, "lecteur")}</p>
-      <div class="tri"><span class="a" style="width:${100 * couverts / ITEMS.length}%"></span></div>
-      ${lecteurs ? `<p class="muted">Lecteurs (touchez-en un pour ne voir que ses voix)</p><div class="chips">${lecteurs}</div>` : ""}
-      <p class="muted">Afficher</p><div class="chips">${etats}</div>
-      <div class="seg"><button data-act="admin-scope" data-all="0" aria-pressed="${!adminAll}">${lessonShort(voiceLesson)} seulement</button><button data-act="admin-scope" data-all="1" aria-pressed="${adminAll}">Tout le contenu</button></div>
+  const msg = sbMsg ? `<p role="status"><b>${esc(sbMsg)}</b></p>` : "";
+  const tabs = [["attente", "À traiter" + (recos.length ? " · " + recos.length : "")], ["voix", "Voix"], ["lecteurs", "Lecteurs · " + auteurs.length]]
+    .map(([k, t]) => `<button data-act="admin-tab" data-k="${k}" aria-pressed="${adminTab === k}">${t}</button>`).join("");
+  let body = "";
+  if (adminTab === "attente") {
+    // Recommandations : on écoute, puis on accepte (la voix devient disponible pour tous) ou on refuse
+    body = recos.length ? `<div>${recos.map(v => `<div class="arow"><div class="ahead">${AR(BY_ID[v.element].ar)}<span class="pill">${lessonShort(BY_ID[v.element].l)}</span></div>
+        <div class="avoice"><span>${esc(readerLabel(v.auteur))} · ${jour(v.cree_le)}</span>
+          <button class="mini" data-act="reco-play" data-url="${esc(publicUrl(v.chemin))}" aria-label="Écouter la recommandation">${ICON_SPEAK}</button>
+          <button class="mini txt ok" data-act="reco-ok" data-id="${v.id}">Accepter</button><button class="mini txt" data-act="reco-no" data-id="${v.id}">Refuser</button></div></div>`).join("")}</div>`
+      : `<p class="muted">Rien à traiter pour l'instant.</p>`;
+  } else if (adminTab === "lecteurs") {
+    // Un lecteur par ligne : ce qu'il a publié, ce qui attend, sa dernière contribution
+    body = auteurs.length ? `<div>${auteurs.map(a => {
+      const rows = voixRows.filter(v => v.auteur === a);
+      const p = new Set(rows.filter(v => v.etat === "publie").map(v => v.element)).size, r = rows.filter(v => v.etat === "recommande").length;
+      return `<button class="lhead lrow" data-act="admin-reader" data-a="${a}"><span><b>${esc(readerLabel(a))}</b>${LEVELS[a] && LEVELS[a] !== "utilisateur" ? ` <span class="muted">· ${esc(LEVELS[a])}</span>` : ""}<br>
+        <span class="muted">${p} publiés${r ? " · " + r + " en attente" : ""} · dernier le ${jour(rows[rows.length - 1].cree_le)}</span></span><span class="muted">›</span></button>`;
+    }).join("")}</div>` : `<p class="muted">Aucun lecteur pour l'instant.</p>`;
+  } else {
+    // Filtres en listes déroulantes : ils tiennent sur deux lignes, quel que soit le nombre de leçons et de lecteurs
+    const count = it => (SHARED[it.id] || []).filter(v => !adminReader || v.auteur === adminReader).length;
+    const keep = { all: () => true, none: n => n === 0, some: n => n > 0, multi: n => n > 1 }[adminState];
+    const scope = (adminLesson === "all" ? ITEMS : itemsOf(Number(adminLesson))).filter(it => keep(count(it)));
+    const opt = (v, t, cur) => `<option value="${v}" ${String(cur) === String(v) ? "selected" : ""}>${esc(t)}</option>`;
+    const lecons = opt("all", "Toutes les leçons", adminLesson) + UNITS.flatMap(u => u.lessons.map(([l, title]) => opt(l, lessonShort(l) + " · " + title, adminLesson))).join("");
+    const etats = [["all", "Tous les éléments"], ["none", "Sans voix"], ["some", "Avec voix"], ["multi", "Plusieurs voix"]].map(([k, t]) => opt(k, t, adminState)).join("");
+    const lects = opt("", "Tous les lecteurs", adminReader || "") + READERS.map(a => opt(a, readerLabel(a), adminReader || "")).join("");
+    body = `<div class="filters">
+        <label class="vh" for="adm-l">Leçon</label><select id="adm-l" class="field" data-adm="lesson">${lecons}</select>
+        <label class="vh" for="adm-e">État</label><select id="adm-e" class="field" data-adm="state">${etats}</select>
+        <label class="vh" for="adm-r">Lecteur</label><select id="adm-r" class="field" data-adm="reader">${lects}</select></div>
       <p class="muted">${plural(scope.length, "élément")} affiché${scope.length > 1 ? "s" : ""}</p>
-      <div>${rows}</div></section>`;
+      <div>${scope.map(it => {
+        const vs = (SHARED[it.id] || []).filter(v => !adminReader || v.auteur === adminReader);
+        return `<div class="arow"><div class="ahead">${AR(it.ar)}<span class="pill">${lessonShort(it.l)}</span></div>
+          ${vs.length ? vs.map(v => `<div class="avoice"><span>${esc(readerLabel(v.auteur))}</span>
+              <button class="mini" data-act="reco-play" data-url="${esc(v.url)}" aria-label="Écouter cette voix">${ICON_SPEAK}</button>
+              <button class="mini txt" data-act="voice-del" data-vid="${v.vid}">Supprimer</button></div>`).join("") : `<span class="pill">sans voix</span>`}</div>`;
+      }).join("")}</div>`;
+  }
+  return `<div class="row between"><h2>Gestion des voix</h2><a class="btn small ghost" href="#voix">‹ Voix</a></div>
+    <section class="panel"><p><b>${couverts} / ${ITEMS.length}</b> éléments ont au moins une voix · ${plural(pub.length, "enregistrement")} publié${pub.length > 1 ? "s" : ""}</p>
+      <div class="tri"><span class="a" style="width:${100 * couverts / ITEMS.length}%"></span></div></section>
+    <div class="seg">${tabs}</div>${msg}
+    <section class="panel">${body}</section>`;
 }
+// Lien vers la page de gestion, depuis l'onglet Voix et les réglages (contributeurs seulement)
+const adminLink = () => sb && me && isContributor()
+  ? `<a class="btn ghost" href="#admin">Gestion des voix${recos.length ? " · " + recos.length + " à traiter" : ""}</a>` : "";
 
 // Encadré des réglages : quelles voix entendre, quand plusieurs lecteurs ont enregistré
 function viewReaders() {
@@ -1254,7 +1278,7 @@ function viewAccount() {
   if (me) return `<section class="panel"><h3>Compte</h3><p>Connecté : <b>${esc(me.email || "")}</b> · niveau ${esc(myLevel)}</p>
       <label for="sb-nom">Mon nom de lecteur (affiché à côté de mes enregistrements)</label>
       <input type="text" id="sb-nom" class="field" maxlength="40" value="${esc(READER_NAME[me.id] || "")}">
-      <div class="row"><button class="btn small" data-act="setname">Enregistrer ce nom</button><button class="btn small ghost" data-act="signout">Se déconnecter</button></div>${msg}</section>`;
+      <div class="row"><button class="btn small" data-act="setname">Enregistrer ce nom</button><button class="btn small ghost" data-act="signout">Se déconnecter</button></div>${msg}${adminLink()}</section>`;
   return `<section class="panel"><h3>Compte</h3>
       <p class="muted">Le compte sert à partager ses enregistrements. Aucun mot de passe : vous recevez un lien de connexion par courriel.</p>
       <label for="sb-email">Adresse électronique</label>
@@ -1548,8 +1572,8 @@ document.addEventListener("click", e => {
     case "mic-list": askMics(); return;
     case "voice-del": removeVoice(el.dataset.vid); return;
     case "admin-state": adminState = el.dataset.k; break;
-    case "admin-reader": adminReader = adminReader === el.dataset.a ? null : el.dataset.a; break;
-    case "admin-scope": adminAll = el.dataset.all === "1"; break;
+    case "admin-reader": adminReader = el.dataset.a; adminTab = "voix"; break;   // depuis « Lecteurs » : ses voix
+    case "admin-tab": adminTab = el.dataset.k; sbMsg = ""; break;
     case "reader-toggle": {                                                // choisir les lecteurs qu'on veut entendre
       const a = el.dataset.a; S.readers = S.readers || [];
       S.readers = S.readers.includes(a) ? S.readers.filter(x => x !== a) : [...S.readers, a];
@@ -1625,6 +1649,12 @@ document.addEventListener("click", e => {
 document.addEventListener("change", e => {
   const el = e.target;
   if (el.dataset && el.dataset.mic) { S.mic = el.value; saveState(); return; }   // choix du micro
+  if (el.dataset && el.dataset.adm) {                                               // filtres de la page Gestion des voix
+    if (el.dataset.adm === "lesson") adminLesson = el.value;
+    else if (el.dataset.adm === "state") adminState = el.value;
+    else adminReader = el.value || null;
+    render(); return;
+  }
   if (!el.files || !el.files.length) return;
   if (el.dataset.clip) {                       // un fichier pour un élément
     addPending(el.dataset.clip, el.files[0]); uiMsg = "";
