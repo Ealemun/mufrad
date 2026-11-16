@@ -48,7 +48,7 @@ const run = failOnce => {
 const out = {};
 out.items = ITEMS.length;
 out.options = ITEMS.map(it => distractors(it).length);        // nombre de mauvaises réponses proposées pour chaque élément
-viewHome(); viewWords(); viewVoices(); viewSettings(); viewSheet(1); viewSheet(101);
+viewHome(); viewWords(); viewVoices(); viewSettings(); viewAdvanced(); viewSheet(1); viewSheet(101);
 // Alphabet : un groupe entier par séance, avec une question sur les formes ; une lettre non liante n'a que deux dessins
 startLearn(101); out.formes = sess.tasks.filter(t => t.ex === "f2l").length; run(false);
 out.lettres = Object.keys(S.cards).length; out.alif = Object.values(formsOf(BY_ID.l1)).join("|"); out.ba = Object.values(formsOf(BY_ID.l7)).join("|");
@@ -138,7 +138,7 @@ const texteTape = JSON.stringify(fileMesure).includes("سِرّ");   // aucun te
 choisirMesure(false); noter("clic", "x");
 out.mesure = { file: fileAvant.slice(0, 2), stable: Boolean(id1) && id1 === id2, renouvele: id3 !== id1,
   refus: fileMesure.length === 0 && localStorage.getItem(APPAREIL_KEY) === null && localStorage.getItem(MESURE_KEY) === null,
-  reglage: viewSettings().includes("Ne pas me compter"),
+  reglage: viewAdvanced().includes("Ne pas me compter") && !viewSettings().includes("Ne pas me compter") && viewSettings().includes('href="#avance"'),   // dans les paramètres avancés
   reponses: reps.length > 0 && reps.every(e => e.detail && e.donnees.ex && typeof e.donnees.ok === "boolean" && e.donnees.rang >= 1 && e.donnees.etat),
   choixFaux: Boolean(faux1 && faux1.donnees.choix && faux1.donnees.choix !== faux1.detail),
   fin: Boolean(fin && fin.donnees.l === "2" && fin.donnees.rep === reps.length && fin.donnees.justes === reps.length - 1),
@@ -371,6 +371,20 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
   pending = []; out.guidePrefixe = !/data-act="g-(start|keep|redo|skip)"/.test(v1 + v2 + voixCarte() + viewVoices());
   delete CLIPS[q[0]]; pending = []; guide = null; location.hash = "";
 }
+// Refaire une leçon déjà vue : toutes ses fiches reviennent ; tout réussir ne change pas le calendrier des éléments déjà connus
+{
+  const l = UNITS[1].lessons[0][0], its = itemsOf(l), sauf = JSON.stringify(S.cards);
+  markKnown(its);
+  its.forEach(it => { S.cards[it.id].due = addDays(today(), 5); });   // connus et pas encore dus
+  const avant = JSON.stringify(its.map(it => S.cards[it.id]));
+  const feuille = viewSheet(l);
+  startLearn(l, true);
+  const fiches = sess.tasks.filter(t => t.kind === "intro").length, ficheTitre = viewIntro(its[0]).includes("Rappel");
+  run(false);                                        // tout juste
+  out.refaire = { bouton: feuille.includes('data-act="redo"'), fiches: fiches === its.length && ficheTitre, titre: sess.redo === true,
+    calendrier: JSON.stringify(its.map(it => S.cards[it.id])) === avant };
+  S.cards = JSON.parse(sauf); sess = null;
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -471,6 +485,7 @@ assert.deepStrictEqual(r.guide, { ordre: true, micro: true, choix: true, garde: 
 assert.ok(r.guideFin, "Enregistrement guidé : écran de fin");
 assert.ok(r.guideEdit, "Enregistrement guidé : « Éditer l'audio » ouvre la piste et le rognage");
 assert.ok(r.guidePrefixe, "Enregistrement guidé : actions hors du préfixe de la grammaire");
+assert.deepStrictEqual(r.refaire, { bouton: true, fiches: true, titre: true, calendrier: true }, "Refaire une leçon : fiches, et calendrier inchangé si tout est juste");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

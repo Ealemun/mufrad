@@ -190,11 +190,16 @@ const sessStats = () => ({ l: sess.l == null ? null : String(sess.l), rep: sess.
 
 // Apprendre : les prochains éléments jamais vus d'une leçon.
 // Chacun est présenté par une fiche, interrogé aussitôt, puis réinterrogé dans l'autre sens en fin de séance.
-function startLearn(l) {
-  const unseen = itemsOf(l).filter(it => !isSeen(it));
-  if (!unseen.length) return;
-  const fresh = unseen.slice(0, unseen[0].type === "letter" ? CHUNK_LETTERS : CHUNK_WORDS);
+// Apprendre : les nouveautés d'une leçon, par petits paquets (fiche, question, association, question inverse).
+// Refaire (redo) : le même déroulé, avec tout ce qui a déjà été vu de la leçon, fiches comprises.
+// La progression n'en souffre pas : un élément déjà connu revu en avance garde son calendrier,
+// seule une erreur le fait revenir plus tôt (voir finalize).
+function startLearn(l, redo) {
+  const pool = itemsOf(l).filter(it => redo ? isSeen(it) : !isSeen(it));
+  if (!pool.length) return;
+  const fresh = redo ? pool : pool.slice(0, pool[0].type === "letter" ? CHUNK_LETTERS : CHUNK_WORDS);
   sess = blankSession("learn", lessonLabel(l), l);
+  sess.redo = Boolean(redo);
   fresh.forEach(it => {
     sess.st[it.id] = { need: 2, err: false };
     sess.tasks.push({ kind: "intro", id: it.id });
@@ -487,16 +492,16 @@ function render() {
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">${ESSAI ? "essai · " + esc(ESSAI) : "alpha"}</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     const sh = document.querySelector ? document.querySelector(".sheet") : null, shTop = sh ? sh.scrollTop : 0;
-    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "enregistrer" ? viewGuide() : viewHome();
+    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "avance" ? viewAdvanced() : r === "enregistrer" ? viewGuide() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
     if (r === "voix" || r === "enregistrer") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
-    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer") {
+    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer" && r !== "avance") {
       wantScroll = false;
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
     }
-    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && (r === "partage" || r === "enregistrer")) || (h === "reglages" && r === "statistiques") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage" && r !== "statistiques" && r !== "enregistrer") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
+    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && (r === "partage" || r === "enregistrer")) || (h === "reglages" && (r === "statistiques" || r === "avance")) || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage" && r !== "statistiques" && r !== "enregistrer" && r !== "avance") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
   }
 }
 
@@ -585,7 +590,8 @@ function viewSheet(l) {
       <h3>${isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l}</h3><h2><bdi>${esc(LESSON_TITLE[l])}</bdi></h2>
       <div class="tiles"><div><b>${s.known}</b>acquis</div><div><b>${s.seen - s.known}</b>en cours</div><div><b>${unseen}</b>à découvrir</div></div>
       ${unseen ? `<button class="btn" data-act="learn" data-l="${l}">Apprendre ${plural(chunk, "nouveauté")}</button>` : ""}
-      ${s.seen ? `<button class="btn ${unseen ? "ghost" : ""}" data-act="review" data-l="${l}">Réviser ce que j'ai vu (${s.seen})</button>` : ""}
+      ${s.seen ? `<button class="btn ${unseen ? "ghost" : ""}" data-act="redo" data-l="${l}">Refaire la leçon${unseen ? ` (${plural(s.seen, "élément vu")})` : ""}</button>` : ""}
+      ${s.seen ? `<button class="btn ghost" data-act="review" data-l="${l}">Réviser ce que j'ai vu (${s.seen})</button>` : ""}
       ${unseen ? `<button class="btn ghost" data-act="known-lesson" data-l="${l}">Je connais déjà : passer en révision</button>` : ""}
       <button class="btn ghost" data-act="cram" data-l="${l}">Tout réviser d'un coup (${s.total})</button></div>`;
 }
@@ -637,7 +643,9 @@ function viewIntro(it) {
        ${it.join ? "" : `<p class="muted">Cette lettre ne s'attache jamais à la suivante.</p>`}
        <p>Exemple : ${AR(it.ex)} <span class="muted">(${esc(it.exFr)})</span></p>`
     : `${AR(it.ar)}${translit(it)}<p class="fr">${esc(it.fr)}</p>${it.note ? `<p class="muted">${it.note.replace(/[؀-ۿ ]{2,}/g, m => AR(m.trim()) + " ")}</p>` : ""}`;
-  return `<p class="ask"><small>${lessonHtml(it.l)}</small>${it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot"}</p>
+  // Quand on refait une leçon, la fiche n'annonce pas une nouveauté : c'est un rappel
+  const titre = sess && sess.redo ? (it.type === "letter" ? "Rappel : la lettre" : "Rappel : le mot") : (it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot");
+  return `<p class="ask"><small>${lessonHtml(it.l)}</small>${titre}</p>
     <section class="card fiche">${body}${speakBtn(it.id)}</section>`;
 }
 
@@ -681,7 +689,7 @@ function viewMatch(c, ro) {
 // Bilan de fin de séance
 function viewSummary() {
   const pct = sess.answers ? Math.round(100 * sess.correct / sess.answers) : 100;
-  const head = sess.kind === "drill" ? "Tout est maîtrisé" : sess.kind === "learn" ? "Leçon avancée" : "Révision terminée";
+  const head = sess.kind === "drill" ? "Tout est maîtrisé" : sess.kind === "learn" ? (sess.redo ? "Leçon refaite" : "Leçon avancée") : "Révision terminée";
   const tomorrow = addDays(today(), 1), dueTomorrow = ITEMS.filter(it => isSeen(it) && S.cards[it.id].due <= tomorrow).length;
   return `<p class="ask"><small>${esc(sess.title)}</small>${head}</p>
     <div class="tiles"><div><b>${sess.answers}</b>réponses</div><div><b>${pct} %</b>de réussite</div><div><b>${streak()}</b>${streak() > 1 ? "jours de suite" : "jour de suite"}</div></div>
@@ -1085,12 +1093,6 @@ function viewSettings() {
       <p class="muted">Fixe le nombre maximal d'éléments dans la révision du jour (${GOALS[S.goal]}).</p></section>
     <section class="panel"><h3>Affichage</h3>
       <div class="seg"><button data-act="translit" data-on="1" aria-pressed="${S.translit}">Avec translittération</button><button data-act="translit" data-on="0" aria-pressed="${!S.translit}">Arabe seul</button></div></section>
-    <section class="panel"><h3>Statistiques anonymes</h3>
-      <p class="muted">Mufrad compte ses visiteurs, les leçons faites, les réponses et les boutons touchés, sans savoir qui vous êtes, pour améliorer ses leçons. Votre appareil change d'identifiant chaque jour. <a href="confidentialite.html">En savoir plus</a></p>
-      <div class="seg"><button data-act="mesure" data-on="1" aria-pressed="${S.mesure !== false}">Je participe</button><button data-act="mesure" data-on="0" aria-pressed="${S.mesure === false}">Ne pas me compter</button></div></section>
-    <section class="panel"><h3>Tableau d'écriture</h3>
-      <p class="muted">Ce que vous écrivez sur le tableau est gardé, sans votre nom ni votre compte, pour entraîner la future reconnaissance d'écriture de Mufrad. Arrêter ne supprime pas ce qui a déjà été envoyé. <a href="confidentialite.html">En savoir plus</a></p>
-      <div class="seg"><button data-act="traces" data-on="1" aria-pressed="${S.traces !== false}">Garder mes tracés</button><button data-act="traces" data-on="0" aria-pressed="${S.traces === false}">Ne pas les garder</button></div></section>
     <section class="panel"><h3>Bruitages</h3>
       <div class="seg"><button data-act="sfx" data-on="1" aria-pressed="${S.sfx !== false}">Activés</button><button data-act="sfx" data-on="0" aria-pressed="${S.sfx === false}">Coupés</button></div></section>
     <section class="panel"><h3>Sauvegarde</h3>
@@ -1110,7 +1112,20 @@ function viewSettings() {
       <p class="muted">Avancer la date permet de vérifier qu'un mot raté revient plus tôt qu'un mot réussi. Décalage actuel : ${S.offset} jour${S.offset > 1 ? "s" : ""}.</p>
       <div class="row"><button class="btn small ghost" data-act="skip">Avancer d'un jour</button>
       ${askReset ? `<button class="btn small" data-act="reset-yes">Confirmer : tout effacer</button><button class="btn small ghost" data-act="reset-no">Annuler</button>`
-                 : `<button class="btn small ghost" data-act="reset">Effacer la progression</button>`}</div></section>`;
+                 : `<button class="btn small ghost" data-act="reset">Effacer la progression</button>`}</div></section>
+    <a class="discret" href="#avance">Paramètres avancés</a>`;
+}
+
+// --- Paramètres avancés (#avance), ouverts par le lien discret en bas des réglages :
+// les choix qu'on règle rarement (statistiques anonymes, tableau d'écriture… d'autres viendront)
+function viewAdvanced() {
+  return `<div class="row between"><h2>Paramètres avancés</h2><a class="btn small ghost" href="#reglages">‹ Réglages</a></div>
+    <section class="panel"><h3>Statistiques anonymes</h3>
+      <p class="muted">Mufrad compte ses visiteurs, les leçons faites, les réponses et les boutons touchés, sans savoir qui vous êtes, pour améliorer ses leçons. Votre appareil change d'identifiant chaque jour. <a href="confidentialite.html">En savoir plus</a></p>
+      <div class="seg"><button data-act="mesure" data-on="1" aria-pressed="${S.mesure !== false}">Je participe</button><button data-act="mesure" data-on="0" aria-pressed="${S.mesure === false}">Ne pas me compter</button></div></section>
+    <section class="panel"><h3>Tableau d'écriture</h3>
+      <p class="muted">Ce que vous écrivez sur le tableau est gardé, sans votre nom ni votre compte, pour entraîner la future reconnaissance d'écriture de Mufrad. Arrêter ne supprime pas ce qui a déjà été envoyé. <a href="confidentialite.html">En savoir plus</a></p>
+      <div class="seg"><button data-act="traces" data-on="1" aria-pressed="${S.traces !== false}">Garder mes tracés</button><button data-act="traces" data-on="0" aria-pressed="${S.traces === false}">Ne pas les garder</button></div></section>`;
 }
 
 /* ---------- 9. COMPTE ET PARTAGE ---------- */
@@ -1838,6 +1853,7 @@ document.addEventListener("click", e => {
     case "known-unit-yes": noter("lecon_validee", "unite:" + el.dataset.u, { n: markKnown(ITEMS.filter(it => it.u === Number(el.dataset.u))) }); askKnown = null; sfx("ok"); wantScroll = true; break;
     case "daily": startDaily(); return;
     case "learn": sheet = null; startLearn(Number(el.dataset.l)); return;
+    case "redo": sheet = null; startLearn(Number(el.dataset.l), true); return;   // refaire une leçon déjà vue, fiches comprises
     case "review": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l).filter(isSeen), lessonLabel(l)); return; }
     case "cram": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l), lessonLabel(l)); return; }
     // Onglet Réviser

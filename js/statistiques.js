@@ -42,23 +42,68 @@ function statsTable(entetes, lignes) {
     <tbody>${lignes.map(l => `<tr>${l.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
-// Visiteurs par jour sur 30 jours : barres fines, arrondies en haut, une info-bulle par barre (jour et nombre)
+// Visiteurs par jour sur 30 jours : barres fines, arrondies en haut.
+// Le détail d'un jour s'affiche en survolant au curseur ou en touchant au doigt (voir statsPointe plus bas).
+let statsSerie = [];         // les 30 jours affichés : { k (date), n (visiteurs), j (ligne complète de stats_par_jour) }
 function statsBarres(jours) {
   const t = today(), parJour = {};
-  jours.forEach(j => { parJour[j.jour] = j.visiteurs; });
-  const serie = Array.from({ length: 30 }, (x, i) => { const k = addDays(t, i - 29); return { k, n: parJour[k] || 0 }; });
-  const max = Math.max(1, ...serie.map(x => x.n)), W = 600, H = 140, pas = W / 30, larg = pas - 4;
-  const barres = serie.map((x, i) => {
+  jours.forEach(j => { parJour[j.jour] = j; });
+  statsSerie = Array.from({ length: 30 }, (x, i) => { const k = addDays(t, i - 29); return { k, n: parJour[k] ? Number(parJour[k].visiteurs) || 0 : 0, j: parJour[k] || null }; });
+  const max = Math.max(1, ...statsSerie.map(x => x.n)), W = 600, H = 140, pas = W / 30, larg = pas - 4;
+  const barres = statsSerie.map((x, i) => {
     const h = x.n ? Math.max(3, (H - 20) * x.n / max) : 0;
-    return `<g><rect class="st-hit" x="${i * pas}" y="0" width="${pas}" height="${H}"><title>${x.k.slice(8)}/${x.k.slice(5, 7)} : ${x.n} visiteur${x.n > 1 ? "s" : ""}</title></rect>`
-      + (h ? `<path class="st-bar" d="M${i * pas + 2},${H} v${-(h - 4)} q0,-4 4,-4 h${larg - 8} q4,0 4,4 v${h - 4} z"/>` : "") + `</g>`;
+    // Une barre vide garde un petit trait au ras de l'axe, pour qu'on voie qu'il y a un jour à cet endroit
+    return h ? `<path class="st-bar" data-i="${i}" d="M${i * pas + 2},${H} v${-(h - 4)} q0,-4 4,-4 h${larg - 8} q4,0 4,4 v${h - 4} z"/>`
+             : `<rect class="st-bar vide" data-i="${i}" x="${i * pas + 2}" y="${H - 2}" width="${larg}" height="2"/>`;
   }).join("");
-  return `<svg class="st-chart" viewBox="0 0 ${W} ${H + 18}" role="img" aria-label="Visiteurs par jour sur les 30 derniers jours, au plus ${max}">
+  return `<div class="st-chart-box">
+    <div class="st-tip" role="status" aria-live="polite" hidden></div>
+    <svg class="st-chart" viewBox="0 0 ${W} ${H + 18}" role="img" aria-label="Visiteurs par jour sur les 30 derniers jours, au plus ${max}. Survolez ou touchez une barre pour le détail du jour.">
     <line class="st-axe" x1="0" y1="${H}" x2="${W}" y2="${H}"/>
     <text class="st-lbl" x="0" y="10">${max}</text>
     ${barres}
-    <text class="st-lbl" x="0" y="${H + 15}">${serie[0].k.slice(8)}/${serie[0].k.slice(5, 7)}</text>
-    <text class="st-lbl" x="${W}" y="${H + 15}" text-anchor="end">aujourd'hui</text></svg>`;
+    <text class="st-lbl" x="0" y="${H + 15}">${statsSerie[0].k.slice(8)}/${statsSerie[0].k.slice(5, 7)}</text>
+    <text class="st-lbl" x="${W}" y="${H + 15}" text-anchor="end">aujourd'hui</text></svg></div>`;
+}
+
+// Détail d'un jour, au curseur ou au doigt : la barre la plus proche du pointeur est mise en avant
+// et une bulle donne la date et les chiffres du jour. La bulle reste au-dessus du graphique sans en sortir.
+const STATS_JOURS = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
+function statsPointe(e) {
+  const box = e.target && e.target.closest ? e.target.closest(".st-chart-box") : null;
+  if (!box || !statsSerie.length) return;
+  const svg = box.querySelector("svg"), tip = box.querySelector(".st-tip"), r = svg.getBoundingClientRect();
+  // Rang du jour sous le pointeur, d'après la position horizontale dans le graphique
+  const i = Math.max(0, Math.min(29, Math.floor((e.clientX - r.left) / r.width * 30)));
+  const x = statsSerie[i], j = x.j || {};
+  box.querySelectorAll(".st-bar").forEach(b => b.classList.toggle("on", Number(b.dataset.i) === i));
+  const date = `${STATS_JOURS[dateOf(x.k).getDay()]} ${x.k.slice(8)}/${x.k.slice(5, 7)}`;
+  tip.innerHTML = `<b>${esc(date)}</b><span>${x.n} visiteur${x.n > 1 ? "s" : ""}</span>`
+    + (x.j ? `<span>${statsNb(j.visites)} visite${j.visites > 1 ? "s" : ""} · ${statsNb(j.seances_finies)} séance${j.seances_finies > 1 ? "s" : ""} finie${j.seances_finies > 1 ? "s" : ""}</span>
+       <span>${statsNb(j.reponses)} réponse${j.reponses > 1 ? "s" : ""}${j.reussite_pct != null ? " · " + statsNb(j.reussite_pct) + " % justes" : ""}</span>
+       ${j.minutes_actives_mediane != null ? `<span>${statsNb(j.minutes_actives_mediane)} min actives (médiane)</span>` : ""}` : "");
+  tip.hidden = false;
+  // Placement : centré sur la barre, mais toujours dans la largeur du graphique
+  const bw = box.clientWidth, centre = (i + 0.5) / 30 * r.width, tw = tip.offsetWidth;
+  tip.style.left = Math.max(0, Math.min(bw - tw, centre - tw / 2)) + "px";
+}
+// Cacher la bulle : le curseur quitte le graphique, ou le doigt touche ailleurs sur la page
+function statsCache(box) {
+  if (!box) return;
+  const tip = box.querySelector(".st-tip"); if (tip) tip.hidden = true;
+  box.querySelectorAll(".st-bar.on").forEach(b => b.classList.remove("on"));
+}
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("pointermove", statsPointe);
+  document.addEventListener("pointerdown", e => {
+    if (e.target && e.target.closest && e.target.closest(".st-chart-box")) statsPointe(e);   // toucher une barre : détail du jour
+    else if (document.querySelectorAll) document.querySelectorAll(".st-chart-box").forEach(statsCache);   // toucher ailleurs : on cache
+  });
+  // La souris sort du graphique : on cache (au doigt, la bulle reste jusqu'au prochain appui ailleurs)
+  document.addEventListener("pointerout", e => {
+    const box = e.target && e.target.closest ? e.target.closest(".st-chart-box") : null;
+    if (box && e.pointerType === "mouse" && !(e.relatedTarget && box.contains(e.relatedTarget))) statsCache(box);
+  });
 }
 
 function viewStats() {
