@@ -40,7 +40,7 @@ NAZM.push(
   // on lit « taqdīrana w-lafẓan », la hamza de أَوْ tombe pour le mètre. On l'écrit avec l'alif waṣla (ٱ).
   { id: "n013", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "الإِعْرَابُ تَغْيِيرُ أَوَاخِرِ الْكَلِمْ", b: "تَقْدِيرًا ٱوْ لَفْظًا فَذَا الْحَدَّ اغْتَنِمْ",
     fr: "Le {{irab}} est le changement de la fin des mots, sous-entendu ou prononcé : cette définition, saisis-la." },
-  { id: "n014", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "وَذَلِكَ التَّغْيِيرُ لِاضْطِرَابِ", b: "عَوَامِلِ تَدْخُلُ لِلإِعْرَابِ",
+  { id: "n014", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "وَذَلِكَ التَّغْيِيرُ لِاضْطِرَابِ", b: "عَوَامِلٍ تَدْخُلُ لِلإِعْرَابِ",
     fr: "Ce changement vient de ce que des {{amil:pl}} différents se succèdent sur le mot pour y produire le {{irab}}." },
   { id: "n015", bab: "irab", babAr: "بَابُ الإِعْرَابِ", a: "أَقْسَامُهُ: أَرْبَعَةٌ تُؤَمْ", b: "رَفْعٌ، وَنَصْبٌ، ثُمَّ خَفْضٌ، جَزْمُ",
     fr: "Ses sortes, que l'on vise, sont quatre : le {{raf}}, le {{nasb}}, puis le {{khafd}}, et le {{jazm}}." },
