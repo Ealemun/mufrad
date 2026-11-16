@@ -94,6 +94,14 @@ function gVocal(t) {
     .replace(/\u064E(?=[اى])/g, "").replace(/\u0650(?=ي(?![\u064B-\u0651]))/g, "").replace(/\u064F(?=و(?![\u064B-\u0651]))/g, "")
     .replace(/ى/g, "ي").replace(/\u0670/g, "");
 }
+// Jumeaux : des mots qui ont les mêmes lettres mais des voyelles différentes, donc un autre sens (مِنْ / مَنْ, نَعَمْ / نِعَم).
+// On les cherche dans tout ce que l'application connaît : le vocabulaire des unités et les mots du poème.
+// Règle : un mot qui a un jumeau n'est jamais demandé là où les voyelles ne comptent pas ou ne se voient pas.
+function gTwins(word) {
+  const sk = gNorm(word), vo = gVocal(word);
+  const known = [...WORDS.map(w => w.ar), ...NAZM.flatMap(v => (v.a + " " + v.b).split(" ").map(gCore))];
+  return [...new Set(known.filter(k => gNorm(k) === sk && gVocal(k) !== vo))];
+}
 const gCore = w => w.replace(/^[«»،؛:.!؟]+|[«»،؛:.!؟]+$/g, "").replace(/^كَـ«|»$/g, "");   // le mot sans la ponctuation qui l'entoure
 // Les mots d'un vers qu'on peut cacher : au moins trois lettres, pour que le trou ait un intérêt
 function gHoles(v) {
@@ -121,7 +129,8 @@ function gVerseQuestion(v, kind) {
   if ((kind === "trou" || kind === "ecrit") && holes.length) {
     const hole = holes[Math.floor(Math.random() * holes.length)];
     const base = { id: v.id, verse: true, prompt: gHoleHtml(v, hole, false), solved: gHoleHtml(v, hole, true), why: "" };
-    if (kind === "ecrit") return { ...base, type: "ecrit", ask: "Écrivez le mot qui manque.", answer: hole.word, opts: [], bon: -1 };
+    // Écrire sans les voyelles un mot qui a un jumeau serait ambigu : on le fait choisir, voyelles visibles
+    if (kind === "ecrit" && (gHarakat() || !gTwins(hole.word).length)) return { ...base, type: "ecrit", ask: "Écrivez le mot qui manque.", answer: hole.word, opts: [], bon: -1 };
     // Trois autres mots du poème, différents du bon une fois les voyelles retirées
     const seen = new Set([gNorm(hole.word)]), wrong = [];
     gMix(NAZM.filter(o => o.id !== v.id).flatMap(gHoles)).forEach(x => { if (wrong.length < 3 && !seen.has(gNorm(x.word))) { seen.add(gNorm(x.word)); wrong.push(x.word); } });
@@ -154,7 +163,9 @@ function gGenerated() {
       bon: NATURES.findIndex(n => n[0] === k), why: `[[${it.ar}]] est un {{${k}}}.` };
   }
   // « lequel de ces mots est un … ? » : un mot de la sorte demandée, un de chacune des deux autres
-  const good = by(k)[0], wrong = NATURES.filter(n => n[0] !== k).map(n => by(n[0])[0]), opts = gMix([good, ...wrong]);
+  // Ici les mots sont montrés sans leur traduction : on n'y met aucun mot qui a un jumeau
+  const solo = n => by(n).filter(w => !gTwins(w.ar).length)[0];
+  const good = solo(k), wrong = NATURES.filter(n => n[0] !== k).map(n => solo(n[0])), opts = gMix([good, ...wrong]);
   return { id: "", ask: `Lequel de ces mots est un {{${k}}} ?`, prompt: "", opts: opts.map(o => ({ html: esc(o.ar), ar: true })), bon: opts.indexOf(good),
     why: opts.map(o => `[[${o.ar}]] : {{${gNatureOf(o)}}}`).join(" · ") };
 }

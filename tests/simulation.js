@@ -182,6 +182,13 @@ NAZM.forEach(v => { for (let k = 0; k < 12; k++) ["trou", "ajuz", "suite"].forEa
   const g = gVerseQuestion(v, kind), txt = g.opts.map(o => gNorm(o.html));
   if (new Set(txt).size !== txt.length || g.bon < 0 || g.bon >= txt.length) out.ambigues.push(v.id + " " + kind);
 }); });
+// Jumeaux (mêmes lettres, voyelles différentes) : jamais à écrire sans voyelles, jamais dans un choix sans traduction
+out.jumeaux = [...new Set([...WORDS.map(w => w.ar), ...NAZM.flatMap(v => (v.a + " " + v.b).split(" ").map(gCore))].filter(w => gTwins(w).length).map(w => w + " ≠ " + gTwins(w).join(" , ")))];
+S.harakat = false; out.jumeauxEcrits = [];
+NAZM.forEach(v => { for (let k = 0; k < 40; k++) { const g = gVerseQuestion(v, "ecrit"); if (g.type === "ecrit" && gTwins(g.answer).length) out.jumeauxEcrits.push(g.answer); } });
+out.jumeauxChoix = [];
+for (let k = 0; k < 400; k++) { const g = gGenerated(); if (!g.prompt) g.opts.forEach(o => { if (gTwins(o.html).length) out.jumeauxChoix.push(o.html); }); }
+out.jumeauReconnu = gTwins("مِنْ").includes("مَنْ") && gTwins("نَعَمْ").length === 0;
 // Deux mots du vocabulaire qui s'écrivent pareil ne doivent pas être de sortes différentes
 out.homographes = WORDS.filter(a => gNatureOf(a) && WORDS.some(b => b !== a && gNatureOf(b) && gNorm(b.ar) === gNorm(a.ar) && gNatureOf(b) !== gNatureOf(a))).map(w => w.id);
 // Sorte des mots : identifiants valables, aucun mot dans deux listes ; l'entraînement libre ne crée ni ne déplace aucune carte
@@ -328,6 +335,10 @@ assert.ok(r.clavierVoyelles && r.clavierSans, "la rangée des voyelles suit le r
 assert.deepStrictEqual(r.clavier, [true, true], "une disposition du clavier n'a pas toutes les lettres");
 assert.deepStrictEqual(r.babConnu, [true, 24, 7, true], "un bab validé sans le faire entre en entier en révision");
 assert.deepStrictEqual([...new Set(r.ambigues)], [], "question fabriquée ambiguë");
+assert.deepStrictEqual([...new Set(r.jumeauxEcrits)], [], "un mot qui a un jumeau est demandé à l'écrit sans voyelles");
+assert.deepStrictEqual([...new Set(r.jumeauxChoix)], [], "un mot qui a un jumeau figure dans un choix sans traduction");
+assert.ok(r.jumeauReconnu, "مِنْ et مَنْ doivent être reconnus comme jumeaux");
+console.log("Jumeaux connus :", r.jumeaux.join(" | "));
 assert.deepStrictEqual(r.homographes, [], "deux mots de même écriture sont classés dans des sortes différentes");
 assert.deepStrictEqual(r.naturesFautes, [], "sorte des mots : identifiant inconnu ou en double");
 assert.ok(r.trainQ === 10 && r.trainV === 10 && r.trainSansEffet, "l'entraînement libre pose dix questions et ne touche pas au calendrier");
