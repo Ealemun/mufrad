@@ -169,6 +169,21 @@ out.clavier = ["classique", "alpha"].map(l => G_KEYS.every(k => G_ROWS[l].flat()
 // « Je connais déjà ce bab » : tout entre en révision aujourd'hui, les termes sont connus
 const gardeCartes = S.cards, gardeConnus = S.connus; S.cards = {}; S.connus = {}; gMarkKnown(1);
 out.babConnu = [gLessons().every(gDone), gramDueQ().length, gramDueV().length, Boolean(S.connus.tanwin)]; S.cards = gardeCartes; S.connus = gardeConnus;
+// Questions fabriquées : sur un grand nombre de tirages, chacune a un seul bon choix et des choix tous différents.
+// « Lequel de ces mots est un … ? » : un seul des mots proposés est de la sorte demandée.
+out.ambigues = [];
+for (let k = 0; k < 400; k++) {
+  const g = gGenerated(), txt = g.opts.map(o => o.html.replace(/<[^>]+>/g, "")), mots = g.prompt ? [] : txt.map(t => WORDS.find(w => w.ar === t));
+  const cible = (g.ask.match(/\{\{([a-z]+)\}\}/) || [])[1];
+  if (new Set(txt).size !== txt.length || g.bon < 0 || (mots.length && mots.filter(w => gNatureOf(w) === cible).length !== 1)) out.ambigues.push(g.ask + " " + txt.join(" / "));
+}
+// Vers : pour chaque vers et chaque forme, les choix sont tous différents une fois les voyelles retirées, et un seul est le bon
+NAZM.forEach(v => { for (let k = 0; k < 12; k++) ["trou", "ajuz", "suite"].forEach(kind => {
+  const g = gVerseQuestion(v, kind), txt = g.opts.map(o => gNorm(o.html));
+  if (new Set(txt).size !== txt.length || g.bon < 0 || g.bon >= txt.length) out.ambigues.push(v.id + " " + kind);
+}); });
+// Deux mots du vocabulaire qui s'écrivent pareil ne doivent pas être de sortes différentes
+out.homographes = WORDS.filter(a => gNatureOf(a) && WORDS.some(b => b !== a && gNatureOf(b) && gNorm(b.ar) === gNorm(a.ar) && gNatureOf(b) !== gNatureOf(a))).map(w => w.id);
 // Sorte des mots : identifiants valables, aucun mot dans deux listes ; l'entraînement libre ne crée ni ne déplace aucune carte
 const nm = [...NATURES_MOTS.fil, ...NATURES_MOTS.harf, ...NATURES_MOTS.hors];
 out.naturesFautes = nm.filter((id, i) => !BY_ID[id] || nm.indexOf(id) !== i);
@@ -297,6 +312,8 @@ assert.ok(r.vocalOk && r.vocalFaux && r.vocalShadda, "avec les voyelles : l'écr
 assert.ok(r.clavierVoyelles && r.clavierSans, "la rangée des voyelles suit le réglage");
 assert.deepStrictEqual(r.clavier, [true, true], "une disposition du clavier n'a pas toutes les lettres");
 assert.deepStrictEqual(r.babConnu, [true, 24, 7, true], "un bab validé sans le faire entre en entier en révision");
+assert.deepStrictEqual([...new Set(r.ambigues)], [], "question fabriquée ambiguë");
+assert.deepStrictEqual(r.homographes, [], "deux mots de même écriture sont classés dans des sortes différentes");
 assert.deepStrictEqual(r.naturesFautes, [], "sorte des mots : identifiant inconnu ou en double");
 assert.ok(r.trainQ === 10 && r.trainV === 10 && r.trainSansEffet, "l'entraînement libre pose dix questions et ne touche pas au calendrier");
 assert.ok(r.revueV && r.revueQ, "la révision du poème et celle de la grammaire sont séparées");
