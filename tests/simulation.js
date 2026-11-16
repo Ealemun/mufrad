@@ -151,11 +151,23 @@ S.termes = "fr"; gSeen = {}; out.termeFr = gText("{{ism}}").includes("gloss"); S
 S.termes = "auto"; gTerm = "bayt"; out.termeFiche = gTermSheet().includes("أَبْيات"); gTerm = null;
 S.cards = {}; S.days = {}; location.hash = "#grammaire"; viewGrammar(); gOpen = { poem: true, src: true }; viewGrammar();
 const gJoue = rate => { let n = 0; while (gs && !gs.over && n < 500) { n++; render(); const st = gs.steps[gs.i];
-  if (st.t === "q") { gs.picked = rate && n % 3 === 0 ? (st.q.bon + 1) % st.q.opts.length : st.q.bon; gCheck(); render(); } gNext(); } render(); return gs.asked; };
+  if (st.t === "q") { if (st.q.type === "ecrit") gs.typed = rate && n % 3 === 0 ? "خطا" : gBare(st.q.answer); else gs.picked = rate && n % 3 === 0 ? (st.q.bon + 1) % st.q.opts.length : st.q.bon; gCheck(); render(); } gNext(); } render(); return gs.asked; };
 gStartLesson("g1a"); out.gramEtapes = gs.steps.map(s => s.t[0]).join(""); out.gramPosees = gJoue(false); gs = null;
 out.termesAppris = ["ism", "fil", "harf", "kalam", "bayt", "ajuz"].every(id => S.connus[id]) && !S.connus.tanwin;
 out.gramFaite = gDone(gLessons()[0]); out.gramCartes = Object.keys(S.cards).filter(k => /^[gn]/.test(k)).length; out.gramSerie = streak();
 S.offset = (S.offset || 0) + 3; out.gramDues = gramDue().length; gStartReview(); out.gramRevues = gJoue(true); gs = null; S.offset -= 3;
+// Mot manquant : pour chaque vers et chaque forme, la question est bien formée ; l'écriture sans voyelles est acceptée
+out.trous = NAZM.filter(v => { const a = gVerseQuestion(v, "trou"), b = gVerseQuestion(v, "ecrit");
+  return !(a.opts.length === 4 && a.bon >= 0 && a.prompt.includes("blank") && b.type === "ecrit" && b.answer && (v.a + " " + v.b).includes(b.answer)); }).map(v => v.id);
+gs = { typed: "الكلام", picked: null }; out.ecritOk = gIsRight({ type: "ecrit", answer: "الْكَلَامَ" }); gs.typed = "الكلم"; out.ecritFaux = !gIsRight({ type: "ecrit", answer: "الْكَلَامَ" }); gs = null;
+// Sorte des mots : identifiants valables, aucun mot dans deux listes ; l'entraînement libre ne crée ni ne déplace aucune carte
+const nm = [...NATURES_MOTS.fil, ...NATURES_MOTS.harf, ...NATURES_MOTS.hors];
+out.naturesFautes = nm.filter((id, i) => !BY_ID[id] || nm.indexOf(id) !== i);
+const avantTrain = JSON.stringify(S.cards);
+gStartTraining("q"); out.trainQ = gJoue(true); gs = null; gStartTraining("v"); out.trainV = gJoue(true); gs = null;
+out.trainSansEffet = JSON.stringify(S.cards) === avantTrain;
+// Les révisions sont séparées : la grammaire d'un côté, le poème de l'autre
+S.offset += 60; gStartReview("v"); out.revueV = gs ? gs.steps.every(s => s.q.verse) : false; gs = null; gStartReview("q"); out.revueQ = gs ? gs.steps.every(s => !s.q.verse) : false; gs = null; S.offset -= 60;
 S.nazm = false; gStartLesson("g1b"); out.gramSansPoeme = gs.steps.every(s => s.t !== "verses" && !(s.q && s.q.verse)); gs = null; S.nazm = true;
 S.cards = {}; S.days = {}; location.hash = "";
 // « Réviser au choix » (panneau du parcours) : les unités sont repliées sauf celle en cours ;
@@ -270,6 +282,11 @@ assert.ok(r.termesAppris, "les termes d'une leçon terminée sont tenus pour con
 assert.ok(/^p+vq+$/.test(r.gramEtapes), "une leçon enchaîne les pages, les vers, puis les questions");
 assert.ok(r.gramPosees === 11 && r.gramFaite && r.gramCartes === 11 && r.gramSerie === 1, "la leçon faite crée une carte par question et par vers, et compte pour la série");
 assert.ok(r.gramDues > 0 && r.gramRevues === Math.min(15, r.gramDues), "les cartes de grammaire reviennent en révision");
+assert.deepStrictEqual(r.trous, [], "mot manquant : question mal formée pour ce vers");
+assert.ok(r.ecritOk && r.ecritFaux, "un mot écrit sans voyelles est accepté, un mot faux est refusé");
+assert.deepStrictEqual(r.naturesFautes, [], "sorte des mots : identifiant inconnu ou en double");
+assert.ok(r.trainQ === 10 && r.trainV === 10 && r.trainSansEffet, "l'entraînement libre pose dix questions et ne touche pas au calendrier");
+assert.ok(r.revueV && r.revueQ, "la révision du poème et celle de la grammaire sont séparées");
 assert.ok(r.gramSansPoeme, "sans le poème, la leçon ne montre ni vers ni question de mémorisation");
 assert.deepStrictEqual(r.reviser, { unitesRepliees: true, inactif: true, actif: true, boutonParcours: true, panneau: true, glossaire: true },
   "Réviser au choix : panneau du parcours, unités repliées, bouton de départ ; le glossaire n'a plus ce choix");

@@ -8,6 +8,7 @@
 const GRAMMAIRE = [];   // chapitres, inscrits par js/grammaire/chapitre-NN.js
 const NAZM = [];        // vers du poème, inscrits par js/grammaire/nazm.js, dans l'ordre du texte
 const GLOSSAIRE = [];   // termes arabes de la rubrique, inscrits par js/grammaire/glossaire.js
+const NATURES_MOTS = { fil: [], harf: [], hors: [] };   // sorte des mots du vocabulaire, inscrite par js/grammaire/natures.js
 const SOURCES = [];     // éditions de référence consultables dans l'application, inscrites par js/grammaire/sources.js
 
 let gs = null;          // séance de grammaire en cours (en mémoire seulement)
@@ -26,12 +27,11 @@ const gIsKnown = id => Boolean(gCard(id)) && gCard(id).s >= 7 && gCard(id).due >
 // Questions d'une leçon réellement posables (un mot de vocabulaire retiré depuis fait sauter sa question)
 const gQuestions = l => l.questions.filter(q => !q.mot || BY_ID[q.mot]);
 const gDone = l => gQuestions(l).every(q => gCard(q.id));
-// Tout ce qui est à revoir aujourd'hui : questions de grammaire, et vers si le poème est suivi
-function gramDue() {
-  const qs = gLessons().flatMap(l => gQuestions(l).map(q => q.id)).filter(gIsDue);
-  const vs = gNazmOn() ? NAZM.map(v => v.id).filter(gIsDue) : [];
-  return [...qs, ...vs];
-}
+// Ce qui est à revoir aujourd'hui. La grammaire et le poème se révisent séparément.
+const gramDueQ = () => gLessons().flatMap(l => gQuestions(l).map(q => q.id)).filter(gIsDue);
+const gramDueV = () => (gNazmOn() ? NAZM.map(v => v.id).filter(gIsDue) : []);
+const gramDue = () => [...gramDueQ(), ...gramDueV()];
+const gWrite = () => S.ecrire !== false;                              // écrire certaines réponses au clavier arabe : oui par défaut
 
 // --- Termes arabes. Trois réglages (S.termes) : "auto" (traduit jusqu'à la fin de la leçon qui l'introduit),
 // "fr" (toujours traduit), "ar" (arabe seul). Les termes rencontrés sont notés dans S.connus.
@@ -79,7 +79,25 @@ function gBuildQuestion(q) {
   const prompt = it ? AR(it.ar) + `<span class="tr">${esc(it.fr)}</span>` : q.ar ? AR(q.ar) + (q.fr ? `<span class="tr">${esc(q.fr)}</span>` : "") : "";
   return { id: q.id, ask: q.q, prompt, opts: order.map(k => ({ html: q.arChoix ? esc(q.choix[k]) : gText(q.choix[k], true), ar: Boolean(q.arChoix) })), bon: order.indexOf(q.bon), why: q.pourquoi };
 }
-// Questions de mémorisation, fabriquées à partir du texte : second hémistiche, ou vers suivant
+// --- Comparer de l'arabe écrit par l'apprenant : on ne tient compte ni des voyelles ni de la ponctuation,
+// et on ne distingue pas les formes de l'alif ni le ى final du ي (l'écriture est déjà assez difficile au clavier).
+const gBare = t => String(t).replace(/[\u064B-\u0652\u0670\u0640«»،؛:.!؟\s]/g, "");
+const gNorm = t => gBare(t).replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي");
+const gCore = w => w.replace(/^[«»،؛:.!؟]+|[«»،؛:.!؟]+$/g, "").replace(/^كَـ«|»$/g, "");   // le mot sans la ponctuation qui l'entoure
+// Les mots d'un vers qu'on peut cacher : au moins trois lettres, pour que le trou ait un intérêt
+function gHoles(v) {
+  const out = [];
+  [["a", v.a], ["b", v.b]].forEach(([h, txt]) => txt.split(" ").forEach((w, i) => { if (gBare(gCore(w)).length >= 3) out.push({ h, i, word: gCore(w) }); }));
+  return out;
+}
+// Le vers avec un mot remplacé par un trait (ou, une fois corrigé, par le mot mis en valeur)
+function gHoleHtml(v, hole, shown) {
+  const half = h => v[h].split(" ").map((w, i) => (h === hole.h && i === hole.i
+    ? esc(w).replace(esc(hole.word), shown ? `<mark>${esc(hole.word)}</mark>` : `<span class="blank">ـــــــ</span>`) : esc(w))).join(" ");
+  return `<div class="verse"><span class="ar" lang="ar" dir="rtl">${half("a")}</span><span class="ar" lang="ar" dir="rtl">${half("b")}</span></div>`;
+}
+// Questions de mémorisation, fabriquées à partir du texte.
+// kind : "trou" (mot manquant, à choisir), "ecrit" (mot manquant, à écrire), "ajuz" (seconde moitié), "suite" (vers suivant)
 function gVerseQuestion(v, kind) {
   const k = NAZM.indexOf(v), next = NAZM[k + 1];
   const others = gMix(NAZM.filter(o => o.id !== v.id && (!next || o.id !== next.id)));
@@ -88,10 +106,48 @@ function gVerseQuestion(v, kind) {
     const opts = gMix([next, ...pool]);
     return { id: v.id, verse: true, ask: "Quel {{bayt}} vient juste après ?", prompt: gVerseHtml(v), opts: opts.map(o => ({ html: esc(o.a), ar: true })), bon: opts.indexOf(next), why: "" };
   }
+  const holes = gHoles(v);
+  if ((kind === "trou" || kind === "ecrit") && holes.length) {
+    const hole = holes[Math.floor(Math.random() * holes.length)];
+    const base = { id: v.id, verse: true, prompt: gHoleHtml(v, hole, false), solved: gHoleHtml(v, hole, true), why: "" };
+    if (kind === "ecrit") return { ...base, type: "ecrit", ask: "Écrivez le mot qui manque.", answer: hole.word, opts: [], bon: -1 };
+    // Trois autres mots du poème, différents du bon une fois les voyelles retirées
+    const seen = new Set([gNorm(hole.word)]), wrong = [];
+    gMix(NAZM.filter(o => o.id !== v.id).flatMap(gHoles)).forEach(x => { if (wrong.length < 3 && !seen.has(gNorm(x.word))) { seen.add(gNorm(x.word)); wrong.push(x.word); } });
+    const opts = gMix([hole.word, ...wrong]);
+    return { ...base, ask: "Quel mot manque dans ce {{bayt}} ?", opts: opts.map(w => ({ html: esc(w), ar: true })), bon: opts.indexOf(hole.word) };
+  }
   const opts = gMix([v, ...pool]);
   return { id: v.id, verse: true, ask: "Quel est le {{ajuz}} de ce {{bayt}} ?", prompt: `<div class="verse"><span class="ar" lang="ar" dir="rtl">${esc(v.a)}</span><span class="ar hole" lang="ar" dir="rtl">…</span></div>`,
     opts: opts.map(o => ({ html: esc(o.b), ar: true })), bon: opts.indexOf(v), why: "" };
 }
+// Forme de la question selon le nombre de fois où le vers a déjà été revu : on varie, et l'écriture vient après les choix
+function gVerseKind(v) {
+  const reps = (gCard(v.id) && gCard(v.id).reps) || 0, kind = ["trou", "suite", "trou", "ajuz"][reps % 4];
+  return kind === "trou" && reps >= 2 && gWrite() ? "ecrit" : kind;
+}
+
+// --- Exercices fabriqués à volonté à partir du vocabulaire : la sorte d'un mot
+function gNatureOf(it) {
+  if (!it || it.type !== "word" || it.added || NATURES_MOTS.hors.includes(it.id)) return null;
+  return NATURES_MOTS.fil.includes(it.id) ? "fil" : NATURES_MOTS.harf.includes(it.id) ? "harf" : "ism";
+}
+function gGenerated() {
+  gSeen = {};
+  // On pioche d'abord dans les mots déjà rencontrés ; à défaut, dans tout le vocabulaire
+  const all = WORDS.filter(gNatureOf), seen = all.filter(isSeen), by = n => gMix((seen.filter(w => gNatureOf(w) === n).length >= 2 ? seen : all).filter(w => gNatureOf(w) === n));
+  const target = NATURES[Math.floor(Math.random() * 3)], [k, ar] = target;
+  if (Math.random() < 0.5) {                        // « de quelle sorte est ce mot ? »
+    const it = by(k)[0];
+    return { id: "", ask: "De quelle sorte est ce mot ?", prompt: AR(it.ar) + `<span class="tr">${esc(it.fr)}</span>`, opts: NATURES.map(([n]) => ({ html: gTermHtml(n, false, true) })),
+      bon: NATURES.findIndex(n => n[0] === k), why: `[[${it.ar}]] est un {{${k}}}.` };
+  }
+  // « lequel de ces mots est un … ? » : un mot de la sorte demandée, un de chacune des deux autres
+  const good = by(k)[0], wrong = NATURES.filter(n => n[0] !== k).map(n => by(n[0])[0]), opts = gMix([good, ...wrong]);
+  return { id: "", ask: `Lequel de ces mots est un {{${k}}} ?`, prompt: "", opts: opts.map(o => ({ html: esc(o.ar), ar: true })), bon: opts.indexOf(good),
+    why: opts.map(o => `[[${o.ar}]] : {{${gNatureOf(o)}}}`).join(" · ") };
+}
+
 const gVerseHtml = v => `<div class="verse"><span class="ar" lang="ar" dir="rtl">${esc(v.a)}</span><span class="ar" lang="ar" dir="rtl">${esc(v.b)}</span></div>`;
 
 // --- Visionneuse : une page de l'édition de référence, par-dessus l'écran, sans quitter l'application.
@@ -121,28 +177,46 @@ function gStartLesson(id) {
     ...l.pages.map(p => ({ t: "page", page: p, lesson: l })),
     ...(verses.length ? [{ t: "verses", verses, lesson: l }] : []),
     ...gQuestions(l).map(q => ({ t: "q", q: gBuildQuestion(q) })),
-    ...verses.map(v => ({ t: "q", q: gVerseQuestion(v, "hemi") }))
+    ...verses.map(v => ({ t: "q", q: gVerseQuestion(v, "trou") }))
   ];
-  gs = { kind: "lesson", title: l.titre, lesson: l, steps, i: 0, picked: null, checked: false, right: 0, asked: 0, over: false };
+  gs = gSession("lesson", l.titre, steps, { lesson: l });
 }
-function gStartReview() {
-  const due = gramDue().slice(0, 15), byId = {};
+const gSession = (kind, title, steps, extra) => ({ kind, title, steps, i: 0, picked: null, typed: "", checked: false, right: 0, asked: 0, over: false, ...extra });
+// Révision des cartes dues : which = "q" (grammaire), "v" (poème), ou les deux si rien n'est précisé
+function gStartReview(which) {
+  const ids = which === "q" ? gramDueQ() : which === "v" ? gramDueV() : gramDue(), byId = {};
   gLessons().forEach(l => gQuestions(l).forEach(q => { byId[q.id] = q; }));
-  const steps = gMix(due).map(id => byId[id] ? { t: "q", q: gBuildQuestion(byId[id]) }
-    : { t: "q", q: gVerseQuestion(gVerse(id), (gCard(id).reps || 0) % 2 ? "suite" : "hemi") });
-  if (steps.length) gs = { kind: "review", title: "Révision de grammaire", steps, i: 0, picked: null, checked: false, right: 0, asked: 0, over: false };
+  const steps = gMix(ids.slice(0, 15)).map(id => byId[id] ? { t: "q", q: gBuildQuestion(byId[id]) } : { t: "q", q: gVerseQuestion(gVerse(id), gVerseKind(gVerse(id))) });
+  if (steps.length) gs = gSession("review", which === "v" ? "Révision du {{nazm}}" : "Révision de grammaire", steps);
 }
-// Réponse vérifiée : la carte de la question est créée ou replanifiée, comme pour un mot
+// Entraînement libre : dix questions, autant de fois qu'on veut, sans toucher au calendrier des révisions.
+// what = "q" : questions des leçons faites et questions fabriquées avec le vocabulaire ; what = "v" : les vers appris, sous toutes les formes.
+function gStartTraining(what) {
+  let steps = [];
+  if (what === "v") {
+    const learned = NAZM.filter(v => gCard(v.id)), kinds = gWrite() ? ["trou", "ecrit", "ajuz", "suite", "trou", "ecrit"] : ["trou", "ajuz", "suite", "trou"];
+    steps = Array.from({ length: learned.length ? 10 : 0 }, (x, k) => ({ t: "q", q: gVerseQuestion(gMix(learned)[0], kinds[k % kinds.length]) }));
+  } else {
+    const written = gMix(gLessons().filter(gDone).flatMap(gQuestions)).slice(0, 4).map(q => ({ t: "q", q: gBuildQuestion(q) }));
+    steps = gMix([...written, ...Array.from({ length: 10 - written.length }, () => ({ t: "q", q: gGenerated() }))]);
+  }
+  if (steps.length) gs = gSession("train", what === "v" ? "Entraînement sur le {{nazm}}" : "Entraînement de grammaire", steps, { what });
+}
+// La réponse donnée est-elle la bonne ? (choix touché, ou mot écrit comparé sans les voyelles)
+const gIsRight = q => (q.type === "ecrit" ? gNorm(gs.typed) === gNorm(q.answer) : gs.picked === q.bon);
+// Réponse vérifiée : la carte de la question est créée ou replanifiée, comme pour un mot. L'entraînement libre ne planifie rien.
 function gCheck() {
-  const st = gs.steps[gs.i], ok = gs.picked === st.q.bon, t = today(), card = gCard(st.q.id);
-  gs.checked = true; gs.asked++; if (ok) gs.right++;
-  if (!card) S.cards[st.q.id] = schedule(undefined, ok ? 3 : 1, t);
-  else if (card.due <= t || !ok) S.cards[st.q.id] = schedule(card, ok ? 3 : 1, t);
+  const st = gs.steps[gs.i], ok = gIsRight(st.q), t = today(), card = gCard(st.q.id);
+  gs.checked = true; gs.ok = ok; gs.asked++; if (ok) gs.right++;
+  if (gs.kind !== "train") {
+    if (!card) S.cards[st.q.id] = schedule(undefined, ok ? 3 : 1, t);
+    else if (card.due <= t || !ok) S.cards[st.q.id] = schedule(card, ok ? 3 : 1, t);
+  }
   dayRec(t).answers++;
   saveState(); sfx(ok ? "ok" : "ko");
 }
 function gNext() {
-  gs.i++; gs.picked = null; gs.checked = false;
+  gs.i++; gs.picked = null; gs.typed = ""; gs.checked = false;
   if (gs.i >= gs.steps.length) {
     gs.over = true;
     if (gs.kind === "lesson") { S.connus = S.connus || {}; gTermsOf(gs.lesson).forEach(id => { S.connus[id] = true; }); saveState(); }
@@ -161,10 +235,10 @@ function gramRender(r) {
     <button class="icon" data-act="g-back" aria-label="Écran précédent" ${gs.i > 0 && !gs.checked && gs.steps[gs.i - 1].t !== "q" ? "" : "disabled"}>‹</button>
     <div class="bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div></div>`;
   if (gs.over) {
-    $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gs.kind === "lesson" ? "Leçon terminée" : "Révision terminée"}</p>
+    $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gs.kind === "lesson" ? "Leçon terminée" : gs.kind === "train" ? "Entraînement terminé" : "Révision terminée"}</p>
       <div class="tiles"><div><b>${gs.right} / ${gs.asked}</b>bonnes réponses</div><div><b>${streak()}</b>${streak() > 1 ? "jours de suite" : "jour de suite"}</div></div>
-      <p class="muted">${gs.kind === "lesson" ? "Les questions de cette leçon reviendront dans la révision de grammaire, espacées comme les mots." : "Les prochaines révisions sont planifiées."}</p>`;
-    $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-quit">Continuer</button></div>`;
+      <p class="muted">${gs.kind === "lesson" ? "Les questions de cette leçon reviendront dans la révision de grammaire, espacées comme les mots." : gs.kind === "train" ? "L'entraînement libre ne change pas le calendrier des révisions." : "Les prochaines révisions sont planifiées."}</p>`;
+    $foot.innerHTML = `<div class="act">${gs.kind === "train" ? `<button class="btn" data-act="g-train" data-w="${gs.what}">Encore dix questions</button>` : ""}<button class="btn ${gs.kind === "train" ? "ghost" : ""}" data-act="g-quit">${gs.kind === "train" ? "Terminer" : "Continuer"}</button></div>`;
     return true;
   }
   const st = gs.steps[gs.i];
@@ -184,17 +258,39 @@ function gramRender(r) {
       if (gs.checked && k === q.bon) cls += " right"; else if (gs.checked && k === gs.picked) cls += " wrong"; else if (!gs.checked && k === gs.picked) cls += " sel";
       return `<button class="${cls}"${o.ar ? ' lang="ar" dir="rtl"' : ""} data-act="g-pick" data-k="${k}" ${gs.checked ? "disabled" : ""}>${o.html}</button>`;
     }).join("");
-    $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gText(q.ask)}</p>${q.prompt ? `<div class="prompt gprompt">${q.prompt}</div>` : ""}<div class="opts">${opts}</div>`;
+    const prompt = gs.checked && q.solved ? q.solved : q.prompt;     // une fois corrigé, le vers s'affiche complet
+    const body = q.type === "ecrit"
+      ? `<div class="gfield ar ${gs.checked ? (gs.ok ? "right" : "wrong") : ""}" lang="ar" dir="rtl" aria-live="polite" aria-label="Votre réponse">${esc(gs.typed) || `<span class="muted">…</span>`}</div>${gs.checked ? "" : gKeyboard()}`
+      : `<div class="opts">${opts}</div>`;
+    $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gText(q.ask)}</p>${prompt ? `<div class="prompt gprompt">${prompt}</div>` : ""}${body}`;
     if (gs.checked) {
-      const ok = gs.picked === q.bon;
+      const ok = gs.ok, why = q.type === "ecrit" && !ok ? `Il fallait écrire [[${q.answer}]].` : q.why;
       // Le verdict est porté par un signe et un texte, pas seulement par la couleur ; l'explication suit toujours
-      $foot.innerHTML = `<div class="act ${ok ? "ok" : "ko"}"><div class="verdict" role="status"><b>${ok ? "✓ Bien joué" : "✗ Ce n'est pas ça"}</b>${q.why ? `<span>${gText(q.why)}</span>` : ""}</div>
+      $foot.innerHTML = `<div class="act ${ok ? "ok" : "ko"}"><div class="verdict" role="status"><b>${ok ? "✓ Bien joué" : "✗ Ce n'est pas ça"}</b>${why ? `<span>${gText(why)}</span>` : ""}</div>
         <button class="btn ${ok ? "good" : "bad"}" data-act="g-next">Continuer</button></div>`;
-    } else $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-check" ${gs.picked === null ? "disabled" : ""}>Vérifier</button></div>`;
+    } else $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-check" ${(q.type === "ecrit" ? gs.typed === "" : gs.picked === null) ? "disabled" : ""}>Vérifier</button></div>`;
   }
   $view.innerHTML += gTermSheet() + gSourceView();
   return true;
 }
+// Clavier arabe de l'application, pour qui n'a pas de clavier arabe : les lettres dans l'ordre de l'alphabet
+// (celui dans lequel on les a apprises), de droite à gauche, puis les formes de la hamza, le ة et le ى.
+const G_KEYS = ["ا", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي"];
+const G_KEYS2 = ["ء", "أ", "إ", "آ", "ؤ", "ئ", "ة", "ى"];
+function gKeyboard() {
+  const key = k => `<button class="gkey ar" lang="ar" data-act="g-key" data-k="${k}">${k}</button>`;
+  return `<div class="gkb" dir="rtl" role="group" aria-label="Clavier arabe">${G_KEYS.map(key).join("")}</div>
+    <div class="gkb gkb2" dir="rtl">${G_KEYS2.map(key).join("")}<button class="gkey wide" data-act="g-key-del" aria-label="Effacer la dernière lettre">⌫</button></div>
+    <p class="muted gkb-note">Inutile d'écrire les voyelles.</p>`;
+}
+// Un clavier arabe branché à l'ordinateur fonctionne aussi
+if (typeof document !== "undefined" && document.addEventListener) document.addEventListener("keydown", e => {
+  const q = gs && !gs.over && !gs.checked && gs.steps[gs.i] && gs.steps[gs.i].q;
+  if (!q || q.type !== "ecrit" || route() !== "grammaire") return;
+  if (e.key === "Backspace") { gs.typed = [...gs.typed].slice(0, -1).join(""); render(); e.preventDefault(); }
+  else if (e.key === "Enter" && gs.typed) { gCheck(); render(); }
+  else if (/^[\u0621-\u064A]$/.test(e.key)) { gs.typed += e.key; render(); }
+});
 // Un bloc d'explication : paragraphe, citation du texte de référence, exemples, ou règle à retenir
 function gBlock(b) {
   if (b.p) return `<p>${gText(b.p)}</p>`;
@@ -207,7 +303,7 @@ function gBlock(b) {
 // --- Onglet Grammaire : où j'en suis, les chapitres et leurs leçons, le poème, les sources
 function viewGrammar() {
   gSeen = {};
-  const lessons = gLessons(), done = lessons.filter(gDone).length, due = gramDue().length;
+  const lessons = gLessons(), done = lessons.filter(gDone).length, due = gramDueQ().length, dueV = gramDueV().length;
   const next = lessons.find(l => !gDone(l));
   const learned = NAZM.filter(v => gCard(v.id)).length;
   const chapters = GRAMMAIRE.slice().sort((a, b) => a.n - b.n).map(c => `<section class="panel"><h3>${gText("{{bab}}", true)} ${c.n} · ${gText(c.titre, true)}</h3>
@@ -220,6 +316,10 @@ function viewGrammar() {
   const poem = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="poem" aria-expanded="${showPoem}"><span>${gText("Le {{nazm}}", true)} · ${learned} / ${NAZM.length} ${gText("{{bayt:pl}}", true)} appris</span><span class="muted">${showPoem ? "▾" : "▸"}</span></button>
       <p class="muted">Nazm al-Ājurrūmiyya, de ’Ubayd Rabbih Muhammad b. Ābbah ash-Shinqiti : la grammaire d'Ibn Ājurrūm mise en vers pour être retenue. Les vers s'apprennent au fil des leçons.</p>
       <div class="seg"><button data-act="g-nazm" data-on="1" aria-pressed="${gNazmOn()}">Je l'apprends</button><button data-act="g-nazm" data-on="0" aria-pressed="${!gNazmOn()}">Sans le ${gText("{{nazm}}", true)}</button></div>
+      ${gNazmOn() && dueV ? `<button class="btn gold" data-act="g-review" data-w="v">${gText("Réviser le {{nazm}}", true)} · ${plural(dueV, "ligne")}</button>` : ""}
+      ${gNazmOn() && learned ? `<button class="btn ghost" data-act="g-train" data-w="v">${gText("S'entraîner sur le {{nazm}}", true)}</button>
+        <p class="muted">Réponses à écrire au clavier arabe de l'application</p>
+        <div class="seg"><button data-act="g-write" data-on="1" aria-pressed="${gWrite()}">Oui, peu à peu</button><button data-act="g-write" data-on="0" aria-pressed="${!gWrite()}">Choix seulement</button></div>` : ""}
       ${showPoem ? NAZM.map((v, k) => `${k === 0 || NAZM[k - 1].bab !== v.bab ? `<p class="gbab">${AR(v.babAr)}${gSourceBtn(v.bab, "dans l'édition")}</p>` : ""}<div class="gverse ${gCard(v.id) ? "" : "todo"}">${gVerseHtml(v)}<p>${esc(v.fr)}</p></div>`).join("") : ""}</section>`;
   const showSrc = gOpen.src === true;
   const sources = `<section class="panel"><button class="lhead" data-act="g-fold" data-k="src" aria-expanded="${showSrc}"><span>Sources</span><span class="muted">${showSrc ? "▾" : "▸"}</span></button>
@@ -233,8 +333,9 @@ function viewGrammar() {
       <div class="seg"><button data-act="g-mode" data-m="auto" aria-pressed="${mode === "auto"}">Progressif</button><button data-act="g-mode" data-m="fr" aria-pressed="${mode === "fr"}">Toujours traduit</button><button data-act="g-mode" data-m="ar" aria-pressed="${mode === "ar"}">Arabe seul</button></div>
       ${showGlo ? `<p class="muted">Les mots des livres et des poèmes</p>${terms("texte")}<p class="muted">Les mots de la grammaire</p>${terms("grammaire")}` : ""}</section>`;
   return `<section class="card"><h3>Grammaire</h3>
-      <div class="tiles"><div><b>${done} / ${lessons.length}</b>leçons faites</div><div><b>${due}</b>à revoir</div><div><b>${learned}</b>${gText("{{bayt:pl}}", true)} appris</div></div>
-      ${due ? `<button class="btn gold" data-act="g-review">Réviser ${due > 15 ? "15 cartes sur " + due : plural(due, "carte")}</button>` : ""}
+      <div class="tiles"><div><b>${done} / ${lessons.length}</b>leçons faites</div><div><b>${due + dueV}</b>à revoir</div><div><b>${learned}</b>${gText("{{bayt:pl}}", true)} appris</div></div>
+      ${due ? `<button class="btn gold" data-act="g-review" data-w="q">Réviser ${due > 15 ? "15 questions sur " + due : plural(due, "question")}</button>` : ""}
+      ${done ? `<button class="btn ghost" data-act="g-train" data-w="q">S'entraîner : dix questions</button>` : ""}
       ${next ? `<button class="btn ${due ? "ghost" : ""}" data-act="g-lesson" data-id="${next.id}">${done ? "Leçon suivante" : "Commencer"} : ${gText(next.titre, true)}</button>` : `<p class="muted">Toutes les leçons disponibles sont faites. La suite arrive.</p>`}</section>
     ${chapters}${poem}${glossary}${sources}${gTermSheet()}${gSourceView()}`;
 }
@@ -243,12 +344,16 @@ function viewGrammar() {
 function gramClick(act, el) {
   switch (act) {
     case "g-lesson": gStartLesson(el.dataset.id); break;
-    case "g-review": gStartReview(); break;
+    case "g-review": gStartReview(el.dataset.w); break;
+    case "g-train": gStartTraining(el.dataset.w); break;
+    case "g-write": S.ecrire = el.dataset.on === "1"; saveState(); break;
+    case "g-key": if (gs && !gs.checked && [...gs.typed].length < 24) { gs.typed += el.dataset.k; sfx("tap"); } break;
+    case "g-key-del": if (gs && !gs.checked) gs.typed = [...gs.typed].slice(0, -1).join(""); break;
     case "g-quit": gs = null; gTerm = null; gSrc = null; break;
-    case "g-back": if (gs && gs.i > 0) { gs.i--; gs.picked = null; gs.checked = false; } break;
+    case "g-back": if (gs && gs.i > 0) { gs.i--; gs.picked = null; gs.typed = ""; gs.checked = false; } break;
     case "g-next": gNext(); break;
     case "g-pick": { const k = Number(el.dataset.k); gs.picked = gs.picked === k ? null : k; sfx("tap"); break; }
-    case "g-check": if (gs.picked !== null) gCheck(); break;
+    case "g-check": if (gs.picked !== null || gs.typed) gCheck(); break;
     case "g-fold": gOpen[el.dataset.k] = !(gOpen[el.dataset.k] === true); break;
     case "g-nazm": S.nazm = el.dataset.on === "1"; saveState(); break;
     case "g-src": gSrc = { id: el.dataset.id, p: Number(el.dataset.p) || 1, zoom: false }; break;
