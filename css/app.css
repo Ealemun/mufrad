@@ -288,3 +288,6 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 /* Choix entre l'ancien et le nouvel enregistrement d'un même mot : le nouveau est choisi d'office (il sera déposé) */
 .seg.choix button:disabled { cursor: default; opacity: 1; }
 .mini.txt svg { width: 18px; height: 18px; vertical-align: -3px; }
+/* Message bref après une action, collé au-dessus de la barre d'onglets */
+.foot { position: relative; }
+.toast { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 8px); background: var(--ink); color: var(--paper); border-radius: 14px; padding: 12px 16px; font-weight: 500; z-index: 4; box-shadow: 0 4px 0 rgba(0, 0, 0, .2); }

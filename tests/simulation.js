@@ -294,6 +294,8 @@ out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-m
     admin: admin.includes('data-act="voice-restore" data-vid="v1"'), sansAccord: sansAccord === "" };
   ({ sb, me, myLevel, hasConsent, voixRows } = sauf);
 }
+// Après une action sur les voix, un message bref s'affiche au-dessus des onglets
+toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.includes('class="toast"') && $foot.innerHTML.includes("Voix remise"); toastMsg = ""; render();
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -375,6 +377,7 @@ assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognag
 setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true }, "Version d'essai : lecture seule de la vraie base"), 0);
 assert.deepStrictEqual(r.retirees, { liste: "a", bouton: true }, "Voix retirées : seules celles qui n'ont pas été remplacées peuvent être remises");
 assert.deepStrictEqual(r.remettre, { local: true, sansLocal: true, admin: true, sansAccord: true }, "Onglet Voix : remettre dans le partage un enregistrement retiré");
+assert.ok(r.toast, "Message bref visible après une action sur les voix");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

@@ -476,7 +476,7 @@ function render() {
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
     }
-    $foot.innerHTML = `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && r === "partage") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
+    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && r === "partage") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
   }
 }
 
@@ -1223,13 +1223,13 @@ async function shareMany(ids) {
   for (const id of ids) { try { etat = await shareClip(id); ok++; } catch (e) { err = e.message; } }
   sbMsg = ok ? plural(ok, "enregistrement") + (etat === "publie" ? " : disponible pour tous les utilisateurs." : " : envoyé en recommandation, en attente d'un contributeur.") : "";
   if (err) sbMsg += " Échec pour " + (ids.length - ok) + " : " + err;
-  await loadVoices();
+  toast(sbMsg); await loadVoices();
 }
 // Traitement d'une recommandation par un contributeur
 async function decide(recoId, accept) {
   const r = await sb.from("voix").update({ etat: accept ? "publie" : "refuse", traite_par: me.id, traite_le: new Date().toISOString() }).eq("id", recoId);
   sbMsg = r.error ? "Action refusée : " + r.error.message : (accept ? "Recommandation acceptée." : "Recommandation refusée.");
-  await loadVoices();
+  toast(sbMsg); await loadVoices();
 }
 // Retire une voix du partage : la sienne pour chacun, n'importe laquelle pour un contributeur.
 // Retirée par un contributeur, la voix garde son fichier : on pourra la remettre dans le partage (restoreVoice).
@@ -1238,11 +1238,11 @@ async function removeVoice(vid) {
   const v = voixRows.find(x => x.id === vid);
   if (!sb || !me || !v) return;
   const r = await sb.from("voix").update({ etat: "retire" }).eq("id", vid);
-  if (r.error) { sbMsg = "Suppression refusée : " + r.error.message; refresh(); return; }
+  if (r.error) { sbMsg = "Suppression refusée : " + r.error.message; toast(sbMsg); refresh(); return; }
   if (!isContributor()) await sb.storage.from("voix").remove([v.chemin]);
   if (v.auteur === me.id && S.shared) { delete S.shared[v.element]; saveState(); }
   sbMsg = "Voix retirée du partage.";
-  await loadVoices();
+  toast(sbMsg); await loadVoices();
 }
 
 // Remet dans le partage une voix retirée (contributeurs). On vérifie d'abord que son fichier existe encore :
@@ -1252,15 +1252,25 @@ async function restoreVoice(vid) {
   if (!sb || !me || !v || !isContributor()) return;
   let existe = false;
   try { existe = (await fetch(publicUrl(v.chemin), { method: "HEAD", cache: "no-store" })).ok; } catch (e) {}
-  if (!existe) { sbMsg = "Le fichier de cette voix a été supprimé : elle ne peut pas être remise."; refresh(); return; }
+  if (!existe) { sbMsg = "Le fichier de cette voix a été supprimé : elle ne peut pas être remise."; toast(sbMsg); refresh(); return; }
   // .select() rend les lignes modifiées : aucune ligne veut dire que la base a refusé sans le dire (droits insuffisants)
   const r = await sb.from("voix").update({ etat: "publie", traite_par: me.id, traite_le: new Date().toISOString() }).eq("id", vid).select("id");
   sbMsg = r.error ? "Action refusée : " + r.error.message : !r.data || !r.data.length ? "Action refusée : il faut être contributeur." : "Voix remise dans le partage.";
-  await loadVoices();
+  toast(sbMsg); await loadVoices();
 }
 // Voix retirées qu'on peut remettre : pas celles qu'un envoi plus récent du même lecteur a remplacées
 function retiredVoices() {
   return voixRows.filter(v => v.etat === "retire" && !voixRows.some(w => w.element === v.element && w.auteur === v.auteur && w.cree_le > v.cree_le && w.etat !== "refuse"));
+}
+
+// Message bref en bas de l'écran, juste au-dessus des onglets, après une action sur les voix (envoi, retrait, remise…) :
+// on le voit où qu'on soit dans la page, et il s'efface seul après quelques secondes.
+let toastMsg = "", toastTimer = null;
+function toast(msg) {
+  if (!msg) return;
+  toastMsg = msg;
+  if (toastTimer) clearTimeout(toastTimer);
+  if (typeof setTimeout !== "undefined") toastTimer = setTimeout(() => { toastMsg = ""; refresh(); }, 5000);
 }
 
 // Encadré de l'onglet Voix : où en est le partage
