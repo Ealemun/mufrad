@@ -445,9 +445,10 @@ const plural = (n, w) => n + " " + w + (n > 1 ? "s" : "");
 function route() { return (location.hash || "#accueil").slice(1); }
 let sheet = null; // numéro de la leçon dont le panneau est ouvert sur le parcours
 
-const TABS = [["accueil", "Parcours"], ["mots", "Réviser"], ["voix", "Voix"], ["reglages", "Réglages"]];
+const TABS = [["accueil", "Parcours"], ["mots", "Réviser"], ["grammaire", "Grammaire"], ["voix", "Voix"], ["reglages", "Réglages"]];
 function render() {
   const r = route(), inSess = sess && r === "accueil";
+  if (gramRender(r)) return;   // une leçon de grammaire en cours dessine elle-même tout l'écran (js/grammaire.js)
   if (inSess) {
     $top.innerHTML = sess.over ? "" : sessHead();
     $view.innerHTML = sess.over ? viewSummary() : viewTask();
@@ -456,9 +457,9 @@ function render() {
     const known = ITEMS.filter(isKnown).length;
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">alpha</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
-    $view.innerHTML = r === "mots" ? viewWords() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : viewHome();
+    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : viewHome();
     if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
-    if (wantScroll && !sheet && r !== "mots" && r !== "voix" && r !== "reglages") {
+    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages") {
       wantScroll = false;
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
@@ -527,7 +528,8 @@ function viewHome() {
   return `<section class="card"><h3>Ce que je connais</h3>
       <div class="tri" role="img" aria-label="${known} acquis, ${seen - known} en cours, ${all - seen} à découvrir"><span class="a" style="width:${100 * known / all}%"></span><span class="b" style="width:${100 * (seen - known) / all}%"></span></div>
       <div class="legend"><span class="a"><i></i>${known} acquis</span><span class="b"><i></i>${seen - known} en cours</span><span><i></i>${all - seen} à découvrir</span></div>
-      ${daily}${resume}</section>
+      ${daily}${resume}
+      ${gramDue().length ? `<a class="btn ghost" href="#grammaire">Grammaire : ${plural(gramDue().length, "carte")} à revoir</a>` : ""}</section>
     <div class="row between"><h3>Parcours</h3><button class="linkbtn" data-act="${anyOpen ? "fold-all" : "unfold-all"}">${anyOpen ? "Tout replier" : "Tout déplier"}</button></div>
     ${path}${sheet ? viewSheet(sheet) : ""}`;
 }
@@ -1430,6 +1432,7 @@ document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act;
   noter("clic", act + (el.dataset.l ? ":" + el.dataset.l : ""));   // statistiques anonymes : quel bouton, jamais quel mot ni qui
+  if (act.startsWith("g-")) { gramClick(act, el); return; }   // grammaire : traitée dans js/grammaire.js
   if (act !== "copy" && act !== "import") uiMsg = "";
   switch (act) {
     // Parcours

@@ -4,7 +4,10 @@
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const lire = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const unites = fs.readdirSync(path.join(__dirname, "..", "js", "unites")).filter(f => f.endsWith(".js")).sort();
-const code = [lire("js/contenu.js"), ...unites.map(f => lire("js/unites/" + f)), lire("js/assemblage.js"), lire("js/app.js")].join("\n");
+const gram = fs.readdirSync(path.join(__dirname, "..", "js", "grammaire")).filter(f => f.endsWith(".js")).sort();
+const code = [lire("js/contenu.js"), ...unites.map(f => lire("js/unites/" + f)), lire("js/assemblage.js"),
+  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/app.js")].join("\n");
+gram.forEach(f => assert.ok(lire("index.html").includes("js/grammaire/" + f), "index.html ne charge pas js/grammaire/" + f));
 // Chaque fichier d'unité doit aussi être déclaré dans la page, sinon il ne serait jamais chargé
 unites.forEach(f => assert.ok(lire("index.html").includes("js/unites/" + f), "index.html ne charge pas js/unites/" + f));
 
@@ -123,6 +126,22 @@ choisirMesure(false); noter("clic", "x");
 out.mesure = { file: fileAvant.slice(0, 2), stable: Boolean(id1) && id1 === id2, renouvele: id3 !== id1,
   refus: fileMesure.length === 0 && localStorage.getItem(APPAREIL_KEY) === null, reglage: viewSettings().includes("Ne pas me compter") };
 choisirMesure(true); fileMesure = []; sess = null;
+// Grammaire : cohérence du contenu, puis une leçon et une révision jouées jusqu'au bout, chaque écran affiché
+const gq = gLessons().flatMap(l => l.questions), gids = [...gq.map(x => x.id), ...NAZM.map(v => v.id), ...gLessons().map(l => l.id)];
+out.gramDoubles = gids.filter((id, i) => gids.indexOf(id) !== i);
+out.gramFautes = [
+  ...gq.filter(x => x.nature ? !["ism", "fil", "harf"].includes(x.nature) || !BY_ID[x.mot] : !(x.q && x.choix && x.choix.length >= 2 && x.bon >= 0 && x.bon < x.choix.length)).map(x => x.id),
+  ...gq.filter(x => !x.pourquoi).map(x => x.id + " (sans explication)"),
+  ...gLessons().flatMap(l => (l.vers || []).filter(v => !gVerse(v)).map(v => l.id + " -> " + v)),
+  ...NAZM.filter(v => !(v.a && v.b && v.fr && v.bab && v.babAr)).map(v => v.id)];
+S.cards = {}; S.days = {}; location.hash = "#grammaire"; viewGrammar(); gOpen = { poem: true, src: true }; viewGrammar();
+const gJoue = rate => { let n = 0; while (gs && !gs.over && n < 500) { n++; render(); const st = gs.steps[gs.i];
+  if (st.t === "q") { gs.picked = rate && n % 3 === 0 ? (st.q.bon + 1) % st.q.opts.length : st.q.bon; gCheck(); render(); } gNext(); } render(); return gs.asked; };
+gStartLesson("g1a"); out.gramEtapes = gs.steps.map(s => s.t[0]).join(""); out.gramPosees = gJoue(false); gs = null;
+out.gramFaite = gDone(gLessons()[0]); out.gramCartes = Object.keys(S.cards).filter(k => /^[gn]/.test(k)).length; out.gramSerie = streak();
+S.offset = (S.offset || 0) + 3; out.gramDues = gramDue().length; gStartReview(); out.gramRevues = gJoue(true); gs = null; S.offset -= 3;
+S.nazm = false; gStartLesson("g1b"); out.gramSansPoeme = gs.steps.every(s => s.t !== "verses" && !(s.q && s.q.verse)); gs = null; S.nazm = true;
+S.cards = {}; S.days = {}; location.hash = "";
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -169,6 +188,12 @@ assert.deepStrictEqual(r.fusion, { rienPerdu: true, cartes: true, plusRecente: t
   "deux appareils hors ligne qui se synchronisent ne perdent aucune réponse, dans n'importe quel ordre");
 assert.deepStrictEqual(r.mesure, { file: ["clic/learn:3", "seance_debut/learn"], stable: true, renouvele: true, refus: true, reglage: true },
   "statistiques : file d'événements, identifiant stable puis renouvelé, refus respecté");
+assert.deepStrictEqual(r.gramDoubles, [], "grammaire : identifiant en double");
+assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
+assert.ok(/^p+vq+$/.test(r.gramEtapes), "une leçon enchaîne les pages, les vers, puis les questions");
+assert.ok(r.gramPosees === 11 && r.gramFaite && r.gramCartes === 11 && r.gramSerie === 1, "la leçon faite crée une carte par question et par vers, et compte pour la série");
+assert.ok(r.gramDues > 0 && r.gramRevues === Math.min(15, r.gramDues), "les cartes de grammaire reviennent en révision");
+assert.ok(r.gramSansPoeme, "sans le poème, la leçon ne montre ni vers ni question de mémorisation");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
