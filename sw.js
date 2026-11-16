@@ -5,9 +5,9 @@
 // le nom de la copie porte celui de la branche, pour que les versions ne s'effacent pas l'une l'autre.
 const ESSAI = (self.location.pathname.match(/\/essai\/([^/]+)\//) || [])[1] || "";
 const PREFIXE = "mufrad-" + (ESSAI ? "essai-" + ESSAI + "-" : "") + "v";
-const CACHE = PREFIXE + "42";
+const CACHE = PREFIXE + "43";
 // Les fichiers d'unité ne sont pas listés ici : ils sont mis en copie à leur première lecture en ligne.
-const BASE = ["./", "index.html", "css/app.css", "js/contenu.js", "js/assemblage.js", "js/app.js", "js/grammaire.js", "js/tableau.js", "js/tableau-lettres.js", "css/tableau.css", "css/grammaire.css", "manifest.webmanifest", "icons/icone-192.png"];
+const BASE = ["./", "index.html", "css/app.css", "js/contenu.js", "js/assemblage.js", "js/app.js", "js/grammaire.js", "js/tableau.js", "js/tableau-lettres.js", "js/statistiques.js", "css/tableau.css", "css/grammaire.css", "manifest.webmanifest", "icons/icone-192.png"];
 
 self.addEventListener("install", e => {
   // Copie initiale des fichiers de l'application ; un échec n'empêche pas l'installation

@@ -58,7 +58,9 @@ Le test joue une leçon, une révision avec une erreur et plusieurs révisions d
 | `sw.js`, `manifest.webmanifest`, `icons/` | Installation sur téléphone et fonctionnement hors ligne |
 | `supabase/0001_schema_initial.sql` | Schéma de la base pour l'alpha 1 (comptes, synchronisation, voix partagées) |
 | `supabase/0004_sauvegarde.sql` | Copie de la progression dans le compte, fusionnée entre appareils (bouton « Synchroniser avec mon compte ») |
-| `supabase/0005_mesure_audience.sql` | Statistiques anonymes : visiteurs, onglets, boutons touchés, séances (refusables dans les réglages) |
+| `supabase/0005_mesure_audience.sql` | Première mesure d'audience (remplacée et complétée par 0007) |
+| `supabase/0007_statistiques.sql` | Statistiques d'usage : événements (identifiant d'appareil renouvelé chaque jour) et vues de calcul, réservées aux administrateurs |
+| `js/statistiques.js` | Écran « Statistiques » des administrateurs (Réglages → Statistiques d'usage, adresse `#statistiques`) |
 
 ## Installer l'application sur un téléphone
 

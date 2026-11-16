@@ -181,10 +181,12 @@ function otherWay(task) {
   return it.type === "letter" ? letterEx(it, task.ex === "f2l" ? 1 : 2) : FLIP[task.ex];
 }
 
-function blankSession(kind, title) {
-  noter("seance_debut", kind);   // statistiques anonymes : type de séance commencée
-  return { kind, title, tasks: [], st: {}, n: 0, i: 0, answers: 0, correct: 0, learned: 0, cur: null, hist: [], peek: null, over: false };
+// l : leçon travaillée (seulement pour « apprendre ») ; t0 : début, pour la durée notée dans les statistiques
+function blankSession(kind, title, l) {
+  return { kind, title, l: l == null ? null : l, t0: Date.now(), noted: false, tasks: [], st: {}, n: 0, i: 0, answers: 0, correct: 0, learned: 0, cur: null, hist: [], peek: null, over: false };
 }
+// Ce qui décrit une séance dans les statistiques
+const sessStats = () => ({ l: sess.l == null ? null : String(sess.l), rep: sess.answers, justes: sess.correct, duree_s: Math.round((Date.now() - sess.t0) / 1000) });
 
 // Apprendre : les prochains éléments jamais vus d'une leçon.
 // Chacun est présenté par une fiche, interrogé aussitôt, puis réinterrogé dans l'autre sens en fin de séance.
@@ -192,7 +194,7 @@ function startLearn(l) {
   const unseen = itemsOf(l).filter(it => !isSeen(it));
   if (!unseen.length) return;
   const fresh = unseen.slice(0, unseen[0].type === "letter" ? CHUNK_LETTERS : CHUNK_WORDS);
-  sess = blankSession("learn", lessonLabel(l));
+  sess = blankSession("learn", lessonLabel(l), l);
   fresh.forEach(it => {
     sess.st[it.id] = { need: 2, err: false };
     sess.tasks.push({ kind: "intro", id: it.id });
@@ -238,6 +240,7 @@ function distractors(it) {
 
 // Prépare la carte courante (choix des propositions) puis l'affiche.
 function showTask() {
+  if (!sess.noted) { sess.noted = true; noter("seance_debut", sess.kind, { l: sess.l == null ? null : String(sess.l), n: sess.n }); }   // statistiques
   if (sess.i >= sess.tasks.length) return finishSession();
   const task = sess.tasks[sess.i];
   if (task.kind === "q") {
@@ -251,8 +254,9 @@ function showTask() {
 }
 
 // Enregistre une réponse et met à jour l'élément si son travail dans cette séance est terminé.
-function answer(task, ok, ms) {
+function answer(task, ok, ms, choix) {
   const st = sess.st[task.id];
+  noterReponse(task, ok, ms, choix, st);
   sess.answers++; if (ok) sess.correct++;
   S.log.push({ t: Date.now(), id: task.id, ex: task.ex, ok, ms });
   dayRec(today()).answers++;
@@ -268,6 +272,20 @@ function answer(task, ok, ms) {
     sess.tasks.splice(Math.min(sess.i + 4, sess.tasks.length), 0, { kind: "q", id: task.id, ex: task.ex });
   }
   saveState();
+}
+
+// Statistiques d'une réponse, notées avant la mise à jour du calendrier (pour connaître l'état de l'élément avant).
+//   etat : n = nouveau, d = dû aujourd'hui, a = révisé en avance ; ecart : jours depuis sa dernière révision (par tranches)
+function noterReponse(task, ok, ms, choix, st) {
+  const card = S.cards[task.id], t = today();
+  st.essais = (st.essais || 0) + 1;
+  noter("reponse", task.id, {
+    ex: task.ex, ok, ms: Math.min(Math.round(ms || 0), 600000), rang: st.essais, s: sess.kind,
+    l: BY_ID[task.id] ? String(BY_ID[task.id].l) : null,
+    choix: ok ? null : choix || null,
+    etat: !card ? "n" : card.due <= t ? "d" : "a",
+    ecart: card && card.last ? tranche(diffDays(card.last, t), T_JOURS) : null
+  });
 }
 
 // Répercute le résultat sur le calendrier de révision (FSRS).
@@ -291,7 +309,7 @@ function finalize(task, st, ms) {
 // Une séance terminée avec au moins une réponse fait compter le jour dans la série.
 function finishSession() {
   if (sess.answers > 0) { dayRec(today()).done = true; saveState(); }
-  noter("seance_fin", sess.kind + ":" + sess.answers);   // statistiques anonymes : type de séance et nombre de réponses
+  noter("seance_fin", sess.kind, { ...sessStats(), appris: sess.learned });   // statistiques
   sess.over = true;
   sfx("done");
   render();
@@ -330,8 +348,10 @@ function initAudio() {
     pick(); speechSynthesis.onvoiceschanged = pick;
   } catch (e) {}
 }
-function speak(id) {
+function speak(id, dep) {
   const it = BY_ID[id]; if (!it) return;
+  // statistiques : voix de l'appareil (enregistrement local), voix partagée, synthèse, ou rien à entendre
+  noter("ecoute", id, { src: AUDIO[id] ? (CLIPS[id] && AUDIO[id] === CLIPS[id].url ? "perso" : "partagee") : speakFn ? "synthese" : "aucune", dep: dep || "bouton" });
   if (AUDIO[id]) { try { new Audio(AUDIO[id]).play().catch(() => {}); } catch (e) {} return; }
   if (speakFn) speakFn(SAY[it.ar] || (it.type === "letter" ? NAME_AR[it.id] : it.ar).replace("؟", ""));
 }
@@ -467,16 +487,16 @@ function render() {
     $top.innerHTML = `<div class="top"><span class="stat flame" title="Jours de suite">${ICON_FLAME}${streak()} <small>${streak() > 1 ? "jours" : "jour"}</small></span>
       <span class="alpha">${ESSAI ? "essai · " + esc(ESSAI) : "alpha"}</span><span class="stat">${known} <small>/ ${ITEMS.length} acquis</small></span></div>`;
     const sh = document.querySelector ? document.querySelector(".sheet") : null, shTop = sh ? sh.scrollTop : 0;
-    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : viewHome();
+    $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "enregistrer" ? viewGuide() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
-    if (r === "voix") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
-    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage") {
+    if (r === "voix" || r === "enregistrer") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
+    if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer") {
       wantScroll = false;
       const go = document.querySelector ? document.querySelector(".go") : null;
       if (go && go.scrollIntoView) go.scrollIntoView({ block: "center" });
     }
-    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && r === "partage") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
+    $foot.innerHTML = (toastMsg ? `<div class="toast" role="status">${esc(toastMsg)}</div>` : "") + `<nav class="tabs" aria-label="Navigation">` + TABS.map(([h, label]) => `<a href="#${h}" ${h === r || (h === "voix" && (r === "partage" || r === "enregistrer")) || (h === "reglages" && r === "statistiques") || (h === "accueil" && !TABS.some(t => t[0] === r) && r !== "partage" && r !== "statistiques" && r !== "enregistrer") ? 'aria-current="page"' : ""}>${label}${h === "voix" && aTraiter() ? `<i class="tbadge" aria-label="${aTraiter()} à traiter">${aTraiter()}</i>` : ""}</a>`).join("") + `</nav>`;
   }
 }
 
@@ -505,6 +525,13 @@ function markKnown(items) {
   return n;
 }
 
+// Carte du parcours : les mots des leçons déjà vues que personne n'a encore enregistrés, avec un raccourci
+// vers l'enregistrement guidé. Seulement si le micro est disponible et que la base est joignable.
+function voixCarte() {
+  const n = sb && canRecord() ? waitingVoices().length : 0;
+  return n ? `<section class="card voixcarte"><span class="vstat aucun">${ICON_MIC}</span><span><b>${plural(n, "mot")}</b> ${n > 1 ? "attendent" : "attend"} une voix</span>
+      <button class="btn small gold" data-act="rg-start">Enregistrer</button></section>` : "";
+}
 function viewHome() {
   const all = ITEMS.length, known = ITEMS.filter(isKnown).length, seen = ITEMS.filter(isSeen).length, due = ITEMS.filter(isDue).length;
   const next = nextLesson();
@@ -544,6 +571,7 @@ function viewHome() {
       <div class="legend"><span class="a"><i></i>${known} acquis</span><span class="b"><i></i>${seen - known} en cours</span><span><i></i>${all - seen} à découvrir</span></div>
       ${daily}${revs}${resume}
       ${gramDue().length ? `<a class="btn ghost" href="#grammaire">Grammaire : ${plural(gramDue().length, "carte")} à revoir</a>` : ""}</section>
+    ${voixCarte()}
     <div class="row between"><h3>Parcours</h3><button class="linkbtn" data-act="${anyOpen ? "fold-all" : "unfold-all"}">${anyOpen ? "Tout replier" : "Tout déplier"}</button></div>
     ${path}${sheet === "choix" ? viewPick() : sheet ? viewSheet(sheet) : ""}`;
 }
@@ -799,9 +827,15 @@ async function decodePending(p) {
     p.data = monoData(buf); p.rate = buf.sampleRate; p.dur = buf.duration;
     [p.a, p.b] = autoTrim(p.data, p.rate);
     if (p.preset && p.preset.b != null) { p.a = Math.min(p.preset.a, p.dur); p.b = Math.min(p.preset.b, p.dur); }
-    if (route() === "voix") render();
+    if (route() === "voix" || route() === "enregistrer") render();   // la piste et la coupe automatique sont prêtes
   } catch (e) { p.data = null; }
 }
+// Piste d'un enregistrement en attente, avec ses poignées de début et de fin (onglet Voix et enregistrement guidé).
+// Rien tant que l'enregistrement n'est pas analysé (la coupe automatique des silences est faite à ce moment-là).
+const trimUi = p => !p.data ? "" : `<canvas class="wave" id="wv-${p.id}" width="600" height="72" role="img" aria-label="Piste de l'enregistrement"></canvas>
+  <div class="trim"><label for="ta-${p.id}">Début</label><input type="range" id="ta-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.a / p.dur)}" data-trim="a" data-id="${p.id}">
+    <label for="tb-${p.id}">Fin</label><input type="range" id="tb-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.b / p.dur)}" data-trim="b" data-id="${p.id}"></div>
+  <p class="muted" id="tl-${p.id}">Gardé : ${sec(p.b - p.a)} sur ${sec(p.dur)}</p>`;
 // Dessine la piste : en couleur ce qui est gardé, en gris ce qui sera coupé
 function drawWave(p) {
   const cv = document.getElementById("wv-" + p.id);
@@ -854,6 +888,7 @@ function confirmPending() {                          // dépôt de tout ce qui a
   });
   const ids = pending.map(p => p.id);
   pending = [];
+  if (n) noter("depot", null, { n });   // statistiques : nombre d'enregistrements déposés
   if (sb && me && hasConsent) shareMany(ids);        // connecté et accord signé : envoi immédiat
   return n;
 }
@@ -878,6 +913,62 @@ async function toggleRecord(id) {
   } catch (e) {
     rec = null; uiMsg = "Micro refusé ou indisponible : ajoutez un fichier à la place."; render();
   }
+}
+
+// --- Enregistrement guidé (#enregistrer) : un mot à la fois, en grand, sans rien à lire.
+//   1. le mot arabe en grand (et sa voix actuelle, s'il en a une, pour s'en inspirer) ;
+//   2. un gros bouton micro : on touche pour enregistrer, on retouche pour arrêter ;
+//   3. on réécoute, puis ✓ (garder : déposé et envoyé comme d'habitude) ou ↺ (recommencer) ;
+//   4. mot suivant. On commence par les mots que personne n'a encore enregistrés.
+let guide = null;   // { ids: [éléments à enregistrer, dans l'ordre], i: position, faits: nombre gardés, edit: piste ouverte }
+// Mots d'une leçon à proposer : d'abord ceux sans aucune voix, puis ceux qui n'ont que la voix d'autres personnes
+function guideQueue(l) {
+  const its = itemsOf(l).filter(it => voiceState(it.id) !== "moi");
+  return its.filter(it => voiceState(it.id) === "aucun").concat(its.filter(it => voiceState(it.id) === "autre")).map(it => it.id);
+}
+// Mots qui attendent une voix, dans les leçons déjà vues (pour la carte du parcours)
+function waitingVoices() {
+  return UNITS.flatMap(u => u.lessons.map(x => x[0])).filter(l => lessonStats(l).seen > 0)
+    .flatMap(l => itemsOf(l)).filter(it => voiceState(it.id) === "aucun").map(it => it.id);
+}
+function startGuide(ids) {
+  if (!ids.length) return;
+  guide = { ids, i: 0, faits: 0 };
+  if (route() === "enregistrer") render(); else location.hash = "#enregistrer";
+}
+// Garde l'enregistrement en attente de ce mot seulement (les autres attentes de l'onglet Voix ne bougent pas)
+function keepOne(id) {
+  const autres = pending.filter(p => p.id !== id);
+  pending = pending.filter(p => p.id === id);
+  const n = confirmPending();
+  pending = autres.concat(pending);
+  return n;
+}
+function viewGuide() {
+  const quitter = `<a class="icon" href="#voix" aria-label="Quitter">✕</a>`;
+  if (!guide || guide.i >= guide.ids.length) {
+    const n = guide ? guide.faits : 0;
+    return `<section class="card guide"><div class="row between">${quitter}</div>
+        <div class="gfin">${n ? "✓" : ""}</div><h2>${n ? plural(n, "mot enregistré") : "Rien à enregistrer"}</h2>
+        ${n && !(sb && me && hasConsent) ? `<p class="muted">Ils restent sur cet appareil. Pour les partager, connectez-vous et signez l'accord (roue dentée de l'onglet Voix).</p>` : ""}
+        <a class="btn" href="#voix">Terminer</a></section>`;
+  }
+  const id = guide.ids[guide.i], it = BY_ID[id], p = pending.find(x => x.id === id), on = rec && rec.id === id;
+  const pct = 100 * guide.i / guide.ids.length, modele = voicesFor(id).length;
+  // Le gros bouton change selon l'étape : micro (enregistrer), carré rouge (arrêter), lecture (réécouter)
+  const gros = on ? `<button class="gmic rec" data-act="rec" data-id="${id}" aria-label="Arrêter l'enregistrement"><span class="carre"></span></button>`
+    : p ? `<button class="gmic play" data-act="pend-play" data-id="${id}" aria-label="Réécouter">${ICON_SPEAK}</button>`
+    : `<button class="gmic" data-act="rec" data-id="${id}" aria-label="Enregistrer">${ICON_MIC}</button>`;
+  return `<section class="card guide">
+      <div class="sess-head">${quitter}<div class="bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div><span class="muted">${guide.i + 1}/${guide.ids.length}</span></div>
+      <div class="gmot">${AR(it.ar)}<p class="muted">${esc(it.type === "letter" ? it.name : it.fr)}</p>
+        ${modele && !p && !on ? `<button class="mini" data-act="speak" data-id="${id}" aria-label="Écouter la voix actuelle">${ICON_SPEAK}</button>` : ""}</div>
+      ${canRecord() ? gros : `<p>Le micro n'est pas disponible sur cet appareil.</p>`}
+      ${uiMsg ? `<p role="status"><b>${esc(uiMsg)}</b></p>` : ""}
+      ${p && !on && p.data ? (guide.edit ? `<div class="gtrim">${trimUi(p)}</div>` : `<button class="linkbtn" data-act="rg-edit">Éditer l'audio</button>`) : ""}
+      ${p && !on ? `<div class="row duo"><button class="btn ghost" data-act="rg-redo" data-id="${id}" aria-label="Recommencer">↺</button><button class="btn good" data-act="rg-keep" data-id="${id}" aria-label="Garder">✓</button></div>`
+        : `<button class="linkbtn" data-act="rg-skip" ${on ? "disabled" : ""}>Passer ›</button>`}
+    </section>`;
 }
 
 // Micros disponibles (leurs noms ne sont connus qu'une fois le micro autorisé)
@@ -946,10 +1037,7 @@ function viewVoices() {
           <button class="mini${ancien ? " txt" : ""}" data-act="pend-play" data-id="${p.id}" aria-label="Écouter le passage gardé">${ICON_SPEAK}${ancien ? " Nouveau" : ""}</button>
           ${ancien ? "" : `<button class="mini txt" data-act="pend-drop" data-id="${p.id}">Écarter</button>`}</div></div>
         ${ancien ? `<div class="seg choix"><button data-act="pend-drop" data-id="${p.id}">Garder l'ancien</button><button aria-pressed="true" disabled>Garder le nouveau</button></div>` : ""}
-        ${p.data ? `<canvas class="wave" id="wv-${p.id}" width="600" height="72" role="img" aria-label="Piste de l'enregistrement"></canvas>
-          <div class="trim"><label for="ta-${p.id}">Début</label><input type="range" id="ta-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.a / p.dur)}" data-trim="a" data-id="${p.id}">
-            <label for="tb-${p.id}">Fin</label><input type="range" id="tb-${p.id}" min="0" max="1000" value="${Math.round(1000 * p.b / p.dur)}" data-trim="b" data-id="${p.id}"></div>
-          <p class="muted" id="tl-${p.id}">Gardé : ${sec(p.b - p.a)} sur ${sec(p.dur)}</p>` : ""}</div>`;
+        ${trimUi(p)}</div>`;
       }).join("")}</div>
       <button class="btn good" data-act="pend-ok">Déposer ${plural(pending.length, "enregistrement")}</button>
       <button class="btn ghost" data-act="pend-none">Tout écarter</button></section>` : "";
@@ -976,6 +1064,7 @@ function viewVoices() {
       ${micUi}${chips}</section>
     ${wait}
     <section class="panel"><h3>${lessonHtml(voiceLesson)} · ${have} / ${its.length}</h3>
+      ${micro && guideQueue(voiceLesson).length ? `<button class="btn gold" data-act="rg-start" data-l="${voiceLesson}">${ICON_MIC} Enregistrer · ${guideQueue(voiceLesson).length}</button>` : ""}
       <p class="muted">Pour aller vite : lisez toute la leçon d'une traite, dans l'ordre ci-dessous, découpez l'enregistrement avec le script, puis ajoutez tous les fichiers d'un coup. Vous les écouterez avant de les déposer.</p>
       <label class="btn ghost" for="f-bulk">Ajouter les ${its.length} fichiers de la leçon, dans l'ordre</label>
       <input class="vh" type="file" accept="audio/*" multiple id="f-bulk" data-bulk="${voiceLesson}">
@@ -997,7 +1086,7 @@ function viewSettings() {
     <section class="panel"><h3>Affichage</h3>
       <div class="seg"><button data-act="translit" data-on="1" aria-pressed="${S.translit}">Avec translittération</button><button data-act="translit" data-on="0" aria-pressed="${!S.translit}">Arabe seul</button></div></section>
     <section class="panel"><h3>Statistiques anonymes</h3>
-      <p class="muted">Mufrad compte ses visiteurs et les boutons touchés, sans savoir qui vous êtes, pour s'améliorer. <a href="confidentialite.html">En savoir plus</a></p>
+      <p class="muted">Mufrad compte ses visiteurs, les leçons faites, les réponses et les boutons touchés, sans savoir qui vous êtes, pour améliorer ses leçons. Votre appareil change d'identifiant chaque jour. <a href="confidentialite.html">En savoir plus</a></p>
       <div class="seg"><button data-act="mesure" data-on="1" aria-pressed="${S.mesure !== false}">Je participe</button><button data-act="mesure" data-on="0" aria-pressed="${S.mesure === false}">Ne pas me compter</button></div></section>
     <section class="panel"><h3>Tableau d'écriture</h3>
       <p class="muted">Ce que vous écrivez sur le tableau est gardé, sans votre nom ni votre compte, pour entraîner la future reconnaissance d'écriture de Mufrad. Arrêter ne supprime pas ce qui a déjà été envoyé. <a href="confidentialite.html">En savoir plus</a></p>
@@ -1050,6 +1139,8 @@ const refresh = () => { if ((!sess || sess.over) && !(typeof editForm !== "undef
 // avec un message, sans jamais atteindre le serveur.
 const ESSAI_REFUS = "version d'essai : rien n'est enregistré ni supprimé dans la vraie base";
 const RPC_LECTURE = ["lecteurs"];   // fonctions de la base qui ne font que lire : autorisées en essai
+// Seule écriture permise en essai : les statistiques, marquées du nom de la branche et écartées des chiffres
+const RPC_ESSAI = [...RPC_LECTURE, "noter_evenements_v2"];
 function lectureSeule(client) {
   const refus = () => Promise.resolve({ data: null, error: { message: ESSAI_REFUS } });
   // Chaîne factice : accepte tous les appels qui suivent (.eq, .select, .single…) et se termine par le refus
@@ -1059,7 +1150,7 @@ function lectureSeule(client) {
   return new Proxy(client, { get(c, p) {
     if (p === "from") return table => filtre(c.from(table), ["insert", "update", "upsert", "delete"]);
     if (p === "storage") return { from: seau => filtre(c.storage.from(seau), ["upload", "update", "remove", "move", "copy"]) };
-    if (p === "rpc") return (nom, args) => (RPC_LECTURE.includes(nom) ? c.rpc(nom, args) : chaine());
+    if (p === "rpc") return (nom, args) => (RPC_ESSAI.includes(nom) ? c.rpc(nom, args) : chaine());
     return typeof c[p] === "function" ? c[p].bind(c) : c[p];
   } });
 }
@@ -1069,7 +1160,7 @@ function initCloud() {
     if (typeof supabase === "undefined" || !supabase.createClient) return;
     sb = supabase.createClient(SB_URL, SB_KEY);
     if (ESSAI) sb = lectureSeule(sb);   // version d'essai : la vraie base est lue, jamais modifiée
-    noter("ouverture");   // mesure d'audience anonyme (section 11)
+    noterOuverture();   // statistiques d'usage (section 11)
     // À chaque connexion ou déconnexion ; le délai évite d'appeler la base depuis l'intérieur de son propre signal
     sb.auth.onAuthStateChange((evt, session) => { setTimeout(() => onSession(session), 0); });
     loadVoices();
@@ -1404,7 +1495,8 @@ function viewAccount() {
   if (me) return `<section class="panel"><h3>Compte</h3><p>Connecté : <b>${esc(me.email || "")}</b> · niveau ${esc(myLevel)}</p>
       <label for="sb-nom">Mon nom de lecteur (affiché à côté de mes enregistrements)</label>
       <input type="text" id="sb-nom" class="field" maxlength="40" value="${esc(READER_NAME[me.id] || "")}">
-      <div class="row"><button class="btn small" data-act="setname">Enregistrer ce nom</button><button class="btn small ghost" data-act="signout">Se déconnecter</button></div>${msg}${adminLink()}</section>`;
+      <div class="row"><button class="btn small" data-act="setname">Enregistrer ce nom</button><button class="btn small ghost" data-act="signout">Se déconnecter</button></div>${msg}${adminLink()}
+      ${myLevel === "administrateur" ? `<a class="btn ghost" href="#statistiques">Statistiques d'usage</a>` : ""}</section>`;
   return `<section class="panel"><h3>Compte</h3>
       <p class="muted">Le compte sert à partager ses enregistrements. Aucun mot de passe : vous recevez un lien de connexion par courriel.</p>
       <label for="sb-email">Adresse électronique</label>
@@ -1557,61 +1649,171 @@ function viewContentRecos() {
       ${msg}<div>${rows}</div></section>`;
 }
 
-/* ---------- 11. MESURE D'AUDIENCE ANONYME ---------- */
+/* ---------- 11. STATISTIQUES D'USAGE ---------- */
 
-// Combien de visiteurs, ce qu'ils font et ce qu'ils touchent, sans savoir qui ils sont (supabase/0005_mesure_audience.sql).
-//  - Un appareil est reconnu par un identifiant tiré au hasard, gardé dans ce navigateur et renouvelé tous les 13 mois.
-//    Il n'est jamais relié au compte, à l'adresse électronique ni à la progression.
+// Ce que font les visiteurs et ce qu'ils touchent, sans savoir qui ils sont (supabase/0007_statistiques.sql,
+// cahier des charges « Statistiques d'usage »).
+//  - L'appareil est reconnu par un identifiant tiré au hasard, renouvelé CHAQUE JOUR : au-delà d'une journée,
+//    deux visites du même appareil ne peuvent plus être reliées. Il n'est jamais relié au compte ni à l'adresse.
+//  - Ce qui demande un suivi dans le temps (ancienneté, série, jours actifs, absence) est calculé ici, sur l'appareil,
+//    à partir de la progression qui y est déjà gardée, puis envoyé arrondi par tranches.
+//  - Jamais de texte tapé par l'utilisateur : seulement des identifiants de contenu, des boutons et des nombres.
 //  - Les événements attendent dans une file et partent par lots : toutes les 10 secondes, ou quand on quitte la page.
-//    Sans réseau, ou tant que le fichier SQL n'est pas exécuté, l'envoi échoue sans gêner l'application.
-//  - Qui refuse dans les réglages n'est plus compté du tout, et son identifiant est effacé.
-const APPAREIL_KEY = "mufrad-appareil";
-const TREIZE_MOIS = 395 * 86400 * 1000;
-let fileMesure = [];      // événements pas encore envoyés : { type, detail, quand }
+//    Ce qui n'a pas pu partir est gardé dans le navigateur et renvoyé à la prochaine ouverture.
+//  - Une version d'essai envoie aussi, marquée du nom de sa branche : les statistiques l'écartent.
+//  - Qui refuse dans les réglages n'est plus compté du tout, et ce qui sert à la mesure est effacé de l'appareil.
+const APPAREIL_KEY = "mufrad-appareil";           // { id, jour } : identifiant du jour
+const MESURE_KEY = "mufrad-mesure";               // { debut, derniere } : premier et dernier jour d'utilisation (restent ici)
+const FILE_KEY = "mufrad-mesure-file" + (ESSAI ? "-" + ESSAI : "");   // événements pas encore partis
+const VISITE = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : null;   // cette ouverture de l'application
+let fileMesure = [];      // événements pas encore envoyés : { type, detail, donnees, quand }
 let minuterieMesure = null;
-// Identifiant de l'appareil, créé au premier besoin et renouvelé après 13 mois
+let versionApp = "";      // numéro de la copie hors ligne en service (sw.js), lu au démarrage
+let actifDepuis = Date.now(), cacheDepuis = 0;   // pour le temps actif d'une visite
+let erreursNotees = 0;    // au plus 10 erreurs par visite, pour ne pas inonder la base
+const CLICS_MUETS = ["pick", "check", "next", "match", "g-pick", "g-check", "g-next", "g-key", "g-key-del"];
+
+// Identifiant de l'appareil pour aujourd'hui ; un nouveau est tiré au premier besoin de chaque jour
 function appareilId() {
   try {
     const a = JSON.parse(localStorage.getItem(APPAREIL_KEY) || "null");
-    if (a && a.id && Date.now() - a.cree < TREIZE_MOIS) return a.id;
+    if (a && a.id && a.jour === today()) return a.id;
     const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : null;
     if (!id) return null;
-    localStorage.setItem(APPAREIL_KEY, JSON.stringify({ id, cree: Date.now() }));
+    localStorage.setItem(APPAREIL_KEY, JSON.stringify({ id, jour: today() }));
     return id;
   } catch (e) { return null; }
 }
 // Ouverte depuis l'icône de l'écran d'accueil, ou dans le navigateur
 const depuisIcone = () => { try { return Boolean(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; } catch (e) { return false; } };
-// Ajoute un événement à la file (types : ouverture, onglet, clic, seance_debut, seance_fin)
-function noter(type, detail) {
-  if (S.mesure === false || fileMesure.length >= 200) return;
-  fileMesure.push({ type, detail: detail == null ? null : String(detail), quand: new Date().toISOString() });
+// Sorte d'écran : pointage au doigt et petit côté étroit = téléphone ; au doigt et plus grand = tablette ; sinon ordinateur
+function sorteEcran() {
+  try {
+    const doigt = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    const cote = Math.min(screen.width, screen.height);
+    return doigt ? (cote < 600 ? "telephone" : "tablette") : "ordinateur";
+  } catch (e) { return null; }
+}
+// Arrondit une valeur à la borne basse de sa tranche, pour qu'une combinaison de valeurs ne désigne pas un appareil.
+// Ex. avec [0, 1, 2, 3, 7, 14, 30] : 5 devient 3, 20 devient 14, 45 devient 30.
+function tranche(n, bornes) {
+  if (n == null || !isFinite(n) || n < 0) return null;
+  let b = bornes[0];
+  bornes.forEach(x => { if (n >= x) b = x; });
+  return b;
+}
+const T_JOURS = [0, 1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 30, 60, 90, 180, 365];   // écarts en jours
+const T_SEMAINES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 20, 26, 39, 52];   // ancienneté en semaines
+// Lundi de la semaine d'un jour (clé AAAA-MM-JJ), pour savoir si c'est la première visite de la semaine
+const lundiDe = k => { const d = dateOf(k); return addDays(k, -((d.getDay() + 6) % 7)); };
+
+// Contexte envoyé avec l'ouverture : tout est calculé sur l'appareil, puis arrondi.
+// « njour », « nsem », « nmois » : première ouverture du jour, de la semaine, du mois sur cet appareil.
+// Ils permettent de compter les appareils actifs par semaine et la rétention sans identifiant durable.
+function contexteOuverture() {
+  const t = today();
+  let m = {};
+  try { m = JSON.parse(localStorage.getItem(MESURE_KEY) || "{}") || {}; } catch (e) {}
+  // Premier jour d'utilisation : le plus ancien entre ce qui a été noté et le premier jour de progression
+  const jours = Object.keys(S.days || {}).sort();
+  const debut = [m.debut, jours[0], t].filter(Boolean).sort()[0];
+  const derniere = m.derniere || null;
+  const actifs30 = jours.filter(k => S.days[k].answers > 0 && diffDays(k, t) >= 0 && diffDays(k, t) < 30).length;
+  const d = {
+    anc: tranche(Math.floor(diffDays(debut, t) / 7), T_SEMAINES),
+    serie: tranche(streak(), T_JOURS),
+    actifs30,
+    absence: derniere ? tranche(diffDays(derniere, t), T_JOURS) : null,
+    njour: derniere !== t,
+    nsem: !derniere || lundiDe(derniere) !== lundiDe(t),
+    nmois: !derniere || derniere.slice(0, 7) !== t.slice(0, 7),
+    langue: (typeof navigator !== "undefined" && navigator.language || "").slice(0, 2) || null,
+    charge_ms: typeof performance !== "undefined" && performance.now ? Math.round(performance.now()) : null
+  };
+  try { localStorage.setItem(MESURE_KEY, JSON.stringify({ debut, derniere: t })); } catch (e) {}
+  return d;
+}
+
+// Ajoute un événement à la file.
+//   type    : nom de l'événement (voir le catalogue du cahier des charges)
+//   detail  : une étiquette courte (bouton, onglet, identifiant de mot) ; jamais un texte tapé
+//   donnees : un petit objet de nombres et d'étiquettes ; les valeurs vides sont retirées
+function noter(type, detail, donnees) {
+  if (S.mesure === false || fileMesure.length >= 300) return;
+  let d = null;
+  if (donnees) { d = {}; Object.keys(donnees).forEach(k => { if (donnees[k] != null) d[k] = donnees[k]; }); }
+  fileMesure.push({ type, detail: detail == null ? null : String(detail).slice(0, 60), donnees: d, quand: new Date().toISOString() });
   if (!minuterieMesure && typeof setTimeout !== "undefined" && sb) minuterieMesure = setTimeout(envoyerMesure, 10000);
 }
 // Envoie la file par lots de 50 ; en cas d'échec, les événements restent pour le prochain essai
 function envoyerMesure() {
-  minuterieMesure = null;
+  if (minuterieMesure) { clearTimeout(minuterieMesure); minuterieMesure = null; }
   if (!sb || S.mesure === false || !fileMesure.length) return;
   const id = appareilId(); if (!id) return;
   const lot = fileMesure.splice(0, 50);
-  sb.rpc("noter_evenements", { appareil: id, installee: depuisIcone(), liste: lot })
-    .then(r => { if (r.error) fileMesure = lot.concat(fileMesure).slice(0, 200); else if (fileMesure.length) envoyerMesure(); },
-          () => { fileMesure = lot.concat(fileMesure).slice(0, 200); });
+  const remettre = () => { fileMesure = lot.concat(fileMesure).slice(0, 300); };
+  sb.rpc("noter_evenements_v2", { appareil: id, visite: VISITE, installee: depuisIcone(), ecran: sorteEcran(),
+                                  version: versionApp || null, essai: ESSAI || null, liste: lot })
+    .then(r => { if (r.error) remettre(); else if (fileMesure.length) envoyerMesure(); }, remettre);
+}
+// Garde dans le navigateur ce qui n'est pas encore parti (on quitte la page, ou pas de réseau)
+function garderFile() { try { if (fileMesure.length) localStorage.setItem(FILE_KEY, JSON.stringify(fileMesure.slice(-300))); else localStorage.removeItem(FILE_KEY); } catch (e) {} }
+// Reprend la file gardée la dernière fois (la base refuse d'elle-même les dates de plus de 2 jours)
+function reprendreFile() {
+  try { const f = JSON.parse(localStorage.getItem(FILE_KEY) || "[]"); if (Array.isArray(f) && S.mesure !== false) fileMesure = f.concat(fileMesure).slice(-300); localStorage.removeItem(FILE_KEY); } catch (e) {}
 }
 // Refus ou acceptation depuis les réglages
 function choisirMesure(oui) {
   S.mesure = oui; saveState();
-  if (!oui) { fileMesure = []; try { localStorage.removeItem(APPAREIL_KEY); } catch (e) {} }
+  if (!oui) { fileMesure = []; try { [APPAREIL_KEY, MESURE_KEY, FILE_KEY].forEach(k => localStorage.removeItem(k)); } catch (e) {} }
 }
-// Quand on quitte la page ou qu'on passe à une autre application : on envoie ce qui attend
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") envoyerMesure(); });
+// Ouverture de l'application : contexte de la visite, puis version (lue dans les copies hors ligne de sw.js)
+function noterOuverture() {
+  reprendreFile();
+  if (S.mesure === false) return;
+  noter("ouverture", null, contexteOuverture());
+  lireVersion();
+  // À la toute première visite, la copie hors ligne n'existe pas encore : on relit un peu plus tard
+  if (typeof setTimeout !== "undefined") setTimeout(lireVersion, 8000);
+}
+function lireVersion() {
+  try {
+    if (typeof caches !== "undefined" && caches.keys) caches.keys().then(ks => {
+      const nums = ks.map(k => (k.match(/^mufrad-(?:essai-.+-)?v(\d+)$/) || [])[1]).filter(Boolean).map(Number);
+      if (nums.length) versionApp = String(Math.max(...nums));
+    }).catch(() => {});
+  } catch (e) {}
+}
+// Temps actif : on note le temps passé dans l'application quand elle passe en arrière-plan, et l'absence au retour
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    noter("pause", null, { actif_s: Math.round((Date.now() - actifDepuis) / 1000) });
+    cacheDepuis = Date.now();
+    envoyerMesure(); garderFile();
+  } else if (cacheDepuis) {
+    noter("reprise", null, { absent_s: Math.round((Date.now() - cacheDepuis) / 1000) });
+    actifDepuis = Date.now(); cacheDepuis = 0;
+  }
+});
+// Erreurs techniques : message coupé, fichier et ligne (jamais le contenu de l'écran)
+if (typeof window !== "undefined" && window.addEventListener) {
+  const noterErreur = (msg, fichier, ligne) => {
+    if (erreursNotees++ >= 10) return;
+    noter("erreur", String(msg || "erreur").slice(0, 60), { f: String(fichier || "").split("/").pop().slice(0, 30) || null, li: ligne || null });
+  };
+  window.addEventListener("error", e => noterErreur(e.message, e.filename, e.lineno));
+  window.addEventListener("unhandledrejection", e => noterErreur("promesse : " + ((e.reason && e.reason.message) || e.reason), "", 0));
+}
 
 /* ---------- 8. CLICS ET DÉMARRAGE ---------- */
 
 document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const act = el.dataset.act;
-  noter("clic", act + (el.dataset.l ? ":" + el.dataset.l : ""));   // statistiques anonymes : quel bouton, jamais quel mot ni qui
+  // statistiques : quel bouton, et la valeur choisie (ex. « clavier » → « g-layout:alpha ») ; jamais un texte tapé
+  // Les appuis répétés à chaque carte (choisir, vérifier, continuer, touches du clavier) ne sont pas notés comme clics :
+  // les réponses les décrivent déjà, et ils feraient l'essentiel du volume.
+  if (!CLICS_MUETS.includes(act)) noter("clic", [act, el.dataset.l, el.dataset.u, el.dataset.m, el.dataset.on, el.dataset.g, el.dataset.w].filter(x => x != null && x !== "").join(":"));
   if (act === "t-open") { tableauOpen(); return; }             // tableau d'écriture : traité dans js/tableau.js
   if (act.startsWith("g-")) { gramClick(act, el); return; }   // grammaire : traitée dans js/grammaire.js
   if (act !== "copy" && act !== "import") uiMsg = "";
@@ -1628,11 +1830,12 @@ document.addEventListener("click", e => {
     case "unfold-all": S.fold = {}; UNITS.forEach(u => { S.fold[u.n] = false; }); saveState(); break;
     case "known-lesson": {                                 // valider une leçon sans la faire
       const n = markKnown(itemsOf(Number(el.dataset.l)));
+      noter("lecon_validee", "lecon:" + el.dataset.l, { n });
       sheet = null; sfx("ok"); uiMsg = ""; if (n) wantScroll = true; break;
     }
     case "known-unit": askKnown = Number(el.dataset.u); break;
     case "known-no": askKnown = null; break;
-    case "known-unit-yes": markKnown(ITEMS.filter(it => it.u === Number(el.dataset.u))); askKnown = null; sfx("ok"); wantScroll = true; break;
+    case "known-unit-yes": noter("lecon_validee", "unite:" + el.dataset.u, { n: markKnown(ITEMS.filter(it => it.u === Number(el.dataset.u))) }); askKnown = null; sfx("ok"); wantScroll = true; break;
     case "daily": startDaily(); return;
     case "learn": sheet = null; startLearn(Number(el.dataset.l)); return;
     case "review": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l).filter(isSeen), lessonLabel(l)); return; }
@@ -1650,7 +1853,10 @@ document.addEventListener("click", e => {
     case "drill-hard": sheet = null; startDrill(hardItems(), "Éléments en difficulté"); location.hash = "#accueil"; return;
     // Séance
     case "speak": speak(el.dataset.id); return;
-    case "quit": case "home": sess = null; wantScroll = true; break;          // les réponses déjà données sont conservées
+    case "stats-reload": statsData = null; statsMsg = ""; statsCharger(); return;   // écran Statistiques (js/statistiques.js)
+    case "quit": case "home":                                                 // les réponses déjà données sont conservées
+      if (sess && !sess.over) noter("seance_quittee", sess.kind, { ...sessStats(), pos: sess.i, total: sess.tasks.length });
+      sess = null; wantScroll = true; break;
     case "next":                                            // on garde la carte faite pour pouvoir la relire
       sess.hist.push({ task: sess.tasks[sess.i], cur: sess.cur }); sess.i++; showTask(); return;
     case "back": sess.peek = sess.peek === null ? sess.hist.length - 1 : Math.max(0, sess.peek - 1); break;
@@ -1661,7 +1867,7 @@ document.addEventListener("click", e => {
         const k = Number(el.dataset.k), c = sess.cur, ex = sess.tasks[sess.i].ex;
         if (c.picked === k) { c.picked = null; sfx("tap"); break; }   // second appui sur le même choix : on le désélectionne
         c.picked = k;
-        if ((ex === "fr2ar" || ex === "n2l") && canSpeak(c.opts[k].id)) speak(c.opts[k].id); else sfx("tap");
+        if ((ex === "fr2ar" || ex === "n2l") && canSpeak(c.opts[k].id)) speak(c.opts[k].id, "choix"); else sfx("tap");
       }
       break;
     case "check": {                                         // vérification de la proposition sélectionnée
@@ -1669,7 +1875,7 @@ document.addEventListener("click", e => {
       if (sess.peek !== null || c.checked || c.picked === null) return;
       c.checked = true;
       sfx(c.opts[c.picked].id === task.id ? "ok" : "ko");
-      answer(task, c.opts[c.picked].id === task.id, Date.now() - c.t0);
+      answer(task, c.opts[c.picked].id === task.id, Date.now() - c.t0, c.opts[c.picked].id);
       break;
     }
     case "match": {                                         // association de paires, dans n'importe quel ordre
@@ -1678,12 +1884,15 @@ document.addEventListener("click", e => {
       if (c.sel && c.sel.side === pick.side && c.sel.id === pick.id) { c.sel = null; sfx("tap"); }  // second appui : on désélectionne
       else if (!c.sel || c.sel.side === pick.side) {                                                // premier choix, ou changement d'avis du même côté
         c.sel = pick; c.bad = null;
-        if (pick.side === "L" && canSpeak(pick.id)) speak(pick.id); else sfx("tap");
+        if (pick.side === "L" && canSpeak(pick.id)) speak(pick.id, "paire"); else sfx("tap");
       }
       else {
         const arId = pick.side === "L" ? pick.id : c.sel.id; // le mot arabe de la paire tentée
-        if (c.sel.id === pick.id) { c.done[pick.id] = true; sess.answers++; sess.correct++; c.bad = null; sfx("ok"); }
-        else { sess.answers++; sess.st[arId].err = true; c.bad = pick; sfx("ko"); } // l'erreur comptera dans la note du mot
+        if (c.sel.id === pick.id) { c.done[pick.id] = true; sess.answers++; sess.correct++; c.bad = null; sfx("ok"); noter("paire", pick.id, { ok: true }); }
+        else {
+          sess.answers++; sess.st[arId].err = true; c.bad = pick; sfx("ko"); // l'erreur comptera dans la note du mot
+          noter("paire", arId, { ok: false, choix: pick.side === "L" ? c.sel.id : pick.id });   // statistiques : avec quoi on l'a associé
+        }
         c.sel = null;
       }
       break;
@@ -1693,7 +1902,7 @@ document.addEventListener("click", e => {
     case "clip-del": deleteClip(el.dataset.id); break;
     case "voice-next": {                                                   // passer à la voix suivante pour cet élément, et l'écouter
       const id = el.dataset.id, n = voicesFor(id).length;
-      if (n > 1) { S.voiceIdx = S.voiceIdx || {}; S.voiceIdx[id] = (voiceIndex(id) + 1) % n; saveState(); refreshAudio(id); speak(id); }
+      if (n > 1) { S.voiceIdx = S.voiceIdx || {}; S.voiceIdx[id] = (voiceIndex(id) + 1) % n; saveState(); refreshAudio(id); speak(id, "autre_voix"); }
       break;
     }
     case "mic-list": askMics(); return;
@@ -1710,6 +1919,12 @@ document.addEventListener("click", e => {
     }
     case "setname": { const f = document.getElementById("sb-nom"); setName(f ? f.value.trim() : ""); return; }
     case "rec": toggleRecord(el.dataset.id); return;                       // démarre ou arrête le micro
+    // Enregistrement guidé (préfixe « rg- » : les actions en « g- » sont celles de la grammaire)
+    case "rg-start": startGuide(el.dataset.l ? guideQueue(Number(el.dataset.l)) : waitingVoices().slice(0, 10)); return;
+    case "rg-keep": keepOne(el.dataset.id); guide.faits++; guide.i++; guide.edit = false; uiMsg = ""; break;   // ✓ : déposé, puis mot suivant
+    case "rg-edit": guide.edit = true; break;                                                // piste et rognage, comme dans l'onglet Voix
+    case "rg-redo": dropPending(el.dataset.id); toggleRecord(el.dataset.id); return;         // ↺ : on efface et on réenregistre
+    case "rg-skip": if (guide) { dropPending(guide.ids[guide.i]); guide.i++; guide.edit = false; } uiMsg = ""; break;
     case "pend-play": {                                                    // écoute d'un enregistrement en attente
       const p = pending.find(x => x.id === el.dataset.id);
       if (p) playPending(p);
