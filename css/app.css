@@ -137,10 +137,12 @@ h3 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 600; text-tra
 
 /* Pied : onglets, ou bouton de la séance et bandeau de correction */
 .foot { border-top: 2px solid var(--line); background: var(--surface); }
-.tabs { display: flex; }
-.tabs a { flex: 1; text-align: center; padding: 14px 4px 16px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; border-top: 4px solid transparent; margin-top: -2px; }
+/* Barre d'onglets haute (64 px) pour un pouce ; sur iPhone, on la remonte au-dessus de la barre de geste du système
+   (env(safe-area-inset-bottom), nul ailleurs). Même marge sous les boutons des séances (.act). */
+.tabs { display: flex; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tabs a { flex: 1; text-align: center; padding: 20px 4px 22px; min-height: 64px; box-sizing: border-box; color: var(--muted); text-decoration: none; font-weight: 600; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; border-top: 4px solid transparent; margin-top: -2px; }
 .tabs a[aria-current="page"] { color: var(--primary); border-top-color: var(--primary); }
-.act { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 10px; }
+.act { padding: 14px 18px calc(18px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; }
 .act.ok { background: var(--good-bg); } .act.ko { background: var(--bad-bg); }
 .verdict b { font-size: 21px; display: block; }
 .act.ok .verdict b { color: var(--good); } .act.ko .verdict b { color: var(--bad); }
