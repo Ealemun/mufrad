@@ -18,6 +18,8 @@ encore entièrement relu.
 - **Voix** : chacun peut ajouter ses propres enregistrements ; ils remplacent alors la voix de l'appareil.
   La roue dentée en haut de l'onglet ouvre « Partage des voix » : l'accord, mes envois (publiés, en attente, refusés)
   et, pour les contributeurs, les recommandations à traiter, le suivi des voix et des lecteurs.
+- **Versions d'essai** : chaque branche est publiée dans `essai/<nom>/`, avec sa propre progression. Elle lit la vraie base
+  (voix, vocabulaire, connexion) mais n'y écrit jamais rien : envois, suppressions et validations y sont refusés.
 - **Révision espacée** : algorithme FSRS-4.5, calculé dans le navigateur.
 
 ## Lancer l'application chez soi

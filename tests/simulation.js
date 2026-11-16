@@ -248,6 +248,21 @@ out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-m
     avecAncien: avecAncien.includes('data-url="blob:ancien"') && avecAncien.includes("Garder l'ancien"),
     rognage: !rognage.includes("Garder l'ancien") };
 }
+// Version d'essai : le client de la base enveloppé lit normalement mais refuse toute écriture, sans appeler le serveur
+{
+  const appels = [];
+  const faux = n => new Proxy(function () {}, { get: (t, p) => (p === "then" ? ok => ok({ data: ["lu"], error: null }) : (appels.push(n + "." + String(p)), faux(n))), apply: () => faux(n) });
+  const client = { from: () => faux("table"), storage: { from: () => faux("fichiers") }, rpc: nom => (appels.push("rpc." + nom), faux("rpc")), auth: { essai: true } };
+  const ls = lectureSeule(client), res = {};
+  ls.from("voix").update({ etat: "retire" }).eq("id", "x").then(r => { res.update = r.error && r.error.message; });
+  ls.from("voix").delete().eq("id", "x").then(r => { res.delete = r.error && r.error.message; });
+  ls.storage.from("voix").remove(["a"]).then(r => { res.remove = r.error && r.error.message; });
+  ls.rpc("noter_evenements", {}).then(r => { res.rpcEcrit = r.error && r.error.message; });
+  ls.from("voix").select("id").then(r => { res.select = r.data; });
+  ls.rpc("lecteurs").then(r => { res.rpcLu = r.data; });
+  out.essai = () => ({ refus: [res.update, res.delete, res.remove, res.rpcEcrit].every(m => m === ESSAI_REFUS), lecture: res.select && res.rpcLu && true,
+    jamaisAppele: !appels.some(a => /update|delete|remove|noter/.test(a)), auth: ls.auth.essai === true });
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -325,6 +340,8 @@ assert.deepStrictEqual(r.admin, { attente: true, lecteurs: true, filtres: true, 
 assert.ok(r.adminSimple, "Partage des voix : un utilisateur voit seulement l'accord et ses envois");
 assert.deepStrictEqual(r.voixEtat, { aucun: true, moi: true, badge: true, point: true }, "Voix : état de chaque élément visible (moi, autre, à enregistrer)");
 assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognage: true }, "Voix : choisir entre l'ancien et le nouvel enregistrement");
+// Les réponses de la base factice arrivent après coup (promesses) : on vérifie au tour suivant
+setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true }, "Version d'essai : lecture seule de la vraie base"), 0);
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

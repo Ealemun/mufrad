@@ -1028,10 +1028,31 @@ const isContributor = () => myLevel === "contributeur" || myLevel === "administr
 const publicUrl = chemin => SB_URL + "/storage/v1/object/public/voix/" + chemin;
 const refresh = () => { if ((!sess || sess.over) && !(typeof editForm !== "undefined" && editForm)) render(); };
 
+// Version d'essai (…/essai/<branche>/) : elle utilise la vraie base, donc tout ce qu'on y essaie ne doit rien changer
+// à l'application principale. On enveloppe le client de la base : les lectures et la connexion passent normalement,
+// mais chaque écriture (ajout, modification, suppression de ligne ou de fichier, fonction qui écrit) est refusée
+// avec un message, sans jamais atteindre le serveur.
+const ESSAI_REFUS = "version d'essai : rien n'est enregistré ni supprimé dans la vraie base";
+const RPC_LECTURE = ["lecteurs"];   // fonctions de la base qui ne font que lire : autorisées en essai
+function lectureSeule(client) {
+  const refus = () => Promise.resolve({ data: null, error: { message: ESSAI_REFUS } });
+  // Chaîne factice : accepte tous les appels qui suivent (.eq, .select, .single…) et se termine par le refus
+  const chaine = () => new Proxy(function () {}, { get: (t, p) => (p === "then" ? (ok, ko) => refus().then(ok, ko) : chaine()), apply: () => chaine() });
+  // Passe tout le reste à l'objet d'origine, sauf les méthodes interdites
+  const filtre = (obj, interdit) => new Proxy(obj, { get: (o, m) => (interdit.includes(m) ? () => chaine() : typeof o[m] === "function" ? o[m].bind(o) : o[m]) });
+  return new Proxy(client, { get(c, p) {
+    if (p === "from") return table => filtre(c.from(table), ["insert", "update", "upsert", "delete"]);
+    if (p === "storage") return { from: seau => filtre(c.storage.from(seau), ["upload", "update", "remove", "move", "copy"]) };
+    if (p === "rpc") return (nom, args) => (RPC_LECTURE.includes(nom) ? c.rpc(nom, args) : chaine());
+    return typeof c[p] === "function" ? c[p].bind(c) : c[p];
+  } });
+}
+
 function initCloud() {
   try {
     if (typeof supabase === "undefined" || !supabase.createClient) return;
     sb = supabase.createClient(SB_URL, SB_KEY);
+    if (ESSAI) sb = lectureSeule(sb);   // version d'essai : la vraie base est lue, jamais modifiée
     noter("ouverture");   // mesure d'audience anonyme (section 11)
     // À chaque connexion ou déconnexion ; le délai évite d'appeler la base depuis l'intérieur de son propre signal
     sb.auth.onAuthStateChange((evt, session) => { setTimeout(() => onSession(session), 0); });
