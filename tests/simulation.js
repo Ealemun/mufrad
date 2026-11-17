@@ -138,10 +138,11 @@ showTask(); sess.hist.push({}); sess.i++; showTask();                           
 { const t = sess.tasks[sess.i], c = sess.cur; answer(t, c.opts.findIndex(o => o.id === t.id) < 0, 4000, null); }   // une erreur
 document.dispatchClic("quit");
 const repriseVue = viewSheet(4).includes('data-act="resume"');
+const repriseAccueil = viewHome().includes('data-act="resume" data-l="4">Reprendre');   // bouton en haut du parcours
 resumeLearn(4);
 out.reprise4 = { carte: sess.i === 2, taches: sess.tasks.length === tachesAvant.split(",").length + 1, compteurs: sess.answers === 1 && sess.correct === 0,
-  erreur: Object.values(sess.st).some(x => x.err), panneau: repriseVue };
-run(false); out.reprise4.finie = !(S.reprise || {})[4] && !viewSheet(4).includes('data-act="resume"');
+  erreur: Object.values(sess.st).some(x => x.err), panneau: repriseVue, accueil: repriseAccueil };
+run(false); out.reprise4.finie = !(S.reprise || {})[4] && !viewSheet(4).includes('data-act="resume"') && !viewHome().includes('data-l="4">Reprendre');
 // Ouverture : contexte calculé sur l'appareil ; la deuxième ouverture du jour n'est plus « première du jour »
 fileMesure = []; localStorage.removeItem(MESURE_KEY); noterOuverture(); noterOuverture();
 const ouv = fileMesure.filter(e => e.type === "ouverture").map(e => e.donnees);
@@ -513,8 +514,8 @@ assert.deepStrictEqual(r.guide, { ordre: true, micro: true, choix: true, garde: 
 assert.ok(r.guideFin, "Enregistrement guidé : écran de fin");
 assert.ok(r.guideEdit, "Enregistrement guidé : « Éditer l'audio » ouvre la piste et le rognage");
 assert.ok(r.guidePrefixe, "Enregistrement guidé : actions hors du préfixe de la grammaire");
-assert.deepStrictEqual(r.reprise4, { carte: true, taches: true, compteurs: true, erreur: true, panneau: true, finie: true },
-  "Reprise : une leçon quittée en cours de route repart de la carte suivante, avec ses réponses, puis disparaît une fois finie");
+assert.deepStrictEqual(r.reprise4, { carte: true, taches: true, compteurs: true, erreur: true, panneau: true, accueil: true, finie: true },
+  "Reprise : une leçon quittée en cours de route repart de la carte suivante, avec ses réponses, puis disparaît une fois finie ; le parcours propose « Reprendre » en haut");
 assert.deepStrictEqual(r.refaire, { bouton: true, fiches: true, titre: true, calendrier: true }, "Refaire une leçon : fiches, et calendrier inchangé si tout est juste");
 assert.deepStrictEqual(r.bidi, { liste: true, colle: true, deux: true, balise: true, francais: true }, "Grammaire : arabe brut dans les phrases françaises (liste à la ligne, mots isolés)");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");

@@ -220,8 +220,13 @@ function startLearn(l, redo) {
 function gardeSeance(i) {
   if (!sess || sess.kind !== "learn" || sess.over) return;
   S.reprise = S.reprise || {};
-  S.reprise[sess.l] = { redo: sess.redo, tasks: sess.tasks, st: sess.st, i, n: sess.n, answers: sess.answers, correct: sess.correct, learned: sess.learned };
+  S.reprise[sess.l] = { redo: sess.redo, tasks: sess.tasks, st: sess.st, i, n: sess.n, answers: sess.answers, correct: sess.correct, learned: sess.learned, quand: Date.now() };
   saveState();
+}
+// Leçon quittée le plus récemment, pour le bouton « Reprendre » du parcours (undefined s'il n'y en a pas)
+function derniereReprise() {
+  const r = S.reprise || {};
+  return Object.keys(r).map(Number).filter(l => LESSON_TITLE[l] !== undefined).sort((a, b) => (r[b].quand || 0) - (r[a].quand || 0))[0];
 }
 // Repart de la carte où l'on s'était arrêté. Si un mot de la séance n'existe plus (vocabulaire corrigé entre-temps),
 // la reprise est abandonnée et la leçon repart normalement.
@@ -571,8 +576,11 @@ function viewHome() {
     : `<p class="muted">${seen ? "Aucune révision due aujourd'hui." : "Touchez la première leçon pour commencer."}</p>`;
   // Révision du jour et révision au choix côte à côte (la seconde seule s'il n'y a rien de dû)
   const revs = `<div class="row duo">${due ? `<button class="btn gold" data-act="daily">Révision du jour</button>` : ""}<button class="btn ghost" data-act="pick-open">${due ? "Au choix" : "Réviser au choix"}</button></div>`;
-  // Raccourci vers la leçon en cours : pas besoin de faire défiler le parcours
-  const resume = next !== undefined ? `<button class="btn ${due ? "ghost" : ""}" data-act="node" data-l="${next}">${lessonStats(next).seen ? "Continuer" : "Commencer"} : ${lessonHtml(next)}</button>` : "";
+  // Leçon quittée en cours de route (la plus récente s'il y en a plusieurs) : on la reprend d'un appui, à la carte où l'on s'était arrêté
+  const repr = derniereReprise();
+  const reprendre = repr !== undefined ? `<button class="btn ${due ? "ghost" : ""}" data-act="resume" data-l="${repr}">Reprendre : ${lessonHtml(repr)}</button>` : "";
+  // Raccourci vers la leçon en cours : pas besoin de faire défiler le parcours (remplacé par « Reprendre » si c'est la même leçon)
+  const resume = reprendre + (next !== undefined && next !== repr ? `<button class="btn ${due || repr !== undefined ? "ghost" : ""}" data-act="node" data-l="${next}">${lessonStats(next).seen ? "Continuer" : "Commencer"} : ${lessonHtml(next)}</button>` : "");
   const OFF = [0, 46, 70, 46, 0, -46, -70, -46]; // décalages qui font serpenter le parcours
   const path = UNITS.map(u => {
     const its = ITEMS.filter(it => it.u === u.n), uk = its.filter(isKnown).length, us = its.filter(isSeen).length, ud = its.filter(isDue).length;
@@ -585,7 +593,7 @@ function viewHome() {
     const stops = u.lessons.map(([l, title]) => {
       const s = lessonStats(l), state = s.known === s.total ? "gold" : s.seen > 0 ? "on" : "off";
       return `<div class="stop" style="--x:${OFF[k++ % OFF.length]}px">
-        ${l === next ? `<span class="go">${s.seen ? "Continuer" : "Commencer"}</span>` : ""}
+        ${l === next ? `<span class="go">${(S.reprise || {})[l] ? "Reprendre" : s.seen ? "Continuer" : "Commencer"}</span>` : ""}
         <span class="ring" style="--a:${100 * s.known / s.total};--b:${100 * s.seen / s.total}">
           <button class="node ${state}" data-act="node" data-l="${l}" aria-label="${esc(lessonLabel(l))} : ${s.known} acquis sur ${s.total}${s.due ? ", " + s.due + " à revoir" : ""}">${isAlpha(l) ? AR(itemsOf(l)[0].ar) : l}${s.due ? `<i class="badge">${s.due}</i>` : ""}</button></span>
         <div class="stop-txt"><b><bdi>${esc(title)}</bdi></b><span>${s.known} / ${s.total} acquis</span></div></div>`;
