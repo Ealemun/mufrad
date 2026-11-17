@@ -402,6 +402,14 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
     calendrier: JSON.stringify(its.map(it => S.cards[it.id])) === avant };
   S.cards = JSON.parse(sauf); sess = null;
 }
+// Arabe brut dans une phrase française de la grammaire : chaque mot isolé, virgule arabe devenue française,
+// et ce qui est déjà balisé ([[ ]], {{ }}) laissé tel quel
+{
+  const h = gText("au خَفْض : مِنْ، إِلى، بِـ. Puis [[قامَ زَيْدٌ، وَجَلَسَ]].");
+  const isoles = (h.match(/<span class="ar gi" lang="ar" dir="rtl">/g) || []).length;
+  out.bidi = { isoles: isoles === 5, virgules: h.includes("مِنْ</span>, <span") && !h.replace(">قامَ زَيْدٌ، وَجَلَسَ<", "").includes("،"),
+    balise: h.includes(">قامَ زَيْدٌ، وَجَلَسَ</span>"), francais: gText("Un texte sans arabe.") === "Un texte sans arabe." };
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -506,6 +514,7 @@ assert.ok(r.guidePrefixe, "Enregistrement guidé : actions hors du préfixe de l
 assert.deepStrictEqual(r.reprise4, { carte: true, taches: true, compteurs: true, erreur: true, panneau: true, finie: true },
   "Reprise : une leçon quittée en cours de route repart de la carte suivante, avec ses réponses, puis disparaît une fois finie");
 assert.deepStrictEqual(r.refaire, { bouton: true, fiches: true, titre: true, calendrier: true }, "Refaire une leçon : fiches, et calendrier inchangé si tout est juste");
+assert.deepStrictEqual(r.bidi, { isoles: true, virgules: true, balise: true, francais: true }, "Grammaire : arabe brut isolé mot par mot dans les phrases françaises");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

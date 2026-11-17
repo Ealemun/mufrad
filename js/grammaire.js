@@ -48,9 +48,18 @@ function gTermHtml(id, pl, plain) {
   gSeen[id] = true;
   return (plain ? `<span class="ar gi" lang="ar" dir="rtl">${ar}</span>` : `<button class="term ar gi" lang="ar" dir="rtl" data-act="g-term" data-id="${id}">${ar}</button>`) + gloss;
 }
-// Texte : échappé, avec {{terme}} du glossaire, l'arabe entre [[ ]] et les mots importants entre * *
+// Arabe laissé tel quel dans une phrase française (sans [[ ]]) : le navigateur fusionne les mots arabes voisins
+// et la ponctuation entre eux en un seul bloc de droite à gauche, ce qui brouille l'ordre de la phrase française
+// (« au خَفْض : مِنْ، إِلى… » devient illisible). On isole donc chaque mot ou groupe de mots arabes, et la virgule
+// arabe « ، » (ou le point-virgule « ؛ ») devient sa version française : une liste se lit alors dans l'ordre de la phrase.
+const G_AR = "[\u0600-\u060B\u060D-\u061A\u061C-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+";
+const G_AR_RUN = new RegExp(G_AR + "(?:\\s+" + G_AR + ")*", "g");
+const gIsole = seg => seg.replace(/\s*([،؛])\s*/g, (m, p) => (p === "،" ? ", " : " ; "))
+  .replace(G_AR_RUN, a => `<span class="ar gi" lang="ar" dir="rtl">${a}</span>`);
+// Texte : échappé, avec {{terme}} du glossaire, l'arabe entre [[ ]], les mots importants entre * *,
+// et l'arabe laissé sans [[ ]] isolé mot par mot (gIsole) ; ce qui est entre {{ }} ou [[ ]] n'est pas touché
 function gText(t, plain) {
-  return esc(t).replace(/\{\{([a-z-]+)(:pl)?\}\}/g, (m, id, pl) => gTermHtml(id, Boolean(pl), plain))
+  return esc(t).split(/(\{\{[a-z-]+(?::pl)?\}\}|\[\[.+?\]\])/).map((seg, i) => (i % 2 ? seg : gIsole(seg))).join("").replace(/\{\{([a-z-]+)(:pl)?\}\}/g, (m, id, pl) => gTermHtml(id, Boolean(pl), plain))
     .replace(/\[\[(.+?)\]\]/g, (m, a) => `<span class="ar gi" lang="ar" dir="rtl">${a}</span>`).replace(/\*(.+?)\*/g, "<b>$1</b>");
 }
 // Termes employés dans une leçon (pages et questions) : ils sont tenus pour connus une fois la leçon terminée
