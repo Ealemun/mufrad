@@ -167,6 +167,12 @@ out.srcBabs = [...new Set(NAZM.map(v => v.bab))].filter(b => !srcN.babs[b]);
 gSrc = { id: "nazm", p: srcN.debut, zoom: false }; out.srcVue = gSourceView().includes("p-07.webp"); gSrc = null;
 // Le premier vers, tel qu'il figure dans l'édition de référence
 out.premierVers = NAZM[0].a;
+// Exemples : la partie dont on parle ressort en couleur, sans astérisque visible ; la liaison des lettres est gardée
+// seulement quand la lettre coupée s'attache à la suivante (pas après un alif) ; la règle porte « À retenir »
+const pageSignes = gLessons().find(l => l.id === "g1b").pages[0].blocs.map(gBlock).join("");
+out.marques = { n: (pageSignes.match(/class="gmark"/g) || []).length, sansEtoile: !/<span class="ar"[^>]*>[^<]*\\*/.test(pageSignes),
+  liant: gMark("البَيْ*تِ*") === 'البَيْ\\u200D<span class="gmark">\\u200Dتِ</span>', sansLiant: gMark("كِتا*بٌ*") === 'كِتا<span class="gmark">بٌ</span>',
+  regle: pageSignes.includes('class="regle"><span class="tag">★ À retenir</span>') };
 out.gramDoubles = gids.filter((id, i) => gids.indexOf(id) !== i);
 out.gramFautes = [
   ...gq.filter(x => x.nature ? !["ism", "fil", "harf"].includes(x.nature) || !BY_ID[x.mot] : !(x.q && x.choix && x.choix.length >= 2 && x.bon >= 0 && x.bon < x.choix.length)).map(x => x.id),
@@ -447,7 +453,8 @@ assert.deepStrictEqual(r.srcPages.filter(f => !fs.existsSync(path.join(__dirname
 assert.deepStrictEqual(r.srcBabs, [], "édition de référence : un bab du poème n'a pas de page");
 assert.ok(r.srcVue, "la visionneuse affiche la page demandée");
 assert.strictEqual(r.premierVers, "قَالَ عُبَيْدُ رَبِّهِ مُحَمَّدُ", "le premier vers doit être celui de l'édition de référence");
-assert.deepStrictEqual(r.gramDoubles, [], "grammaire : identifiant en double");
+assert.deepStrictEqual(r.marques, { n: 4, sansEtoile: true, liant: true, sansLiant: true, regle: true }, "exemples : partie en couleur et liaison gardée ; règle « À retenir »");
+assert.deepStrictEqual(r.gramDoubles, [],"grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
 assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");
 assert.ok(r.termeAvant && r.termeApres && r.termeFr && r.termeAr && r.termeFiche, "un terme est traduit à la première rencontre, puis reste seul, selon le réglage");

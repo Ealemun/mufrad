@@ -19,8 +19,12 @@
 .gex > div > .ar { font-size: 28px; line-height: 1.6; flex: 0 0 auto; max-width: 48%; text-align: right; }
 .gex > div > span:last-child { flex: 1; min-width: 0; font-size: 15px; line-height: 1.4; }
 .gex small { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
-/* Règle à retenir */
-.regle { padding: 12px 14px; border-radius: 16px; border: 2px solid var(--gold); font-weight: 500; }
+/* Partie d'un exemple dont parle l'explication : couleur des termes du glossaire (leur soulignement est doré) */
+.gmark { color: var(--gold-ink); }
+/* Règle à retenir : fond doré, bord épais et étiquette, pour qu'elle ne se confonde ni avec un paragraphe ni avec une citation */
+.regle { padding: 12px 14px; border-radius: 16px; border: 2px solid var(--gold); border-bottom-width: 5px;
+  background: color-mix(in srgb, var(--gold) 16%, var(--surface)); display: flex; flex-direction: column; gap: 4px; }
+.gpage .regle p { font-weight: 600; }
 
 /* Un vers : les deux hémistiches l'un sous l'autre, le second décalé, comme dans les recueils */
 .verse { display: flex; flex-direction: column; gap: 2px; width: 100%; direction: rtl; }

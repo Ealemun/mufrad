@@ -357,12 +357,27 @@ if (typeof document !== "undefined" && document.addEventListener) document.addEv
   else if (e.key === "Enter" && gs.typed) { gCheck(); render(); }
   else if (/^[\u0621-\u0652]$/.test(e.key)) { gs.typed += e.key; render(); }
 });
+// Arabe d'un exemple : la partie dont parle l'explication est entre * * (ex. « كِتا*بٌ* ») et ressort en couleur.
+// Couper un mot en deux balises peut casser la liaison des lettres sur certains navigateurs : quand la lettre
+// avant la coupure s'attache à la suivante, on pose de part et d'autre un liant invisible (U+200D) qui la maintient.
+const G_NON_LIANTES = "اأإآٱدذرزوؤةء";
+function gMark(ar) {
+  return ar.split("*").map((part, i, all) => {
+    let t = part;
+    const avant = [...(all[i - 1] || "").replace(/[ً-ْٰ]/g, "")].pop();   // dernière lettre de la partie précédente
+    const apres = [...t.replace(/[ً-ْٰ]/g, "")].pop();                   // dernière lettre de cette partie
+    if (i > 0 && t && avant && /[ء-ي]/.test(avant) && !G_NON_LIANTES.includes(avant) && /^[ء-ي]/.test(t)) t = "\u200D" + t;
+    if (i < all.length - 1 && apres && /[ء-ي]/.test(apres) && !G_NON_LIANTES.includes(apres) && /^[ء-ي]/.test(all[i + 1] || "")) t += "\u200D";
+    return i % 2 ? `<span class="gmark">${esc(t)}</span>` : esc(t);
+  }).join("");
+}
 // Un bloc d'explication : paragraphe, citation du texte de référence, exemples, ou règle à retenir
 function gBlock(b) {
   if (b.p) return `<p>${gText(b.p)}</p>`;
   if (b.matn) return `<blockquote class="matn"><span class="ar" lang="ar" dir="rtl">${esc(b.matn)}</span><p>${gText(b.fr)}</p><cite>${esc(b.source || "Ibn Ājurrūm, al-Ājurrūmiyya")}</cite></blockquote>`;
-  if (b.ex) return `<div class="gex">${b.ex.map(([ar, fr, note]) => `<div><span class="ar" lang="ar" dir="rtl">${esc(ar)}</span><span>${gText(fr)}${note ? `<small>${gText(note)}</small>` : ""}</span></div>`).join("")}</div>`;
-  if (b.regle) return `<p class="regle">${gText(b.regle)}</p>`;
+  if (b.ex) return `<div class="gex">${b.ex.map(([ar, fr, note]) => `<div><span class="ar" lang="ar" dir="rtl">${gMark(ar)}</span><span>${gText(fr)}${note ? `<small>${gText(note)}</small>` : ""}</span></div>`).join("")}</div>`;
+  // La règle porte une étiquette « À retenir » : elle se distingue d'un coup d'œil d'un simple paragraphe
+  if (b.regle) return `<div class="regle"><span class="tag">★ À retenir</span><p>${gText(b.regle)}</p></div>`;
   return "";
 }
 
