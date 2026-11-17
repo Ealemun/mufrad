@@ -82,7 +82,18 @@ function gTermSheet() {
   const t = gTerm && gTermOf(gTerm); if (!t) return "";
   return `<button class="scrim" data-act="g-term-close" aria-label="Fermer"></button>
     <div class="sheet" role="dialog" aria-label="Définition"><div class="prompt"><span class="ar" lang="ar" dir="rtl">${t.ar}</span>${t.pl ? `<span class="tr">pluriel : <span class="ar" lang="ar" dir="rtl">${t.pl}</span></span>` : ""}</div>
-      <p><b>${esc(t.fr)}</b></p><p>${gText(t.def, true)}</p><button class="btn ghost" data-act="g-term-close">Fermer</button></div>`;
+      <p><b>${esc(t.fr)}</b></p><p>${gText(t.def, true)}</p>${gSons(t)}<button class="btn ghost" data-act="g-term-close">Fermer</button></div>`;
+}
+// Sons d'une définition (champ « sons ») : chacun en grand, côte à côte, avec ce qu'on entend en dessous.
+// Un appui fait entendre l'enregistrement ; sans enregistrement, le bouton est grisé (jamais de voix de synthèse).
+// Un contributeur connecté voit en plus « Enregistrer ces sons », qui ouvre l'enregistrement guidé sur eux.
+function gSons(t) {
+  if (!t.sons || !t.sons.length) return "";
+  const sons = t.sons.map(id => BY_ID[id]).filter(Boolean);
+  const peutEnregistrer = sb && me && isContributor() && canRecord();
+  return `<div class="gsons">${sons.map(son => `<button class="gson" data-act="g-son" data-id="${son.id}" ${AUDIO[son.id] ? "" : "disabled"} aria-label="Écouter « ${son.fr} »">
+      <span class="ar" lang="ar" dir="rtl">${son.ar}</span><span>${AUDIO[son.id] ? ICON_SPEAK + " " : ""}${esc(son.fr)}</span></button>`).join("")}</div>
+    ${peutEnregistrer ? `<button class="linkbtn" data-act="g-sons-rec" data-ids="${t.sons.join(",")}">${ICON_MIC} Enregistrer ces sons</button>` : ""}`;
 }
 function gMix(a) { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
@@ -471,6 +482,8 @@ function gramClick(act, el) {
     case "g-src-go": { const s = SOURCES.find(x => x.id === gSrc.id); gSrc.p = Math.max(1, Math.min(s.pages, gSrc.p + Number(el.dataset.d))); gSrc.zoom = false; break; }
     case "g-term": gTerm = el.dataset.id; noter("terme", el.dataset.id); break;
     case "g-term-close": gTerm = null; break;
+    case "g-son": if (AUDIO[el.dataset.id]) speak(el.dataset.id, "definition"); break;          // seulement un enregistrement
+    case "g-sons-rec": gTerm = null; startGuide(el.dataset.ids.split(","), "#grammaire"); return;   // mode guidé sur ces sons, retour à la grammaire
     case "g-mode": S.termes = el.dataset.m; saveState(); break;
   }
   render();
