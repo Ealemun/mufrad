@@ -423,7 +423,8 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
   out.sons = { trois: (pour.match(/class="gson"/g) || []).length === 3, grises: (pour.match(/data-act="g-son"[^>]*disabled/g) || []).length === 3,
     pasEnregistrer: !pour.includes("g-sons-rec"), contributeur: contrib.includes('data-act="g-sons-rec" data-ids="son-tanwin-un,son-tanwin-an,son-tanwin-in"') || !canRecord(),
     connus: ["son-tanwin-un", "son-tanwin-an", "son-tanwin-in"].every(id => BY_ID[id] && BY_ID[id].type === "son"),
-    sansSigneDansLeTexte: !pour.includes("ـٌ") };
+    // le texte de la définition, lui, ne contient plus le signe brut (il est dans les boutons)
+    sansSigneDansLeTexte: !gText(GLOSSAIRE.find(t => t.id === "tanwin").def).includes("ـٌ") };
 }
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";

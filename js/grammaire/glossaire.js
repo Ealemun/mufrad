@@ -36,10 +36,11 @@ GLOSSAIRE.push(
 // Sons de grammaire, montrés en grand dans une définition (champ « sons » d'un terme) et enregistrés par des
 // contributeurs comme les mots (onglet Voix, mode guidé). Ils ont leur propre identifiant (« son-… »), distinct
 // des mots et des lettres, et sont ajoutés à BY_ID pour que leurs voix partagées soient chargées et jouées.
-// « ar » : le signe sur un cercle pointillé, pour qu'on le voie bien ; « fr » : ce qu'on entend.
+// « ar » : le signe posé sur un trait de liaison (le cercle pointillé détache les signes dans la police arabe) ;
+// « fr » : ce qu'on entend.
 const G_SONS = [
-  { id: "son-tanwin-un", ar: "◌ٌ", fr: "oun", type: "son", l: "Gram" },
-  { id: "son-tanwin-an", ar: "◌ً", fr: "an", type: "son", l: "Gram" },
-  { id: "son-tanwin-in", ar: "◌ٍ", fr: "in", type: "son", l: "Gram" }
+  { id: "son-tanwin-un", ar: "ـٌ", fr: "oun", type: "son", l: "Gram" },
+  { id: "son-tanwin-an", ar: "ـً", fr: "an", type: "son", l: "Gram" },
+  { id: "son-tanwin-in", ar: "ـٍ", fr: "in", type: "son", l: "Gram" }
 ];
 G_SONS.forEach(son => { BY_ID[son.id] = son; });
