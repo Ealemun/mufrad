@@ -106,4 +106,4 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 .gkb-note { text-align: center; font-size: 14px; margin-top: 6px; }
 /* Fenêtre de définition : les mots arabes pris dans une phrase française restent un peu plus grands que le texte,
    sans le doubler, pour que la phrase garde ses lignes et se lise d'un trait */
-.sheet p .ar.gi { font-size: 1.35em; line-height: 1.2; }
+.sheet p .ar.gi { font-size: 1.45em; line-height: 1.2; }   /* comme dans les questions (.ask) */
