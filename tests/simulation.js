@@ -131,6 +131,17 @@ const reps = fileMesure.filter(e => e.type === "reponse"), faux1 = reps.find(e =
 // Séance quittée en cours de route
 startLearn(3); fileMesure = []; sess.i = 2; document.dispatchClic("quit");
 const quittee = fileMesure.find(e => e.type === "seance_quittee");
+// Reprise : une leçon quittée après quelques cartes repart de la carte suivante, avec ses compteurs,
+// le panneau de la leçon le propose, et une fois la leçon finie il n'y a plus rien à reprendre
+startLearn(4); const tachesAvant = sess.tasks.map(t => t.id + (t.ex || t.kind)).join();
+showTask(); sess.hist.push({}); sess.i++; showTask();                                  // fiche du premier mot passée
+{ const t = sess.tasks[sess.i], c = sess.cur; answer(t, c.opts.findIndex(o => o.id === t.id) < 0, 4000, null); }   // une erreur
+document.dispatchClic("quit");
+const repriseVue = viewSheet(4).includes('data-act="resume"');
+resumeLearn(4);
+out.reprise4 = { carte: sess.i === 2, taches: sess.tasks.length === tachesAvant.split(",").length + 1, compteurs: sess.answers === 1 && sess.correct === 0,
+  erreur: Object.values(sess.st).some(x => x.err), panneau: repriseVue };
+run(false); out.reprise4.finie = !(S.reprise || {})[4] && !viewSheet(4).includes('data-act="resume"');
 // Ouverture : contexte calculé sur l'appareil ; la deuxième ouverture du jour n'est plus « première du jour »
 fileMesure = []; localStorage.removeItem(MESURE_KEY); noterOuverture(); noterOuverture();
 const ouv = fileMesure.filter(e => e.type === "ouverture").map(e => e.donnees);
@@ -485,6 +496,8 @@ assert.deepStrictEqual(r.guide, { ordre: true, micro: true, choix: true, garde: 
 assert.ok(r.guideFin, "Enregistrement guidé : écran de fin");
 assert.ok(r.guideEdit, "Enregistrement guidé : « Éditer l'audio » ouvre la piste et le rognage");
 assert.ok(r.guidePrefixe, "Enregistrement guidé : actions hors du préfixe de la grammaire");
+assert.deepStrictEqual(r.reprise4, { carte: true, taches: true, compteurs: true, erreur: true, panneau: true, finie: true },
+  "Reprise : une leçon quittée en cours de route repart de la carte suivante, avec ses réponses, puis disparaît une fois finie");
 assert.deepStrictEqual(r.refaire, { bouton: true, fiches: true, titre: true, calendrier: true }, "Refaire une leçon : fiches, et calendrier inchangé si tout est juste");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");

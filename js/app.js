@@ -50,6 +50,7 @@ function blankState() {
     mic: "",         // micro choisi pour enregistrer (vide = celui par défaut)
     fold: {},        // unités pliées ou dépliées à la main dans le parcours : numéro -> true si pliée
     mesure: true,    // statistiques anonymes d'utilisation (refusables dans les réglages)
+    reprise: {},     // leçons quittées en cours de route : numéro -> où l'on s'était arrêté (voir gardeSeance)
     offset: 0        // décalage de test, en jours
   };
 }
@@ -212,6 +213,27 @@ function startLearn(l, redo) {
   showTask();
 }
 
+// Reprise d'une leçon quittée en cours de route (bouton ✕, onglet changé, application fermée).
+// À chaque carte, la séance « apprendre » est recopiée dans la progression : la liste des cartes, le point où l'on en est
+// et ce qui reste à réussir pour chaque élément. Les choix proposés ne sont pas gardés : ils sont retirés à la reprise.
+// i = carte à montrer à la reprise (la suivante dès qu'on a répondu, pour ne pas poser deux fois la même question).
+function gardeSeance(i) {
+  if (!sess || sess.kind !== "learn" || sess.over) return;
+  S.reprise = S.reprise || {};
+  S.reprise[sess.l] = { redo: sess.redo, tasks: sess.tasks, st: sess.st, i, n: sess.n, answers: sess.answers, correct: sess.correct, learned: sess.learned };
+  saveState();
+}
+// Repart de la carte où l'on s'était arrêté. Si un mot de la séance n'existe plus (vocabulaire corrigé entre-temps),
+// la reprise est abandonnée et la leçon repart normalement.
+function resumeLearn(l) {
+  const r = (S.reprise || {})[l];
+  const ok = r && r.tasks.every(t => (t.ids || [t.id]).every(id => BY_ID[id]));
+  if (!ok) { if (S.reprise) delete S.reprise[l]; saveState(); return startLearn(l); }
+  sess = blankSession("learn", lessonLabel(l), l);
+  Object.assign(sess, { redo: Boolean(r.redo), tasks: r.tasks, st: r.st, i: r.i, n: r.n, answers: r.answers, correct: r.correct, learned: r.learned });
+  showTask();
+}
+
 // Réviser : on enchaîne les questions sur les éléments choisis jusqu'à tout maîtriser.
 // Un élément est maîtrisé après deux bonnes réponses de suite, une dans chaque sens ; une erreur remet son compteur à zéro.
 function startDrill(items, title) {
@@ -247,6 +269,7 @@ function distractors(it) {
 function showTask() {
   if (!sess.noted) { sess.noted = true; noter("seance_debut", sess.kind, { l: sess.l == null ? null : String(sess.l), n: sess.n }); }   // statistiques
   if (sess.i >= sess.tasks.length) return finishSession();
+  gardeSeance(sess.i);   // si l'on quitte maintenant, on reprendra à cette carte
   const task = sess.tasks[sess.i];
   if (task.kind === "q") {
     sess.cur = { opts: shuffle([BY_ID[task.id], ...distractors(BY_ID[task.id])]), picked: null, checked: false, t0: Date.now() };
@@ -276,6 +299,7 @@ function answer(task, ok, ms, choix) {
     // Une erreur fait revenir la même question quelques cartes plus loin
     sess.tasks.splice(Math.min(sess.i + 4, sess.tasks.length), 0, { kind: "q", id: task.id, ex: task.ex });
   }
+  gardeSeance(sess.i + 1);   // question répondue : une reprise repartira de la suivante
   saveState();
 }
 
@@ -313,7 +337,9 @@ function finalize(task, st, ms) {
 
 // Une séance terminée avec au moins une réponse fait compter le jour dans la série.
 function finishSession() {
-  if (sess.answers > 0) { dayRec(today()).done = true; saveState(); }
+  if (sess.kind === "learn" && S.reprise) delete S.reprise[sess.l];   // leçon menée au bout : plus rien à reprendre
+  if (sess.answers > 0) dayRec(today()).done = true;
+  saveState();
   noter("seance_fin", sess.kind, { ...sessStats(), appris: sess.learned });   // statistiques
   sess.over = true;
   sfx("done");
@@ -585,12 +611,14 @@ function viewHome() {
 function viewSheet(l) {
   const s = lessonStats(l), unseen = s.total - s.seen;
   const chunk = Math.min(unseen, s.its[0].type === "letter" ? CHUNK_LETTERS : CHUNK_WORDS);
+  const r = (S.reprise || {})[l];   // séance quittée en cours de route : on propose d'abord de la reprendre
   return `<button class="scrim" data-act="sheet-close" aria-label="Fermer"></button>
     <div class="sheet" role="dialog" aria-label="${esc(lessonLabel(l))}">
       <h3>${isAlpha(l) ? "Alphabet " + (l - 100) : "Leçon " + l}</h3><h2><bdi>${esc(LESSON_TITLE[l])}</bdi></h2>
       <div class="tiles"><div><b>${s.known}</b>acquis</div><div><b>${s.seen - s.known}</b>en cours</div><div><b>${unseen}</b>à découvrir</div></div>
-      ${unseen ? `<button class="btn" data-act="learn" data-l="${l}">Apprendre ${plural(chunk, "nouveauté")}</button>` : ""}
-      ${s.seen ? `<button class="btn ${unseen ? "ghost" : ""}" data-act="redo" data-l="${l}">Refaire la leçon${unseen ? ` (${plural(s.seen, "élément vu")})` : ""}</button>` : ""}
+      ${r ? `<button class="btn" data-act="resume" data-l="${l}">Reprendre où je m'étais arrêté (${Math.min(r.i + 1, r.tasks.length)} / ${r.tasks.length})</button>` : ""}
+      ${unseen ? `<button class="btn ${r ? "ghost" : ""}" data-act="learn" data-l="${l}">Apprendre ${plural(chunk, "nouveauté")}</button>` : ""}
+      ${s.seen ? `<button class="btn ${unseen || r ? "ghost" : ""}" data-act="redo" data-l="${l}">Refaire la leçon${unseen ? ` (${plural(s.seen, "élément vu")})` : ""}</button>` : ""}
       ${s.seen ? `<button class="btn ghost" data-act="review" data-l="${l}">Réviser ce que j'ai vu (${s.seen})</button>` : ""}
       ${unseen ? `<button class="btn ghost" data-act="known-lesson" data-l="${l}">Je connais déjà : passer en révision</button>` : ""}
       <button class="btn ghost" data-act="cram" data-l="${l}">Tout réviser d'un coup (${s.total})</button></div>`;
@@ -1853,6 +1881,7 @@ document.addEventListener("click", e => {
     case "known-unit-yes": noter("lecon_validee", "unite:" + el.dataset.u, { n: markKnown(ITEMS.filter(it => it.u === Number(el.dataset.u))) }); askKnown = null; sfx("ok"); wantScroll = true; break;
     case "daily": startDaily(); return;
     case "learn": sheet = null; startLearn(Number(el.dataset.l)); return;
+    case "resume": sheet = null; resumeLearn(Number(el.dataset.l)); return;   // reprendre une leçon quittée en cours de route
     case "redo": sheet = null; startLearn(Number(el.dataset.l), true); return;   // refaire une leçon déjà vue, fiches comprises
     case "review": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l).filter(isSeen), lessonLabel(l)); return; }
     case "cram": { const l = Number(el.dataset.l); sheet = null; startDrill(itemsOf(l), lessonLabel(l)); return; }
