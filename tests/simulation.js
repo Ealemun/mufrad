@@ -413,6 +413,18 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
     deux: h.includes('عَنْ</span>,&nbsp;<span class="ar gi" lang="ar" dir="rtl">في</span>'),
     balise: h.includes(">قامَ زَيْدٌ، وَجَلَسَ</span>"), francais: gText("Un texte sans arabe.") === "Un texte sans arabe." };
 }
+// Sons du tanwīn : trois grands boutons dans la définition, grisés sans enregistrement (jamais de synthèse) ;
+// un contributeur peut les enregistrer en mode guidé ; ils ont leur propre identifiant, connu de BY_ID
+{
+  const sauf = { sb, me, myLevel };
+  gTerm = "tanwin"; const pour = gTermSheet();
+  sb = {}; me = { id: "c" }; myLevel = "contributeur"; const contrib = gTermSheet();
+  ({ sb, me, myLevel } = sauf); gTerm = null;
+  out.sons = { trois: (pour.match(/class="gson"/g) || []).length === 3, grises: (pour.match(/data-act="g-son"[^>]*disabled/g) || []).length === 3,
+    pasEnregistrer: !pour.includes("g-sons-rec"), contributeur: contrib.includes('data-act="g-sons-rec" data-ids="son-tanwin-un,son-tanwin-an,son-tanwin-in"') || !canRecord(),
+    connus: ["son-tanwin-un", "son-tanwin-an", "son-tanwin-in"].every(id => BY_ID[id] && BY_ID[id].type === "son"),
+    sansSigneDansLeTexte: !pour.includes("ـٌ") };
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -518,6 +530,7 @@ assert.deepStrictEqual(r.reprise4, { carte: true, taches: true, compteurs: true,
   "Reprise : une leçon quittée en cours de route repart de la carte suivante, avec ses réponses, puis disparaît une fois finie ; le parcours propose « Reprendre » en haut");
 assert.deepStrictEqual(r.refaire, { bouton: true, fiches: true, titre: true, calendrier: true }, "Refaire une leçon : fiches, et calendrier inchangé si tout est juste");
 assert.deepStrictEqual(r.bidi, { liste: true, colle: true, deux: true, balise: true, francais: true }, "Grammaire : arabe brut dans les phrases françaises (liste à la ligne, mots isolés)");
+assert.deepStrictEqual(r.sons, { trois: true, grises: true, pasEnregistrer: true, contributeur: true, connus: true, sansSigneDansLeTexte: true }, "Sons du tanwīn dans la définition");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
