@@ -402,12 +402,14 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
     calendrier: JSON.stringify(its.map(it => S.cards[it.id])) === avant };
   S.cards = JSON.parse(sauf); sess = null;
 }
-// Arabe brut dans une phrase française de la grammaire : chaque mot isolé, virgule arabe devenue française,
-// et ce qui est déjà balisé ([[ ]], {{ }}) laissé tel quel
+// Arabe brut dans une phrase française de la grammaire : une liste de trois mots ou plus passe seule sur sa ligne
+// (arabe normal, virgules arabes), un mot arabe isolé reste collé au mot qui le précède et à « : »,
+// une liste de deux mots prend une virgule française, et ce qui est balisé ([[ ]]) reste tel quel
 {
-  const h = gText("au خَفْض : مِنْ، إِلى، بِـ. Puis [[قامَ زَيْدٌ، وَجَلَسَ]].");
-  const isoles = (h.match(/<span class="ar gi" lang="ar" dir="rtl">/g) || []).length;
-  out.bidi = { isoles: isoles === 5, virgules: h.includes("مِنْ</span>, <span") && !h.replace(">قامَ زَيْدٌ، وَجَلَسَ<", "").includes("،"),
+  const h = gText("au خَفْض : مِنْ، إِلى، بِـ. Ou bien عَنْ، في. Puis [[قامَ زَيْدٌ، وَجَلَسَ]].");
+  out.bidi = { liste: h.includes('<span class="ar gliste" lang="ar" dir="rtl">مِنْ، إِلى، بِـ</span>'),
+    colle: h.includes('au&nbsp;<span class="ar gi" lang="ar" dir="rtl">خَفْض</span>&nbsp;:'),
+    deux: h.includes('عَنْ</span>,&nbsp;<span class="ar gi" lang="ar" dir="rtl">في</span>'),
     balise: h.includes(">قامَ زَيْدٌ، وَجَلَسَ</span>"), francais: gText("Un texte sans arabe.") === "Un texte sans arabe." };
 }
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
@@ -514,7 +516,7 @@ assert.ok(r.guidePrefixe, "Enregistrement guidé : actions hors du préfixe de l
 assert.deepStrictEqual(r.reprise4, { carte: true, taches: true, compteurs: true, erreur: true, panneau: true, finie: true },
   "Reprise : une leçon quittée en cours de route repart de la carte suivante, avec ses réponses, puis disparaît une fois finie");
 assert.deepStrictEqual(r.refaire, { bouton: true, fiches: true, titre: true, calendrier: true }, "Refaire une leçon : fiches, et calendrier inchangé si tout est juste");
-assert.deepStrictEqual(r.bidi, { isoles: true, virgules: true, balise: true, francais: true }, "Grammaire : arabe brut isolé mot par mot dans les phrases françaises");
+assert.deepStrictEqual(r.bidi, { liste: true, colle: true, deux: true, balise: true, francais: true }, "Grammaire : arabe brut dans les phrases françaises (liste à la ligne, mots isolés)");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");

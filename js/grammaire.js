@@ -50,12 +50,20 @@ function gTermHtml(id, pl, plain) {
 }
 // Arabe laissé tel quel dans une phrase française (sans [[ ]]) : le navigateur fusionne les mots arabes voisins
 // et la ponctuation entre eux en un seul bloc de droite à gauche, ce qui brouille l'ordre de la phrase française
-// (« au خَفْض : مِنْ، إِلى… » devient illisible). On isole donc chaque mot ou groupe de mots arabes, et la virgule
-// arabe « ، » (ou le point-virgule « ؛ ») devient sa version française : une liste se lit alors dans l'ordre de la phrase.
+// (« au خَفْض : مِنْ، إِلى… » devenait illisible). Donc :
+//   - une liste d'au moins trois mots arabes séparés par « ، » passe seule sur sa ligne, en arabe normal
+//     (de droite à gauche, virgules arabes), sans le point qui la suit ;
+//   - les autres mots arabes sont isolés un par un, collés au mot français qui les précède (pas de mot arabe
+//     seul en début de ligne), et « : » reste collé à eux comme le veut la typographie française ;
+//   - une virgule arabe isolée (liste de deux mots) devient une virgule française.
 const G_AR = "[\u0600-\u060B\u060D-\u061A\u061C-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+";
-const G_AR_RUN = new RegExp(G_AR + "(?:\\s+" + G_AR + ")*", "g");
-const gIsole = seg => seg.replace(/\s*([،؛])\s*/g, (m, p) => (p === "،" ? ", " : " ; "))
-  .replace(G_AR_RUN, a => `<span class="ar gi" lang="ar" dir="rtl">${a}</span>`);
+const G_AR_MOTS = G_AR + "(?:\\s+" + G_AR + ")*";
+const G_AR_RUN = new RegExp(G_AR_MOTS, "g");
+const G_AR_LISTE = new RegExp("(" + G_AR_MOTS + "(?:\\s*،\\s*" + G_AR_MOTS + "){2,})\\.?", "g");
+const gEnLigne = seg => seg.replace(/\s*([،؛])\s*/g, (m, p) => (p === "،" ? ", " : " ; "))
+  .replace(G_AR_RUN, a => `<span class="ar gi" lang="ar" dir="rtl">${a}</span>`)
+  .replace(/ (?=<span class="ar gi")/g, "&nbsp;").replace(/(<\/span>) :/g, "$1&nbsp;:");
+const gIsole = seg => seg.split(G_AR_LISTE).map((x, i) => (i % 2 ? `<span class="ar gliste" lang="ar" dir="rtl">${x}</span>` : gEnLigne(x))).join("");
 // Texte : échappé, avec {{terme}} du glossaire, l'arabe entre [[ ]], les mots importants entre * *,
 // et l'arabe laissé sans [[ ]] isolé mot par mot (gIsole) ; ce qui est entre {{ }} ou [[ ]] n'est pas touché
 function gText(t, plain) {
