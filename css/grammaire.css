@@ -104,3 +104,6 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 .gkey:active { transform: translateY(2px); border-bottom-width: 2px; }
 .gkrow .gkey.wide { flex: 1.6 1 0; max-width: 70px; font-family: inherit; font-size: 20px; padding: 0; }
 .gkb-note { text-align: center; font-size: 14px; margin-top: 6px; }
+/* Fenêtre de définition : les mots arabes pris dans une phrase française restent un peu plus grands que le texte,
+   sans le doubler, pour que la phrase garde ses lignes et se lise d'un trait */
+.sheet p .ar.gi { font-size: 1.35em; line-height: 1.2; }
