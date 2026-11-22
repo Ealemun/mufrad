@@ -220,7 +220,10 @@ function startLearn(l, redo) {
 function gardeSeance(i) {
   if (!sess || sess.kind !== "learn" || sess.over) return;
   S.reprise = S.reprise || {};
-  S.reprise[sess.l] = { redo: sess.redo, tasks: sess.tasks, st: sess.st, i, n: sess.n, answers: sess.answers, correct: sess.correct, learned: sess.learned, quand: Date.now() };
+  // Horodatage strictement croissant : deux leçons quittées dans la même milliseconde gardent leur ordre,
+  // pour que « Reprendre » propose bien la dernière quittée.
+  const plusRecente = Math.max(0, ...Object.values(S.reprise).map(r => r.quand || 0));
+  S.reprise[sess.l] = { redo: sess.redo, tasks: sess.tasks, st: sess.st, i, n: sess.n, answers: sess.answers, correct: sess.correct, learned: sess.learned, quand: Math.max(Date.now(), plusRecente + 1) };
   saveState();
 }
 // Leçon quittée le plus récemment, pour le bouton « Reprendre » du parcours (undefined s'il n'y en a pas)
