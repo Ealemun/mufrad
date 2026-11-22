@@ -176,6 +176,11 @@ out.marques = { n: (pageSignes.match(/class="gmark"/g) || []).length, sansEtoile
   // Voyelle seule : texte entier dessous, le même sans la voyelle dessus
   voyelle: gMark("كِتاب*ٌ*") === '<span class="gvoy">كِتابٌ<span class="gvoy-dessus" aria-hidden="true">كِتاب</span></span>',
   regle: pageSignes.includes('class="regle"><span class="regle-tag">★ Nouveau · Règle</span>') };
+// Citation du texte de référence en fin de page : sur chaque page, plus rien d'autre ne la suit ; sur « Les signes du ism »,
+// elle vient après les exemples et la règle
+const pagesG = gLessons().flatMap(l => l.pages || []), signesOrd = gOrdre(gLessons().find(l => l.id === "g1b").pages[0].blocs).map(gBlock).join("");
+out.citationFin = { partout: pagesG.every(pg => { const o = gOrdre(pg.blocs), k = o.findIndex(b => b.matn); return k < 0 || o.slice(k).every(b => b.matn); }),
+  apresRegle: signesOrd.indexOf('class="matn"') > signesOrd.indexOf('class="regle"'), memesBlocs: pagesG.every(pg => gOrdre(pg.blocs).length === pg.blocs.length) };
 out.gramDoubles = gids.filter((id, i) => gids.indexOf(id) !== i);
 out.gramFautes = [
   ...gq.filter(x => x.nature ? !["ism", "fil", "harf"].includes(x.nature) || !BY_ID[x.mot] : !(x.q && x.choix && x.choix.length >= 2 && x.bon >= 0 && x.bon < x.choix.length)).map(x => x.id),
@@ -480,6 +485,7 @@ assert.deepStrictEqual(r.srcBabs, [], "édition de référence : un bab du poèm
 assert.ok(r.srcVue, "la visionneuse affiche la page demandée");
 assert.strictEqual(r.premierVers, "قَالَ عُبَيْدُ رَبِّهِ مُحَمَّدُ", "le premier vers doit être celui de l'édition de référence");
 assert.deepStrictEqual(r.marques, { n: 2, sansEtoile: true, liant: true, sansLiant: true, voyelle: true, regle: true }, "exemples : lettres ou voyelle seule en couleur, liaison gardée ; règle « Nouveau · Règle »");
+assert.deepStrictEqual(r.citationFin, { partout: true, apresRegle: true, memesBlocs: true }, "Grammaire : la citation du texte de référence vient en fin de page, sans perdre de bloc");
 assert.deepStrictEqual(r.gramDoubles, [],"grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
 assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");

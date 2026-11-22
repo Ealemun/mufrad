@@ -11,6 +11,8 @@
 .matn { margin: 0; padding: 12px 14px; border-radius: 16px; background: var(--primary-soft); border-inline-start: 5px solid var(--gold); display: flex; flex-direction: column; gap: 6px; }
 .matn > .ar { font-size: 26px; line-height: 1.8; }
 .matn p { font-size: 16px; }
+/* Titre de la citation, placée en fin de page comme récapitulatif */
+.matn-tete { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--gold-ink); }
 .matn cite { font-size: 13px; font-style: normal; color: var(--muted); }
 /* Exemples : l'arabe à droite, l'explication à gauche */
 .gex { display: flex; flex-direction: column; border: 2px solid var(--line); border-radius: 16px; overflow: hidden; }

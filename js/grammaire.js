@@ -328,7 +328,7 @@ function gramRender(r) {
   }
   const st = gs.steps[gs.i];
   if (st.t === "page") {
-    $view.innerHTML = `<article class="gpage"><p class="ask"><small>${gText(st.lesson.titre, true)}</small>${gText(st.page.titre)}</p>${st.page.blocs.map(gBlock).join("")}</article>`;
+    $view.innerHTML = `<article class="gpage"><p class="ask"><small>${gText(st.lesson.titre, true)}</small>${gText(st.page.titre)}</p>${gOrdre(st.page.blocs).map(gBlock).join("")}</article>`;
     $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-next">Continuer</button></div>`;
   } else if (st.t === "verses") {
     $view.innerHTML = `<article class="gpage"><p class="ask"><small>${gText("Le {{nazm}}", true)}</small>${gText(st.verses.length > 1 ? "Les {{bayt:pl}} de cette leçon" : "Le {{bayt}} de cette leçon")}</p>
@@ -412,10 +412,14 @@ function gMark(ar) {
   const dessus = parts.map((p, i) => (i % 2 && gVoyelleSeule(p) ? "" : p));
   return `<span class="gvoy">${esc(parts.join(""))}<span class="gvoy-dessus" aria-hidden="true">${gMarkLettres(dessus)}</span></span>`;
 }
+// Ordre d'affichage d'une page : l'explication, les exemples et la règle d'abord, la citation du texte de référence à la fin.
+// La citation emploie les termes arabes avant qu'on les ait expliqués : lue en dernier, elle sert de récapitulatif
+// au lieu de faire peur d'emblée. Les blocs gardent leur ordre entre eux (le fichier du chapitre n'est pas modifié).
+const gOrdre = blocs => [...blocs.filter(b => !b.matn), ...blocs.filter(b => b.matn)];
 // Un bloc d'explication : paragraphe, citation du texte de référence, exemples, ou règle à retenir
 function gBlock(b) {
   if (b.p) return `<p>${gText(b.p)}</p>`;
-  if (b.matn) return `<blockquote class="matn"><span class="ar" lang="ar" dir="rtl">${esc(b.matn)}</span><p>${gText(b.fr)}</p><cite>${esc(b.source || "Ibn Ājurrūm, al-Ājurrūmiyya")}</cite></blockquote>`;
+  if (b.matn) return `<blockquote class="matn"><span class="matn-tete">Ce qu'en dit le texte d'origine</span><span class="ar" lang="ar" dir="rtl">${esc(b.matn)}</span><p>${gText(b.fr)}</p><cite>${esc(b.source || "Ibn Ājurrūm, al-Ājurrūmiyya")}</cite></blockquote>`;
   if (b.ex) return `<div class="gex">${b.ex.map(([ar, fr, note]) => `<div><span class="ar" lang="ar" dir="rtl">${gMark(ar)}</span><span>${gText(fr)}${note ? `<small>${gText(note)}</small>` : ""}</span></div>`).join("")}</div>`;
   // Une règle nouvelle : cadre rouge vif et étiquette « Nouveau · Règle » posée dessus, pour la distinguer d'un paragraphe
   if (b.regle) return `<div class="regle"><span class="regle-tag">★ Nouveau · Règle</span><p>${gText(b.regle)}</p></div>`;
