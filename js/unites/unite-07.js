@@ -44,7 +44,7 @@ UNITES.push({
     // Leçon 56 : page de vocabulaire illustré, puis les mots du dialogue
     { id: "u7-27", l: 56, ar: "يَدْرُسُ", tr: "yadrusu", fr: "il étudie", note: "" },
     { id: "u7-28", l: 56, ar: "كُلِّيَّةُ الطِّبّ", tr: "kulliyyatu ṭ-ṭibb", fr: "la faculté de médecine", note: "" },
-    { id: "u7-29", l: 56, ar: "كُلِّيَّةُ التَّرْبِيَة", tr: "kulliyyatu t-tarbiya", fr: "la faculté des sciences de l'éducation", note: "" },
+    { id: "u7-29", l: 56, ar: "كُلِّيَّةُ التَّرْبِيَة", tr: "kulliyyatu t-tarbiya", fr: "la faculté des sciences de l'éducation", note: "damma du ة de كُلِّيَّة ajoutée pour la lecture (imprimé كُلِّيَّة التَّرْبِيَةِ)" },
     { id: "u7-30", l: 56, ar: "مُدَرِّسَة", tr: "mudarrisa", fr: "enseignante (professeure)", note: "masculin مُدَرِّس" },
     { id: "u7-31", l: 56, ar: "سورِيَّة", tr: "sūriyya", fr: "syrienne", note: "relevé dans le dialogue ; masculin سورِيّ" },
     { id: "u7-32", l: 56, ar: "سُعودِيَّة", tr: "suʿūdiyya", fr: "saoudienne", note: "relevé dans le dialogue" },
@@ -63,10 +63,10 @@ UNITES.push({
     { id: "u7-44", l: 57, ar: "حِصَص", tr: "ḥiṣaṣ", fr: "cours, séances (pluriel)", note: "relevé dans le dialogue ; pluriel de حِصَّة" },
     { id: "u7-45", l: 57, ar: "عَنْ", tr: "ʿan", fr: "de, loin de", note: "relevé dans le dialogue (بَعيدَةٌ عَنِ البَيْتِ)" },
     // Leçon 58 : encadré de vocabulaire complémentaire (ordinaux au féminin de 1 à 10 ; 1 à 5 sont déjà dans l'unité 5)
-    { id: "u7-46", l: 58, ar: "السّادِسَة", tr: "as-sādisa", fr: "la sixième", note: "masculin السّادِس ; kasra du د ajoutée pour la lecture (non imprimée)" },
-    { id: "u7-47", l: 58, ar: "السّابِعَة", tr: "as-sābiʿa", fr: "la septième", note: "masculin السّابِع ; kasra du ب ajoutée pour la lecture (non imprimée)" },
-    { id: "u7-48", l: 58, ar: "الثّامِنَة", tr: "ath-thāmina", fr: "la huitième", note: "masculin الثّامِن ; kasra du م ajoutée pour la lecture (non imprimée)" },
-    { id: "u7-49", l: 58, ar: "التّاسِعَة", tr: "at-tāsiʿa", fr: "la neuvième", note: "masculin التّاسِع ; kasra du س ajoutée pour la lecture (non imprimée)" },
-    { id: "u7-50", l: 58, ar: "العاشِرَة", tr: "al-ʿāshira", fr: "la dixième", note: "masculin العاشِر ; kasra du ش ajoutée pour la lecture (non imprimée)" }
+    { id: "u7-46", l: 58, ar: "السّادِسَة", tr: "as-sādisa", fr: "la sixième", note: "masculin السّادِس" },
+    { id: "u7-47", l: 58, ar: "السّابِعَة", tr: "as-sābiʿa", fr: "la septième", note: "masculin السّابِع" },
+    { id: "u7-48", l: 58, ar: "الثّامِنَة", tr: "ath-thāmina", fr: "la huitième", note: "masculin الثّامِن" },
+    { id: "u7-49", l: 58, ar: "التّاسِعَة", tr: "at-tāsiʿa", fr: "la neuvième", note: "masculin التّاسِع" },
+    { id: "u7-50", l: 58, ar: "العاشِرَة", tr: "al-ʿāshira", fr: "la dixième", note: "masculin العاشِر" }
   ]
 });
