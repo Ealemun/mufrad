@@ -511,12 +511,33 @@ function route() { return (location.hash || "#accueil").slice(1); }
 let sheet = null; // panneau ouvert sur le parcours : numéro de leçon, ou "choix" pour « Réviser au choix »
 
 const TABS = [["accueil", "Parcours"], ["mots", "Glossaire"], ["grammaire", "Grammaire"], ["voix", "Voix"], ["reglages", "Réglages"]];
+// Position de défilement quand on change d'écran. La zone centrale ($view) défile ; on remplace son contenu sans la recréer,
+// donc sans ce réglage on restait plus bas en ouvrant une leçon ou en passant à la carte suivante.
+// Un écran est repéré par une clé : onglet, carte d'une séance, ou étape d'une leçon de grammaire. Même clé : on ne bouge pas
+// (réponse vérifiée, panneau ouvert…). Nouvelle clé : retour en haut, sauf pour les listes du glossaire et de la grammaire,
+// où l'on retrouve l'endroit où l'on était en revenant d'une leçon.
+let ecranCle = null;
+const ecranPos = {};   // clé d'une liste -> position de défilement quand on l'a quittée
+function cleEcran(r, inSess) {
+  if (typeof gs !== "undefined" && gs && r === "grammaire") return "g:" + gs.title + ":" + (gs.over ? "fin" : gs.i);
+  if (inSess) return "s:" + sess.title + ":" + (sess.over ? "fin" : sess.i);
+  return r;
+}
+function placeEcran(cle, avant) {
+  if (cle === ecranCle) return;
+  if (ecranCle) ecranPos[ecranCle] = avant;   // position de l'écran qu'on quitte, lue avant de le redessiner
+  ecranCle = cle;
+  $view.scrollTop = cle === "grammaire" || cle === "mots" ? ecranPos[cle] || 0 : 0;
+}
+
 function render() {
   const r = route(), inSess = sess && r === "accueil";
-  if (gramRender(r)) return;   // une leçon de grammaire en cours dessine elle-même tout l'écran (js/grammaire.js)
+  const cle = cleEcran(r, inSess), avant = $view.scrollTop || 0;   // défilement de l'écran affiché, avant qu'on le remplace
+  if (gramRender(r)) return placeEcran(cle, avant);   // une leçon de grammaire en cours dessine elle-même tout l'écran (js/grammaire.js)
   if (inSess) {
     $top.innerHTML = sess.over ? "" : sessHead();
     $view.innerHTML = sess.over ? viewSummary() : viewTask();
+    placeEcran(cle, avant);
     $foot.innerHTML = sessFoot();
   } else {
     const known = ITEMS.filter(isKnown).length;
@@ -526,6 +547,7 @@ function render() {
     $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "avance" ? viewAdvanced() : r === "enregistrer" ? viewGuide() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
+    placeEcran(cle, avant);   // avant le recentrage du parcours sur la leçon en cours, qui passe après
     if (r === "voix" || r === "enregistrer") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
     if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer" && r !== "avance") {
       wantScroll = false;

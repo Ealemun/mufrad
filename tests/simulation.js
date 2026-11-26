@@ -246,6 +246,14 @@ out.trainSansEffet = JSON.stringify(S.cards) === avantTrain;
 // Les révisions sont séparées : la grammaire d'un côté, le poème de l'autre
 S.offset += 60; gStartReview("v"); out.revueV = gs ? gs.steps.every(s => s.q.verse) : false; gs = null; gStartReview("q"); out.revueQ = gs ? gs.steps.every(s => !s.q.verse) : false; gs = null; S.offset -= 60;
 S.nazm = false; gStartLesson("g1b"); out.gramSansPoeme = gs.steps.every(s => s.t !== "verses" && !(s.q && s.q.verse)); gs = null; S.nazm = true;
+// Défilement : en ouvrant une leçon depuis le bas de la liste, on arrive en haut de la page ; une réponse vérifiée ne fait pas bouger ;
+// en quittant la leçon, la liste revient là où on l'avait laissée
+location.hash = "#grammaire"; render(); $view.scrollTop = 900; render();
+gStartLesson("g1b"); render(); const hautLecon = $view.scrollTop;
+$view.scrollTop = 300; render(); const resteLa = $view.scrollTop;
+gs.i++; render(); const pageSuivante = $view.scrollTop;
+gs = null; render();
+out.defilement = { hautLecon, resteLa, pageSuivante, retourListe: $view.scrollTop };
 S.cards = {}; S.days = {}; location.hash = "";
 // « Réviser au choix » (panneau du parcours) : les unités sont repliées sauf celle en cours ;
 // le bouton de départ, collé en bas, s'active dès qu'une leçon est cochée. Le glossaire ne contient plus ce choix.
@@ -486,6 +494,8 @@ assert.ok(r.srcVue, "la visionneuse affiche la page demandée");
 assert.strictEqual(r.premierVers, "قَالَ عُبَيْدُ رَبِّهِ مُحَمَّدُ", "le premier vers doit être celui de l'édition de référence");
 assert.deepStrictEqual(r.marques, { n: 2, sansEtoile: true, liant: true, sansLiant: true, voyelle: true, regle: true }, "exemples : lettres ou voyelle seule en couleur, liaison gardée ; règle « Nouveau · Règle »");
 assert.deepStrictEqual(r.citationFin, { partout: true, apresRegle: true, memesBlocs: true }, "Grammaire : la citation du texte de référence vient en fin de page, sans perdre de bloc");
+assert.deepStrictEqual(r.defilement, { hautLecon: 0, resteLa: 300, pageSuivante: 0, retourListe: 900 },
+  "Défilement : chaque nouvel écran s'ouvre en haut, la liste de grammaire se retrouve à sa place en revenant");
 assert.deepStrictEqual(r.gramDoubles, [],"grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
 assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");
