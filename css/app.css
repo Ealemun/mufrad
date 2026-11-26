@@ -18,6 +18,8 @@
   --mid: #1f3d7a;            /* en cours */
   --good: #1c7449; --good-deep: #115235; --good-bg: #dff1e4;
   --bad: #ab2d24;  --bad-deep: #7c1c15;  --bad-bg: #f8e2dd;
+  --vif-ex: #d24a06;         /* grammaire : partie d'un exemple dont on parle (orange vif) */
+  --vif-regle: #d61f1f;      /* grammaire : encadré d'une règle nouvelle (rouge vif) */
   --font-ui: "Fredoka", "Trebuchet MS", "Segoe UI", sans-serif;
   --font-ar: "Scheherazade New", "Amiri", "Traditional Arabic", serif;
 }
@@ -28,6 +30,7 @@
     --primary: #dcb55c; --primary-deep: #a07f2f; --primary-soft: #2a3160; --on-primary: #0b1230;
     --gold: #dcb55c; --gold-deep: #a07f2f; --gold-ink: #dcb55c; --mid: #7ea6ee;
     --good: #6fd0a0; --good-deep: #3d9a6e; --good-bg: #11382e; --bad: #f39a8f; --bad-deep: #b8635a; --bad-bg: #43201f;
+    --vif-ex: #ff9a3c; --vif-regle: #ff5a5a;   /* plus clairs pour ressortir sur le fond sombre */
   }
 }
 :root[data-theme="dark"] {
@@ -36,6 +39,7 @@
   --primary: #dcb55c; --primary-deep: #a07f2f; --primary-soft: #2a3160; --on-primary: #0b1230;
   --gold: #dcb55c; --gold-deep: #a07f2f; --gold-ink: #dcb55c; --mid: #7ea6ee;
   --good: #6fd0a0; --good-deep: #3d9a6e; --good-bg: #11382e; --bad: #f39a8f; --bad-deep: #b8635a; --bad-bg: #43201f;
+    --vif-ex: #ff9a3c; --vif-regle: #ff5a5a;   /* plus clairs pour ressortir sur le fond sombre */
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
