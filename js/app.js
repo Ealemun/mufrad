@@ -530,10 +530,11 @@ function placeEcran(cle, avant) {
   const pos = cle === "grammaire" || cle === "mots" ? ecranPos[cle] || 0 : 0;
   $view.scrollTop = pos;
   // Sur téléphone, une liste lancée du doigt continue de glisser après l'appui (inertie) et emportait le nouvel écran
-  // vers le bas. On bloque le défilement le temps d'une image (ce qui arrête l'élan), puis on le rend et on replace l'écran.
-  if ($view.style && typeof requestAnimationFrame === "function") {
+  // vers le bas. On bloque le défilement un court instant (ce qui arrête l'élan), puis on le rend et on replace l'écran.
+  // Un délai fixe plutôt que « l'image suivante » : celle-ci peut ne jamais venir, et l'écran resterait bloqué.
+  if ($view.style) {
     $view.style.overflowY = "hidden";
-    requestAnimationFrame(() => { $view.style.overflowY = ""; $view.scrollTop = pos; });
+    setTimeout(() => { $view.style.overflowY = ""; if (ecranCle === cle) $view.scrollTop = pos; }, 60);   // pas si on a déjà changé d'écran
   }
 }
 
