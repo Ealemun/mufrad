@@ -675,6 +675,7 @@ function sessFoot() {
 function viewIntro(it) {
   const body = it.type === "letter"
     ? `${AR(it.ar, "glyph")}<p class="fr">${esc(it.name)}</p><p>${esc(it.desc)}</p>
+       ${makhrajHtml(it)}
        <div class="formes">${Object.entries({ "Seule": "isolee", "Début": "debut", "Milieu": "milieu", "Fin": "fin" }).map(([nom, k]) => `<div>${AR(formsOf(it)[k])}<span>${nom}</span></div>`).join("")}</div>
        ${it.join ? "" : `<p class="muted">Cette lettre ne s'attache jamais à la suivante.</p>`}
        <p>Exemple : ${AR(it.ex)} <span class="muted">(${esc(it.exFr)})</span></p>`

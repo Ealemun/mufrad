@@ -6,7 +6,7 @@ const lire = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const unites = fs.readdirSync(path.join(__dirname, "..", "js", "unites")).filter(f => f.endsWith(".js")).sort();
 const gram = fs.readdirSync(path.join(__dirname, "..", "js", "grammaire")).filter(f => f.endsWith(".js")).sort();
 const code = [lire("js/contenu.js"), ...unites.map(f => lire("js/unites/" + f)), lire("js/assemblage.js"),
-  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/tableau-lettres.js"), lire("js/tableau.js"), lire("js/statistiques.js"), lire("js/app.js")].join("\n");
+  lire("js/grammaire.js"), ...gram.map(f => lire("js/grammaire/" + f)), lire("js/tableau-lettres.js"), lire("js/tableau.js"), lire("js/makharij.js"), lire("js/statistiques.js"), lire("js/app.js")].join("\n");
 gram.forEach(f => assert.ok(lire("index.html").includes("js/grammaire/" + f), "index.html ne charge pas js/grammaire/" + f));
 // Chaque fichier d'unité doit aussi être déclaré dans la page, sinon il ne serait jamais chargé
 unites.forEach(f => assert.ok(lire("index.html").includes("js/unites/" + f), "index.html ne charge pas js/unites/" + f));
@@ -51,6 +51,15 @@ out.options = ITEMS.map(it => distractors(it).length);        // nombre de mauva
 viewHome(); viewWords(); viewVoices(); viewSettings(); viewAdvanced(); viewSheet(1); viewSheet(101);
 // Alphabet : un groupe entier par séance, avec une question sur les formes ; une lettre non liante n'a que deux dessins
 startLearn(101); out.formes = sess.tasks.filter(t => t.ex === "f2l").length; run(false);
+// Makhārij : dix-sept endroits, chaque lettre de l'alphabet dans un seul, et un repère qui tient dans le dessin ;
+// la fiche d'une lettre montre le dessin, le nom arabe de l'endroit, et le second endroit de و et ي
+out.makharij = MAKHARIJ.length; out.makharijIds = new Set(MAKHARIJ.map(m => m.id)).size;
+out.makharijLettres = LETTERS.map(l => MAKHARIJ.filter(m => m.lettres.includes(l.ar)).length);
+out.makharijHors = MAKHARIJ.filter(m => typeof m.repere === "string" ? !["air", "nez"].includes(m.repere)
+  : !(m.repere.length === 4 && m.repere[0] - m.repere[2] >= 34 && m.repere[0] + m.repere[2] <= 298 && m.repere[1] - m.repere[3] >= 2 && m.repere[1] + m.repere[3] <= 288)).map(m => m.id);
+out.makharijInconnues = MAKHARIJ.flatMap(m => m.lettres).filter(c => c !== "ء" && !LETTERS.some(l => l.ar === c));
+out.makharijFiche = [viewIntro(BY_ID.l7).includes("mk-point"), viewIntro(BY_ID.l7).includes("الشَّفَتان"), viewIntro(BY_ID.l1).includes("mk-allume"),
+  viewIntro(BY_ID.l6).includes("الجَوْف"), viewIntro(BY_ID.l7).includes("الجَوْف"), makhrajHtml({ ar: "x" })];
 out.lettres = Object.keys(S.cards).length; out.alif = Object.values(formsOf(BY_ID.l1)).join("|"); out.ba = Object.values(formsOf(BY_ID.l7)).join("|");
 S.cards = {}; S.days = {}; S.log = [];
 // Rognage : un son entouré de silence est proposé sans ses bords, et le fichier produit a la bonne taille
@@ -429,6 +438,11 @@ assert.ok(r.items >= 110, "au moins 110 éléments attendus (28 lettres, 82 mots
 assert.strictEqual(r.formes, 4, "le premier groupe de l'alphabet pose une question de forme par lettre");
 assert.strictEqual(r.lettres, 4, "une séance d'alphabet introduit tout le groupe");
 assert.strictEqual(r.alif, "ا|ا|ـا|ـا", "alif ne s'attache pas à la lettre suivante");
+assert.ok(r.makharij === 17 && r.makharijIds === 17, "dix-sept makhārij, aux identifiants tous différents");
+assert.ok(r.makharijLettres.length === 28 && r.makharijLettres.every(n => n === 1), "chaque lettre de l'alphabet a un makhraj et un seul : " + r.makharijLettres);
+assert.deepStrictEqual(r.makharijHors, [], "makhārij : repère hors du dessin ou mal formé");
+assert.deepStrictEqual(r.makharijInconnues, [], "makhārij : lettre absente de l'alphabet");
+assert.deepStrictEqual(r.makharijFiche, [true, true, true, true, false, ""], "la fiche d'une lettre montre son makhraj ; و rappelle le جَوْف, ب non ; une lettre inconnue ne montre rien");
 assert.strictEqual(r.ba, "ب|بـ|ـبـ|ـب", "bāʾ a quatre formes");
 assert.ok(Math.abs(r.rognage[0] - 0.19) < 0.02 && Math.abs(r.rognage[1] - 0.58) < 0.02, "le rognage proposé encadre le son : " + r.rognage);
 assert.strictEqual(r.wav, 44 + 2 * (Math.ceil(r.rognage[1] * 16000) - Math.floor(r.rognage[0] * 16000)), "taille du fichier rogné");
