@@ -203,6 +203,9 @@ gs = { typed: "الكلام", picked: null }; out.ecritOk = gIsRight({ type: "ec
 S.harakat = true; gs = { typed: "الكَلامَ", picked: null }; out.vocalOk = gIsRight({ type: "ecrit", answer: "الْكَلَامَ" });
 gs.typed = "الكَلامُ"; out.vocalFaux = !gIsRight({ type: "ecrit", answer: "الْكَلَامَ" }); gs.typed = "مُرَكَّبٌ"; out.vocalShadda = gIsRight({ type: "ecrit", answer: "مُرَكَّبٌ" });
 out.clavierVoyelles = gKeyboard().includes("fatha"); S.harakat = false; out.clavierSans = !gKeyboard().includes("fatha"); gs = null;
+// Engrenage du clavier : fermé, il n'affiche que lui ; ouvert, les réglages voyelles et disposition, sans « Choix seulement »
+out.clavierEngrenage = gKeyboard().includes('data-act="g-kb-opts"') && !gKeyboard().includes('class="gkb-opts"');
+gKbOpts = true; { const k = gKeyboard(); out.clavierReglages = k.includes('data-act="g-layout" data-m="alpha"') && k.includes('data-m="voyelles"') && !k.includes('data-m="non"'); } gKbOpts = false;
 // Les deux dispositions du clavier portent les 28 lettres
 out.clavier = ["classique", "alpha"].map(l => G_KEYS.every(k => G_ROWS[l].flat().includes(k)));
 // « Je connais déjà ce bab » : tout entre en révision aujourd'hui, les termes sont connus
@@ -490,6 +493,7 @@ assert.deepStrictEqual(r.trous, [], "mot manquant : question mal formée pour ce
 assert.ok(r.ecritOk && r.ecritFaux, "un mot écrit sans voyelles est accepté, un mot faux est refusé");
 assert.ok(r.vocalOk && r.vocalFaux && r.vocalShadda, "avec les voyelles : l'écriture courante est acceptée, une voyelle fausse est refusée");
 assert.ok(r.clavierVoyelles && r.clavierSans, "la rangée des voyelles suit le réglage");
+assert.ok(r.clavierEngrenage && r.clavierReglages, "les réglages du clavier s'ouvrent depuis son engrenage");
 assert.deepStrictEqual(r.clavier, [true, true], "une disposition du clavier n'a pas toutes les lettres");
 assert.deepStrictEqual(r.babConnu, [true, 24, 7, true], "un bab validé sans le faire entre en entier en révision");
 assert.deepStrictEqual([...new Set(r.ambigues)], [], "question fabriquée ambiguë");

@@ -374,8 +374,20 @@ function gKeyboard() {
   const rows = G_ROWS[lay].map((r, n) => `<div class="gkrow" dir="${lay === "alpha" ? "rtl" : "ltr"}">${r.map(key).join("")}${n === G_ROWS[lay].length - 1 ? del : ""}</div>`).join("");
   // Une voyelle se pose sur la lettre qu'on vient d'écrire ; le petit rond montre où elle se place
   const marks = gHarakat() ? `<div class="gkrow" dir="rtl">${G_HARAKAT.map(([m, nom]) => `<button class="gkey ar" lang="ar" data-act="g-key" data-k="${m}" aria-label="${nom}">◌${m}</button>`).join("")}</div>` : "";
-  return `<div class="gkb ${lay}" role="group" aria-label="Clavier arabe">${rows}${marks}</div>
-    <p class="muted gkb-note">${gHarakat() ? "Écrivez chaque lettre, puis sa voyelle." : "Inutile d'écrire les voyelles."}</p>`;
+  // En tête du clavier : la consigne, et un engrenage qui ouvre ses réglages sur place (pas besoin de quitter l'exercice)
+  const head = `<div class="gkb-head"><p class="muted gkb-note">${gHarakat() ? "Écrivez chaque lettre, puis sa voyelle." : "Inutile d'écrire les voyelles."}</p>
+    <button class="gear" data-act="g-kb-opts" aria-expanded="${gKbOpts}" aria-label="Réglages du clavier">${typeof ICON_GEAR === "string" ? ICON_GEAR : "⚙"}</button></div>`;
+  return `${head}${gKbOpts ? gKbSettings() : ""}<div class="gkb ${lay}" role="group" aria-label="Clavier arabe">${rows}${marks}</div>`;
+}
+// Réglages du clavier, ouverts par l'engrenage : les mêmes que dans le panneau du poème.
+// Ici pas de « Choix seulement » : on est déjà en train d'écrire. Le changement vaut tout de suite, mot en cours compris.
+let gKbOpts = false;
+function gKbSettings() {
+  return `<div class="gkb-opts">
+    <p class="muted">Voyelles</p>
+    <div class="seg"><button data-act="g-write" data-m="lettres" aria-pressed="${!gHarakat()}">Sans voyelles</button><button data-act="g-write" data-m="voyelles" aria-pressed="${gHarakat()}">Avec voyelles</button></div>
+    <p class="muted">Disposition</p>
+    <div class="seg"><button data-act="g-layout" data-m="classique" aria-pressed="${gLayout() === "classique"}">Clavier arabe classique</button><button data-act="g-layout" data-m="alpha" aria-pressed="${gLayout() === "alpha"}">Ordre de l'alphabet</button></div></div>`;
 }
 // Un clavier arabe branché à l'ordinateur fonctionne aussi
 if (typeof document !== "undefined" && document.addEventListener) document.addEventListener("keydown", e => {
@@ -462,6 +474,7 @@ function gramClick(act, el) {
     case "g-train": gStartTraining(el.dataset.w); break;
     case "g-write": S.ecrire = el.dataset.m !== "non"; S.harakat = el.dataset.m === "voyelles"; saveState(); break;
     case "g-layout": S.clavier = el.dataset.m; saveState(); break;
+    case "g-kb-opts": gKbOpts = !gKbOpts; break;                       // engrenage du clavier : ouvre ou ferme ses réglages
     case "g-known": gKnown = el.dataset.n; break;
     case "g-known-no": gKnown = null; break;
     case "g-known-yes": gMarkKnown(Number(el.dataset.n)); noter("lecon_validee", "grammaire:" + el.dataset.n); gKnown = null; sfx("ok"); break;
