@@ -527,7 +527,14 @@ function placeEcran(cle, avant) {
   if (cle === ecranCle) return;
   if (ecranCle) ecranPos[ecranCle] = avant;   // position de l'écran qu'on quitte, lue avant de le redessiner
   ecranCle = cle;
-  $view.scrollTop = cle === "grammaire" || cle === "mots" ? ecranPos[cle] || 0 : 0;
+  const pos = cle === "grammaire" || cle === "mots" ? ecranPos[cle] || 0 : 0;
+  $view.scrollTop = pos;
+  // Sur téléphone, une liste lancée du doigt continue de glisser après l'appui (inertie) et emportait le nouvel écran
+  // vers le bas. On bloque le défilement le temps d'une image (ce qui arrête l'élan), puis on le rend et on replace l'écran.
+  if ($view.style && typeof requestAnimationFrame === "function") {
+    $view.style.overflowY = "hidden";
+    requestAnimationFrame(() => { $view.style.overflowY = ""; $view.scrollTop = pos; });
+  }
 }
 
 function render() {
