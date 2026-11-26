@@ -173,7 +173,9 @@ out.premierVers = NAZM[0].a;
 const pageSignes = gLessons().find(l => l.id === "g1b").pages[0].blocs.map(gBlock).join("");
 out.marques = { n: (pageSignes.match(/class="gmark"/g) || []).length, sansEtoile: !/<span class="ar"[^>]*>[^<]*\\*/.test(pageSignes),
   liant: gMark("البَيْ*تِ*") === 'البَيْ\\u200D<span class="gmark">\\u200Dتِ</span>', sansLiant: gMark("كِتا*بٌ*") === 'كِتا<span class="gmark">بٌ</span>',
-  regle: pageSignes.includes('class="regle"><span class="tag">★ À retenir</span>') };
+  // Voyelle seule : texte entier dessous, le même sans la voyelle dessus
+  voyelle: gMark("كِتاب*ٌ*") === '<span class="gvoy">كِتابٌ<span class="gvoy-dessus" aria-hidden="true">كِتاب</span></span>',
+  regle: pageSignes.includes('class="regle"><span class="regle-tag">★ Nouveau · Règle</span>') };
 out.gramDoubles = gids.filter((id, i) => gids.indexOf(id) !== i);
 out.gramFautes = [
   ...gq.filter(x => x.nature ? !["ism", "fil", "harf"].includes(x.nature) || !BY_ID[x.mot] : !(x.q && x.choix && x.choix.length >= 2 && x.bon >= 0 && x.bon < x.choix.length)).map(x => x.id),
@@ -464,7 +466,7 @@ assert.deepStrictEqual(r.srcPages.filter(f => !fs.existsSync(path.join(__dirname
 assert.deepStrictEqual(r.srcBabs, [], "édition de référence : un bab du poème n'a pas de page");
 assert.ok(r.srcVue, "la visionneuse affiche la page demandée");
 assert.strictEqual(r.premierVers, "قَالَ عُبَيْدُ رَبِّهِ مُحَمَّدُ", "le premier vers doit être celui de l'édition de référence");
-assert.deepStrictEqual(r.marques, { n: 4, sansEtoile: true, liant: true, sansLiant: true, regle: true }, "exemples : partie en couleur et liaison gardée ; règle « À retenir »");
+assert.deepStrictEqual(r.marques, { n: 2, sansEtoile: true, liant: true, sansLiant: true, voyelle: true, regle: true }, "exemples : lettres ou voyelle seule en couleur, liaison gardée ; règle « Nouveau · Règle »");
 assert.deepStrictEqual(r.gramDoubles, [],"grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
 assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");
