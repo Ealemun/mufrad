@@ -107,6 +107,8 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 /* En tête du clavier : la consigne au milieu, l'engrenage des réglages à droite */
 .gkb-head { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 8px; }
 .gkb-head .gkb-note { flex: 1; margin: 0; }
+.gkb-head .gear { background: none; border: 0; cursor: pointer; }   /* l'engrenage seul, sans le fond gris d'un bouton */
+.gkb-head .gear[aria-expanded="true"] { color: var(--gold); }
 .gkb-opts { margin-top: 8px; padding: 10px 12px; border: 2px solid var(--line); border-radius: 14px; background: var(--surface); }
 .gkb-opts .muted { margin: 4px 0; font-size: 14px; }
 /* Fenêtre de définition : les mots arabes pris dans une phrase française restent un peu plus grands que le texte,
