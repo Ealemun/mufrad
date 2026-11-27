@@ -511,12 +511,41 @@ function route() { return (location.hash || "#accueil").slice(1); }
 let sheet = null; // panneau ouvert sur le parcours : numéro de leçon, ou "choix" pour « Réviser au choix »
 
 const TABS = [["accueil", "Parcours"], ["mots", "Glossaire"], ["grammaire", "Grammaire"], ["voix", "Voix"], ["reglages", "Réglages"]];
+// Position de défilement quand on change d'écran. La zone centrale ($view) défile ; on remplace son contenu sans la recréer,
+// donc sans ce réglage on restait plus bas en ouvrant une leçon ou en passant à la carte suivante.
+// Un écran est repéré par une clé : onglet, carte d'une séance, ou étape d'une leçon de grammaire. Même clé : on ne bouge pas
+// (réponse vérifiée, panneau ouvert…). Nouvelle clé : retour en haut, sauf pour les listes du glossaire et de la grammaire,
+// où l'on retrouve l'endroit où l'on était en revenant d'une leçon.
+let ecranCle = null;
+const ecranPos = {};   // clé d'une liste -> position de défilement quand on l'a quittée
+function cleEcran(r, inSess) {
+  if (typeof gs !== "undefined" && gs && r === "grammaire") return "g:" + gs.title + ":" + (gs.over ? "fin" : gs.i);
+  if (inSess) return "s:" + sess.title + ":" + (sess.over ? "fin" : sess.i);
+  return r;
+}
+function placeEcran(cle, avant) {
+  if (cle === ecranCle) return;
+  if (ecranCle) ecranPos[ecranCle] = avant;   // position de l'écran qu'on quitte, lue avant de le redessiner
+  ecranCle = cle;
+  const pos = cle === "grammaire" || cle === "mots" ? ecranPos[cle] || 0 : 0;
+  $view.scrollTop = pos;
+  // Sur téléphone, une liste lancée du doigt continue de glisser après l'appui (inertie) et emportait le nouvel écran
+  // vers le bas. On bloque le défilement un court instant (ce qui arrête l'élan), puis on le rend et on replace l'écran.
+  // Un délai fixe plutôt que « l'image suivante » : celle-ci peut ne jamais venir, et l'écran resterait bloqué.
+  if ($view.style) {
+    $view.style.overflowY = "hidden";
+    setTimeout(() => { $view.style.overflowY = ""; if (ecranCle === cle) $view.scrollTop = pos; }, 60);   // pas si on a déjà changé d'écran
+  }
+}
+
 function render() {
   const r = route(), inSess = sess && r === "accueil";
-  if (gramRender(r)) return;   // une leçon de grammaire en cours dessine elle-même tout l'écran (js/grammaire.js)
+  const cle = cleEcran(r, inSess), avant = $view.scrollTop || 0;   // défilement de l'écran affiché, avant qu'on le remplace
+  if (gramRender(r)) return placeEcran(cle, avant);   // une leçon de grammaire en cours dessine elle-même tout l'écran (js/grammaire.js)
   if (inSess) {
     $top.innerHTML = sess.over ? "" : sessHead();
     $view.innerHTML = sess.over ? viewSummary() : viewTask();
+    placeEcran(cle, avant);
     $foot.innerHTML = sessFoot();
   } else {
     const known = ITEMS.filter(isKnown).length;
@@ -526,6 +555,7 @@ function render() {
     $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "avance" ? viewAdvanced() : r === "enregistrer" ? viewGuide() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
+    placeEcran(cle, avant);   // avant le recentrage du parcours sur la leçon en cours, qui passe après
     if (r === "voix" || r === "enregistrer") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
     if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer" && r !== "avance") {
       wantScroll = false;
@@ -976,9 +1006,9 @@ function waitingVoices() {
   return UNITS.flatMap(u => u.lessons.map(x => x[0])).filter(l => lessonStats(l).seen > 0)
     .flatMap(l => itemsOf(l)).filter(it => voiceState(it.id) === "aucun").map(it => it.id);
 }
-function startGuide(ids) {
+function startGuide(ids, retour) {
   if (!ids.length) return;
-  guide = { ids, i: 0, faits: 0 };
+  guide = { ids, i: 0, faits: 0, retour: retour || "#voix" };   // retour : où l'on revient en quittant ou à la fin
   if (route() === "enregistrer") render(); else location.hash = "#enregistrer";
 }
 // Garde l'enregistrement en attente de ce mot seulement (les autres attentes de l'onglet Voix ne bougent pas)
@@ -990,13 +1020,14 @@ function keepOne(id) {
   return n;
 }
 function viewGuide() {
-  const quitter = `<a class="icon" href="#voix" aria-label="Quitter">✕</a>`;
+  const retour = (guide && guide.retour) || "#voix";
+  const quitter = `<a class="icon" href="${retour}" aria-label="Quitter">✕</a>`;
   if (!guide || guide.i >= guide.ids.length) {
     const n = guide ? guide.faits : 0;
     return `<section class="card guide"><div class="row between">${quitter}</div>
         <div class="gfin">${n ? "✓" : ""}</div><h2>${n ? plural(n, "mot enregistré") : "Rien à enregistrer"}</h2>
         ${n && !(sb && me && hasConsent) ? `<p class="muted">Ils restent sur cet appareil. Pour les partager, connectez-vous et signez l'accord (roue dentée de l'onglet Voix).</p>` : ""}
-        <a class="btn" href="#voix">Terminer</a></section>`;
+        <a class="btn" href="${retour}">Terminer</a></section>`;
   }
   const id = guide.ids[guide.i], it = BY_ID[id], p = pending.find(x => x.id === id), on = rec && rec.id === id;
   const pct = 100 * guide.i / guide.ids.length, modele = voicesFor(id).length;
@@ -1256,7 +1287,7 @@ async function loadVoices() {
     Object.values(SHARED).forEach(l => l.sort((a, b) => READERS.indexOf(a.auteur) - READERS.indexOf(b.auteur)));
     recos = isContributor() ? voixRows.filter(v => v.etat === "recommande") : [];
     await loadNames();
-    ITEMS.forEach(it => refreshAudio(it.id));
+    Object.keys(BY_ID).forEach(refreshAudio);
     refresh();
   } catch (e) {}
 }
@@ -1608,7 +1639,7 @@ async function loadContent() {
     applyContent(corrRows, motRows);
     const pub = r => r.etat === "publie";
     try { localStorage.setItem(CONTENT_KEY, JSON.stringify({ corrs: corrRows.filter(pub), mots: motRows.filter(pub) })); } catch (e) {}
-    ITEMS.forEach(it => refreshAudio(it.id));
+    Object.keys(BY_ID).forEach(refreshAudio);
     refresh();
   } catch (e) {}
 }
@@ -1969,7 +2000,7 @@ document.addEventListener("click", e => {
     case "reader-toggle": {                                                // choisir les lecteurs qu'on veut entendre
       const a = el.dataset.a; S.readers = S.readers || [];
       S.readers = S.readers.includes(a) ? S.readers.filter(x => x !== a) : [...S.readers, a];
-      saveState(); ITEMS.forEach(it => refreshAudio(it.id)); break;
+      saveState(); Object.keys(BY_ID).forEach(refreshAudio); break;
     }
     case "setname": { const f = document.getElementById("sb-nom"); setName(f ? f.value.trim() : ""); return; }
     case "rec": toggleRecord(el.dataset.id); return;                       // démarre ou arrête le micro

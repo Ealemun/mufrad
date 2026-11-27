@@ -84,11 +84,11 @@ GRAMMAIRE.push({
           { p: "Comment être sûr qu'un mot est un {{ism}} ? Il porte, ou peut porter, l'un des signes que voici. *Un seul suffit.*" },
           { matn: "فَالاسْمُ يُعْرَفُ بِالخَفْضِ وَالتَّنْوينِ وَدُخولِ الأَلِفِ وَاللّامِ وَحُروفِ الخَفْضِ", fr: "Le {{ism}} se reconnaît au {{khafd}}, au {{tanwin}}, à l'entrée de [[ال]] et aux {{huruf-khafd}}." },
           { ex: [
-            // Entre * * : la partie de l'exemple dont parle l'explication (affichée en couleur)
-            ["كِتا*بٌ*", "Le {{tanwin}} : la voyelle finale doublée, prononcée avec un « n ».", "« un livre »"],
+            // Entre * * : la partie de l'exemple dont parle l'explication (affichée en couleur ; une voyelle seule est colorée sans sa lettre)
+            ["كِتاب*ٌ*", "Le {{tanwin}} : la voyelle finale doublée, prononcée avec un « n ».", "« un livre »"],
             ["*ال*كِتابُ", "L'article [[ال]] au début du mot.", "« le livre »"],
             ["*في* البَيْتِ", "L'un des {{huruf-khafd}} placé avant lui…", "ici [[في]], « dans »"],
-            ["البَيْ*تِ*", "…et le {{khafd}} lui-même : la fin du mot passe le plus souvent à la {{kasra}}.", ""]
+            ["البَيْت*ِ*", "…et le {{khafd}} lui-même : la fin du mot passe le plus souvent à la {{kasra}}.", ""]
           ] },
           { regle: "[[ال]] et le {{tanwin}} ne vont jamais ensemble : [[كِتابٌ]] ou [[الكِتابُ]], jamais les deux." }
         ] },

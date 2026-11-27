@@ -82,7 +82,18 @@ function gTermSheet() {
   const t = gTerm && gTermOf(gTerm); if (!t) return "";
   return `<button class="scrim" data-act="g-term-close" aria-label="Fermer"></button>
     <div class="sheet" role="dialog" aria-label="Définition"><div class="prompt"><span class="ar" lang="ar" dir="rtl">${t.ar}</span>${t.pl ? `<span class="tr">pluriel : <span class="ar" lang="ar" dir="rtl">${t.pl}</span></span>` : ""}</div>
-      <p><b>${esc(t.fr)}</b></p><p>${gText(t.def, true)}</p><button class="btn ghost" data-act="g-term-close">Fermer</button></div>`;
+      <p><b>${esc(t.fr)}</b></p><p>${gText(t.def, true)}</p>${gSons(t)}<button class="btn ghost" data-act="g-term-close">Fermer</button></div>`;
+}
+// Sons d'une définition (champ « sons ») : chacun en grand, côte à côte, avec ce qu'on entend en dessous.
+// Un appui fait entendre l'enregistrement ; sans enregistrement, le bouton est grisé (jamais de voix de synthèse).
+// Un contributeur connecté voit en plus « Enregistrer ces sons », qui ouvre l'enregistrement guidé sur eux.
+function gSons(t) {
+  if (!t.sons || !t.sons.length) return "";
+  const sons = t.sons.map(id => BY_ID[id]).filter(Boolean);
+  const peutEnregistrer = sb && me && isContributor() && canRecord();
+  return `<div class="gsons">${sons.map(son => `<button class="gson" data-act="g-son" data-id="${son.id}" ${AUDIO[son.id] ? "" : "disabled"} aria-label="Écouter « ${son.fr} »">
+      <span class="ar" lang="ar" dir="rtl">${son.ar}</span><span>${AUDIO[son.id] ? ICON_SPEAK + " " : ""}${esc(son.fr)}</span></button>`).join("")}</div>
+    ${peutEnregistrer ? `<button class="linkbtn" data-act="g-sons-rec" data-ids="${t.sons.join(",")}">${ICON_MIC} Enregistrer ces sons</button>` : ""}`;
 }
 function gMix(a) { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
@@ -317,7 +328,7 @@ function gramRender(r) {
   }
   const st = gs.steps[gs.i];
   if (st.t === "page") {
-    $view.innerHTML = `<article class="gpage"><p class="ask"><small>${gText(st.lesson.titre, true)}</small>${gText(st.page.titre)}</p>${st.page.blocs.map(gBlock).join("")}</article>`;
+    $view.innerHTML = `<article class="gpage"><p class="ask"><small>${gText(st.lesson.titre, true)}</small>${gText(st.page.titre)}</p>${gOrdre(st.page.blocs).map(gBlock).join("")}</article>`;
     $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-next">Continuer</button></div>`;
   } else if (st.t === "verses") {
     $view.innerHTML = `<article class="gpage"><p class="ask"><small>${gText("Le {{nazm}}", true)}</small>${gText(st.verses.length > 1 ? "Les {{bayt:pl}} de cette leçon" : "Le {{bayt}} de cette leçon")}</p>
@@ -374,27 +385,44 @@ if (typeof document !== "undefined" && document.addEventListener) document.addEv
   else if (e.key === "Enter" && gs.typed) { gCheck(); render(); }
   else if (/^[\u0621-\u0652]$/.test(e.key)) { gs.typed += e.key; render(); }
 });
-// Arabe d'un exemple : la partie dont parle l'explication est entre * * (ex. « كِتا*بٌ* ») et ressort en couleur.
+// Arabe d'un exemple : la partie dont parle l'explication est entre * * et ressort en couleur.
+//   - lettres entre * * (ex. « *ال*كِتابُ ») : ces lettres sont en couleur ;
+//   - voyelles seules entre * * (ex. « كِتاب*ٌ* ») : seule la voyelle est en couleur, pas sa lettre.
 // Couper un mot en deux balises peut casser la liaison des lettres sur certains navigateurs : quand la lettre
 // avant la coupure s'attache à la suivante, on pose de part et d'autre un liant invisible (U+200D) qui la maintient.
 const G_NON_LIANTES = "اأإآٱدذرزوؤةء";
-function gMark(ar) {
-  return ar.split("*").map((part, i, all) => {
+const gVoyelleSeule = p => /^[\u064B-\u0652\u0670]+$/.test(p);
+// Lettres en couleur : les parties impaires (entre * *) sont entourées d'une balise
+function gMarkLettres(parts) {
+  return parts.map((part, i, all) => {
     let t = part;
-    const avant = [...(all[i - 1] || "").replace(/[ً-ْٰ]/g, "")].pop();   // dernière lettre de la partie précédente
-    const apres = [...t.replace(/[ً-ْٰ]/g, "")].pop();                   // dernière lettre de cette partie
-    if (i > 0 && t && avant && /[ء-ي]/.test(avant) && !G_NON_LIANTES.includes(avant) && /^[ء-ي]/.test(t)) t = "\u200D" + t;
-    if (i < all.length - 1 && apres && /[ء-ي]/.test(apres) && !G_NON_LIANTES.includes(apres) && /^[ء-ي]/.test(all[i + 1] || "")) t += "\u200D";
-    return i % 2 ? `<span class="gmark">${esc(t)}</span>` : esc(t);
+    const avant = [...(all[i - 1] || "").replace(/[\u064B-\u0652\u0670]/g, "")].pop();   // dernière lettre de la partie précédente
+    const apres = [...t.replace(/[\u064B-\u0652\u0670]/g, "")].pop();                   // dernière lettre de cette partie
+    if (i > 0 && t && avant && /[\u0621-\u064A]/.test(avant) && !G_NON_LIANTES.includes(avant) && /^[\u0621-\u064A]/.test(t)) t = "\u200D" + t;
+    if (i < all.length - 1 && apres && /[\u0621-\u064A]/.test(apres) && !G_NON_LIANTES.includes(apres) && /^[\u0621-\u064A]/.test(all[i + 1] || "")) t += "\u200D";
+    return i % 2 && t ? `<span class="gmark">${esc(t)}</span>` : esc(t);
   }).join("");
 }
+// Un navigateur ne sait pas colorer une voyelle sans sa lettre. On superpose donc deux fois l'exemple :
+// dessous, le texte entier en couleur ; dessus, exactement le même texte en couleur normale, mais sans la voyelle visée.
+// Seule cette voyelle, absente du dessus, reste visible en couleur. Le dessus est caché aux lecteurs d'écran.
+function gMark(ar) {
+  const parts = ar.split("*");
+  if (!parts.some((p, i) => i % 2 && gVoyelleSeule(p))) return gMarkLettres(parts);
+  const dessus = parts.map((p, i) => (i % 2 && gVoyelleSeule(p) ? "" : p));
+  return `<span class="gvoy">${esc(parts.join(""))}<span class="gvoy-dessus" aria-hidden="true">${gMarkLettres(dessus)}</span></span>`;
+}
+// Ordre d'affichage d'une page : l'explication, les exemples et la règle d'abord, la citation du texte de référence à la fin.
+// La citation emploie les termes arabes avant qu'on les ait expliqués : lue en dernier, elle sert de récapitulatif
+// au lieu de faire peur d'emblée. Les blocs gardent leur ordre entre eux (le fichier du chapitre n'est pas modifié).
+const gOrdre = blocs => [...blocs.filter(b => !b.matn), ...blocs.filter(b => b.matn)];
 // Un bloc d'explication : paragraphe, citation du texte de référence, exemples, ou règle à retenir
 function gBlock(b) {
   if (b.p) return `<p>${gText(b.p)}</p>`;
-  if (b.matn) return `<blockquote class="matn"><span class="ar" lang="ar" dir="rtl">${esc(b.matn)}</span><p>${gText(b.fr)}</p><cite>${esc(b.source || "Ibn Ājurrūm, al-Ājurrūmiyya")}</cite></blockquote>`;
+  if (b.matn) return `<blockquote class="matn"><span class="matn-tete">Ce qu'en dit le texte d'origine</span><span class="ar" lang="ar" dir="rtl">${esc(b.matn)}</span><p>${gText(b.fr)}</p><cite>${esc(b.source || "Ibn Ājurrūm, al-Ājurrūmiyya")}</cite></blockquote>`;
   if (b.ex) return `<div class="gex">${b.ex.map(([ar, fr, note]) => `<div><span class="ar" lang="ar" dir="rtl">${gMark(ar)}</span><span>${gText(fr)}${note ? `<small>${gText(note)}</small>` : ""}</span></div>`).join("")}</div>`;
-  // La règle porte une étiquette « À retenir » : elle se distingue d'un coup d'œil d'un simple paragraphe
-  if (b.regle) return `<div class="regle"><span class="tag">★ À retenir</span><p>${gText(b.regle)}</p></div>`;
+  // Une règle nouvelle : cadre rouge vif et étiquette « Nouveau · Règle » posée dessus, pour la distinguer d'un paragraphe
+  if (b.regle) return `<div class="regle"><span class="regle-tag">★ Nouveau · Règle</span><p>${gText(b.regle)}</p></div>`;
   return "";
 }
 
@@ -471,6 +499,8 @@ function gramClick(act, el) {
     case "g-src-go": { const s = SOURCES.find(x => x.id === gSrc.id); gSrc.p = Math.max(1, Math.min(s.pages, gSrc.p + Number(el.dataset.d))); gSrc.zoom = false; break; }
     case "g-term": gTerm = el.dataset.id; noter("terme", el.dataset.id); break;
     case "g-term-close": gTerm = null; break;
+    case "g-son": if (AUDIO[el.dataset.id]) speak(el.dataset.id, "definition"); break;          // seulement un enregistrement
+    case "g-sons-rec": gTerm = null; startGuide(el.dataset.ids.split(","), "#grammaire"); return;   // mode guidé sur ces sons, retour à la grammaire
     case "g-mode": S.termes = el.dataset.m; saveState(); break;
   }
   render();

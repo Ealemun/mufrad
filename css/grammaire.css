@@ -11,6 +11,8 @@
 .matn { margin: 0; padding: 12px 14px; border-radius: 16px; background: var(--primary-soft); border-inline-start: 5px solid var(--gold); display: flex; flex-direction: column; gap: 6px; }
 .matn > .ar { font-size: 26px; line-height: 1.8; }
 .matn p { font-size: 16px; }
+/* Titre de la citation, placée en fin de page comme récapitulatif */
+.matn-tete { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--gold-ink); }
 .matn cite { font-size: 13px; font-style: normal; color: var(--muted); }
 /* Exemples : l'arabe à droite, l'explication à gauche */
 .gex { display: flex; flex-direction: column; border: 2px solid var(--line); border-radius: 16px; overflow: hidden; }
@@ -19,12 +21,18 @@
 .gex > div > .ar { font-size: 28px; line-height: 1.6; flex: 0 0 auto; max-width: 48%; text-align: right; }
 .gex > div > span:last-child { flex: 1; min-width: 0; font-size: 15px; line-height: 1.4; }
 .gex small { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
-/* Partie d'un exemple dont parle l'explication : couleur des termes du glossaire (leur soulignement est doré) */
-.gmark { color: var(--gold-ink); }
-/* Règle à retenir : fond doré, bord épais et étiquette, pour qu'elle ne se confonde ni avec un paragraphe ni avec une citation */
-.regle { padding: 12px 14px; border-radius: 16px; border: 2px solid var(--gold); border-bottom-width: 5px;
-  background: color-mix(in srgb, var(--gold) 16%, var(--surface)); display: flex; flex-direction: column; gap: 4px; }
-.gpage .regle p { font-weight: 600; }
+/* Partie d'un exemple dont parle l'explication : orange vif */
+.gmark { color: var(--vif-ex); }
+/* Voyelle seule en couleur : le texte entier en orange dessous, le même texte sans la voyelle par-dessus (voir gMark).
+   Pas de passage à la ligne dans le mot, sinon les deux couches ne se recouvriraient plus. */
+.gvoy { position: relative; display: inline-block; white-space: nowrap; color: var(--vif-ex); }
+.gvoy-dessus { position: absolute; inset: 0; color: var(--ink); white-space: nowrap; }
+/* Règle nouvelle : cadre rouge vif en pointillés, fond légèrement teinté, et étiquette « Nouveau · Règle » posée sur le cadre */
+.regle { position: relative; margin-top: 12px; padding: 20px 14px 12px; border-radius: 16px; border: 2px dashed var(--vif-regle);
+  background: color-mix(in srgb, var(--vif-regle) 12%, var(--surface)); }
+.regle-tag { position: absolute; top: -13px; left: 14px; background: var(--vif-regle); color: var(--paper); font-size: 12px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; border-radius: 999px; padding: 3px 12px; }
+.gpage .regle p { margin: 0; font-weight: 500; }
 
 /* Un vers : les deux hémistiches l'un sous l'autre, le second décalé, comme dans les recueils */
 .verse { display: flex; flex-direction: column; gap: 2px; width: 100%; direction: rtl; }
@@ -109,3 +117,10 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 .sheet p .ar.gi { font-size: 1.45em; line-height: 1.2; }   /* comme dans les questions (.ask) */
 /* Liste de mots arabes dans une explication : seule sur sa ligne, en arabe normal (de droite à gauche) */
 .gliste { display: block; unicode-bidi: isolate; font-size: 1.45em; line-height: 1.6; margin: 4px 0; }
+/* Sons d'une définition (tanwīn…) : trois grands boutons côte à côte, le signe en grand et ce qu'on entend dessous */
+.gsons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 8px; }
+.gson { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px 10px; min-height: 96px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.gson .ar { font-size: 56px; line-height: 1.4; }
+.gson svg { width: 16px; height: 16px; vertical-align: -2px; }
+.gson:disabled { cursor: default; opacity: .75; }
+.sheet .linkbtn svg { width: 18px; height: 18px; vertical-align: -3px; }   /* micro de « Enregistrer ces sons » à la taille du texte */

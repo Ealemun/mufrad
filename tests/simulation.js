@@ -184,7 +184,14 @@ out.premierVers = NAZM[0].a;
 const pageSignes = gLessons().find(l => l.id === "g1b").pages[0].blocs.map(gBlock).join("");
 out.marques = { n: (pageSignes.match(/class="gmark"/g) || []).length, sansEtoile: !/<span class="ar"[^>]*>[^<]*\\*/.test(pageSignes),
   liant: gMark("البَيْ*تِ*") === 'البَيْ\\u200D<span class="gmark">\\u200Dتِ</span>', sansLiant: gMark("كِتا*بٌ*") === 'كِتا<span class="gmark">بٌ</span>',
-  regle: pageSignes.includes('class="regle"><span class="tag">★ À retenir</span>') };
+  // Voyelle seule : texte entier dessous, le même sans la voyelle dessus
+  voyelle: gMark("كِتاب*ٌ*") === '<span class="gvoy">كِتابٌ<span class="gvoy-dessus" aria-hidden="true">كِتاب</span></span>',
+  regle: pageSignes.includes('class="regle"><span class="regle-tag">★ Nouveau · Règle</span>') };
+// Citation du texte de référence en fin de page : sur chaque page, plus rien d'autre ne la suit ; sur « Les signes du ism »,
+// elle vient après les exemples et la règle
+const pagesG = gLessons().flatMap(l => l.pages || []), signesOrd = gOrdre(gLessons().find(l => l.id === "g1b").pages[0].blocs).map(gBlock).join("");
+out.citationFin = { partout: pagesG.every(pg => { const o = gOrdre(pg.blocs), k = o.findIndex(b => b.matn); return k < 0 || o.slice(k).every(b => b.matn); }),
+  apresRegle: signesOrd.indexOf('class="matn"') > signesOrd.indexOf('class="regle"'), memesBlocs: pagesG.every(pg => gOrdre(pg.blocs).length === pg.blocs.length) };
 out.gramDoubles = gids.filter((id, i) => gids.indexOf(id) !== i);
 out.gramFautes = [
   ...gq.filter(x => x.nature ? !["ism", "fil", "harf"].includes(x.nature) || !BY_ID[x.mot] : !(x.q && x.choix && x.choix.length >= 2 && x.bon >= 0 && x.bon < x.choix.length)).map(x => x.id),
@@ -250,6 +257,14 @@ out.trainSansEffet = JSON.stringify(S.cards) === avantTrain;
 // Les révisions sont séparées : la grammaire d'un côté, le poème de l'autre
 S.offset += 60; gStartReview("v"); out.revueV = gs ? gs.steps.every(s => s.q.verse) : false; gs = null; gStartReview("q"); out.revueQ = gs ? gs.steps.every(s => !s.q.verse) : false; gs = null; S.offset -= 60;
 S.nazm = false; gStartLesson("g1b"); out.gramSansPoeme = gs.steps.every(s => s.t !== "verses" && !(s.q && s.q.verse)); gs = null; S.nazm = true;
+// Défilement : en ouvrant une leçon depuis le bas de la liste, on arrive en haut de la page ; une réponse vérifiée ne fait pas bouger ;
+// en quittant la leçon, la liste revient là où on l'avait laissée
+location.hash = "#grammaire"; render(); $view.scrollTop = 900; render();
+gStartLesson("g1b"); render(); const hautLecon = $view.scrollTop;
+$view.scrollTop = 300; render(); const resteLa = $view.scrollTop;
+gs.i++; render(); const pageSuivante = $view.scrollTop;
+gs = null; render();
+out.defilement = { hautLecon, resteLa, pageSuivante, retourListe: $view.scrollTop };
 S.cards = {}; S.days = {}; location.hash = "";
 // « Réviser au choix » (panneau du parcours) : les unités sont repliées sauf celle en cours ;
 // le bouton de départ, collé en bas, s'active dès qu'une leçon est cochée. Le glossaire ne contient plus ce choix.
@@ -424,6 +439,19 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
     deux: h.includes('عَنْ</span>,&nbsp;<span class="ar gi" lang="ar" dir="rtl">في</span>'),
     balise: h.includes(">قامَ زَيْدٌ، وَجَلَسَ</span>"), francais: gText("Un texte sans arabe.") === "Un texte sans arabe." };
 }
+// Sons du tanwīn : trois grands boutons dans la définition, grisés sans enregistrement (jamais de synthèse) ;
+// un contributeur peut les enregistrer en mode guidé ; ils ont leur propre identifiant, connu de BY_ID
+{
+  const sauf = { sb, me, myLevel };
+  gTerm = "tanwin"; const pour = gTermSheet();
+  sb = {}; me = { id: "c" }; myLevel = "contributeur"; const contrib = gTermSheet();
+  ({ sb, me, myLevel } = sauf); gTerm = null;
+  out.sons = { trois: (pour.match(/class="gson"/g) || []).length === 3, grises: (pour.match(/data-act="g-son"[^>]*disabled/g) || []).length === 3,
+    pasEnregistrer: !pour.includes("g-sons-rec"), contributeur: contrib.includes('data-act="g-sons-rec" data-ids="son-tanwin-un,son-tanwin-an,son-tanwin-in"') || !canRecord(),
+    connus: ["son-tanwin-un", "son-tanwin-an", "son-tanwin-in"].every(id => BY_ID[id] && BY_ID[id].type === "son"),
+    // le texte de la définition, lui, ne contient plus le signe brut (il est dans les boutons)
+    sansSigneDansLeTexte: !gText(GLOSSAIRE.find(t => t.id === "tanwin").def).includes("ـٌ") };
+}
 // Sans bibliothèque ni réseau, l'encadré de partage s'affiche quand même et le compte est simplement absent
 out.partage = viewShare().includes("Partage indisponible"); out.compte = viewAccount() === "";
 out.dieu = JSON.stringify(ITEMS).includes("Dieu");
@@ -480,7 +508,10 @@ assert.deepStrictEqual(r.srcPages.filter(f => !fs.existsSync(path.join(__dirname
 assert.deepStrictEqual(r.srcBabs, [], "édition de référence : un bab du poème n'a pas de page");
 assert.ok(r.srcVue, "la visionneuse affiche la page demandée");
 assert.strictEqual(r.premierVers, "قَالَ عُبَيْدُ رَبِّهِ مُحَمَّدُ", "le premier vers doit être celui de l'édition de référence");
-assert.deepStrictEqual(r.marques, { n: 4, sansEtoile: true, liant: true, sansLiant: true, regle: true }, "exemples : partie en couleur et liaison gardée ; règle « À retenir »");
+assert.deepStrictEqual(r.marques, { n: 2, sansEtoile: true, liant: true, sansLiant: true, voyelle: true, regle: true }, "exemples : lettres ou voyelle seule en couleur, liaison gardée ; règle « Nouveau · Règle »");
+assert.deepStrictEqual(r.citationFin, { partout: true, apresRegle: true, memesBlocs: true }, "Grammaire : la citation du texte de référence vient en fin de page, sans perdre de bloc");
+assert.deepStrictEqual(r.defilement, { hautLecon: 0, resteLa: 300, pageSuivante: 0, retourListe: 900 },
+  "Défilement : chaque nouvel écran s'ouvre en haut, la liste de grammaire se retrouve à sa place en revenant");
 assert.deepStrictEqual(r.gramDoubles, [],"grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
 assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");
@@ -534,6 +565,7 @@ assert.deepStrictEqual(r.reprise4, { carte: true, taches: true, compteurs: true,
   "Reprise : une leçon quittée en cours de route repart de la carte suivante, avec ses réponses, puis disparaît une fois finie ; le parcours propose « Reprendre » en haut");
 assert.deepStrictEqual(r.refaire, { bouton: true, fiches: true, titre: true, calendrier: true }, "Refaire une leçon : fiches, et calendrier inchangé si tout est juste");
 assert.deepStrictEqual(r.bidi, { liste: true, colle: true, deux: true, balise: true, francais: true }, "Grammaire : arabe brut dans les phrases françaises (liste à la ligne, mots isolés)");
+assert.deepStrictEqual(r.sons, { trois: true, grises: true, pasEnregistrer: true, contributeur: true, connus: true, sansSigneDansLeTexte: true }, "Sons du tanwīn dans la définition");
 assert.ok(r.partage && r.compte, "sans réseau, l'application fonctionne sans le partage");
 assert.strictEqual(r.doublons, 0, "deux éléments portent le même identifiant");
 assert.deepStrictEqual(r.incomplets, [], "mots incomplets (id, ar, tr, fr, l obligatoires)");
