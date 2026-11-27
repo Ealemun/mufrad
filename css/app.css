@@ -345,3 +345,51 @@ button.vstat { cursor: pointer; box-shadow: 0 3px 0 var(--line-deep); }   /* pas
 .gtrim { text-align: left; display: flex; flex-direction: column; gap: 8px; }   /* piste et poignées dans l'enregistrement guidé */
 /* Lien discret en bas des réglages (Paramètres avancés) : couleur pâle, sans cadre, mais une zone de 44 px à toucher */
 a.discret { align-self: center; color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; padding: 12px 16px; min-height: 44px; box-sizing: border-box; }
+
+/* --- Ambiances des séances : découverte (on lit et on écoute pour retenir) ou exercice (on répond) -------
+   L'ambiance est choisie dans les réglages ; la zone centrale porte data-ambiance et data-phase (posePhase, js/app.js).
+   Chaque ambiance redéfinit le fond et les cartes de tout l'écran pendant la phase. light-dark(clair, sombre) suit le
+   thème de l'appareil ; ces ambiances sont dans un @supports, si bien qu'un navigateur trop ancien pour light-dark
+   garde les couleurs habituelles (sans lui, la couleur serait invalide et l'écran deviendrait blanc). */
+body { transition: background-color .45s ease; }
+@media (prefers-reduced-motion: reduce) { body { transition: none; } }
+@supports (color: light-dark(#000, #fff)) {
+/* Sable et nuit (par défaut) : sable chaud pour retenir, bleu nuit froid pour répondre */
+body:has(main[data-ambiance="sable"][data-phase="decouverte"]) {
+  --paper: light-dark(#efe1c4, #2b2219); --surface: light-dark(#fbf5e6, #3a2f22); --line: light-dark(#dcc6a0, #5c4a33); --line-deep: light-dark(#c4a878, #2a2118); }
+body:has(main[data-ambiance="sable"][data-phase="exercice"]) {
+  --paper: light-dark(#e1e9f5, #081a33); --surface: light-dark(#f7faff, #12284a); --line: light-dark(#c2d1e8, #24457a); --line-deep: light-dark(#9fb4d6, #0c1c38); }
+/* Cahier doré : seule la découverte prend une teinte or ; l'exercice garde l'écran habituel */
+body:has(main[data-ambiance="dore"][data-phase="decouverte"]) { --paper: light-dark(#e5d0a3, #52493f); }
+/* Olivier et ardoise : vert olive pour retenir, gris ardoise pour répondre */
+body:has(main[data-ambiance="olivier"][data-phase="decouverte"]) {
+  --paper: light-dark(#e6ead6, #1f2618); --surface: light-dark(#f6f8ee, #2b3422); --line: light-dark(#c9d2b0, #46553a); --line-deep: light-dark(#a9b68a, #161c10); }
+body:has(main[data-ambiance="olivier"][data-phase="exercice"]) {
+  --paper: light-dark(#e4e7ee, #151a22); --surface: light-dark(#f8f9fc, #1f2633); --line: light-dark(#c8cfdc, #36415a); --line-deep: light-dark(#a5afc2, #0e121a); }
+/* Brique et lagon : terre cuite pour retenir, bleu-vert lagon pour répondre */
+body:has(main[data-ambiance="brique"][data-phase="decouverte"]) {
+  --paper: light-dark(#f3dfd4, #2e1a14); --surface: light-dark(#fcf3ee, #3d241b); --line: light-dark(#e2bba8, #63392a); --line-deep: light-dark(#c9937c, #1e100c); }
+body:has(main[data-ambiance="brique"][data-phase="exercice"]) {
+  --paper: light-dark(#dcefee, #0a2428); --surface: light-dark(#f3fbfa, #113338); --line: light-dark(#b3d9d6, #1f5158); --line-deep: light-dark(#86bfbb, #06171a); }
+}
+/* Jour et nuit : la découverte est toujours une page claire, l'exercice toujours sombre, quel que soit le thème */
+body:has(main[data-ambiance="jour"][data-phase="decouverte"]) { color-scheme: light;
+  --paper: #f3eee2; --surface: #fcfaf4; --ink: #191c2c; --muted: #5b5f73; --line: #ddd3bd; --line-deep: #c3b796;
+  --primary: #1f3d7a; --primary-deep: #132853; --primary-soft: #dfe6f4; --on-primary: #fcfaf4; --gold: #c9962a; --gold-deep: #8f6a12; --gold-ink: #7a580b; --mid: #1f3d7a; }
+body:has(main[data-ambiance="jour"][data-phase="exercice"]) { color-scheme: dark;
+  --paper: #0b1230; --surface: #141d45; --ink: #f1ead6; --muted: #aeb2cc; --line: #2d3a70; --line-deep: #1c2654;
+  --primary: #dcb55c; --primary-deep: #a07f2f; --primary-soft: #2a3160; --on-primary: #0b1230; --gold: #dcb55c; --gold-deep: #a07f2f; --gold-ink: #dcb55c; --mid: #7ea6ee;
+  --good: #6fd0a0; --good-deep: #3d9a6e; --good-bg: #11382e; --bad: #f39a8f; --bad-deep: #b8635a; --bad-bg: #43201f; }
+/* Pastille qui nomme la phase, en haut de l'écran */
+.phase { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 10px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
+.phase > span:last-child { display: none; }   /* seulement le nom de la phase */
+.phase[data-phase="decouverte"] { background: color-mix(in srgb, var(--gold) 40%, var(--surface)); }
+.phase[data-phase="exercice"] { background: color-mix(in srgb, var(--mid) 28%, var(--surface)); }
+/* Choix de l'ambiance dans les réglages : deux pastilles de couleur (découverte, exercice) puis le nom */
+.ambiances { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ambiances button { font: inherit; font-weight: 500; min-height: 48px; padding: 8px 10px; border-radius: 14px; border: 2px solid var(--line); border-bottom-width: 4px;
+  background: var(--surface); color: var(--ink); display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer; }
+.ambiances button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.amb-apercu { display: flex; flex: none; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+.amb-apercu span { width: 16px; height: 28px; }

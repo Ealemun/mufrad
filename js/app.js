@@ -50,7 +50,8 @@ function blankState() {
     mic: "",         // micro choisi pour enregistrer (vide = celui par défaut)
     fold: {},        // unités pliées ou dépliées à la main dans le parcours : numéro -> true si pliée
     mesure: true,    // statistiques anonymes d'utilisation (refusables dans les réglages)
-    reprise: {},     // leçons quittées en cours de route : numéro -> où l'on s'était arrêté (voir gardeSeance)
+    reprise: {},
+    ambiance: "sable", // ambiance des séances : couleurs de la découverte et de l'exercice (voir AMBIANCES)     // leçons quittées en cours de route : numéro -> où l'on s'était arrêté (voir gardeSeance)
     offset: 0        // décalage de test, en jours
   };
 }
@@ -549,9 +550,19 @@ const PHASE = {
   decouverte: `<span class="phase-signe" aria-hidden="true">★</span><b>Je découvre</b><span>Lis et écoute, rien à répondre</span>`,
   exercice: `<span class="phase-signe" aria-hidden="true">✎</span><b>Je m'exerce</b><span>À toi de répondre</span>`,
 };
+// Ambiances au choix dans les réglages : [clé, nom, puis les fonds découverte et exercice en thème clair et sombre,
+// pour les pastilles d'aperçu]. Les couleurs complètes de chaque ambiance sont dans css/app.css (« Ambiances »).
+const AMBIANCES = [
+  ["sable", "Sable et nuit", "#efe1c4", "#2b2219", "#e1e9f5", "#081a33"],
+  ["dore", "Cahier doré", "#e5d0a3", "#52493f", "#f3eee2", "#0b1230"],
+  ["jour", "Jour et nuit", "#f3eee2", "#f3eee2", "#0b1230", "#0b1230"],
+  ["olivier", "Olivier et ardoise", "#e6ead6", "#1f2618", "#e4e7ee", "#151a22"],
+  ["brique", "Brique et lagon", "#f3dfd4", "#2e1a14", "#dcefee", "#0a2428"],
+  ["aucune", "Sans ambiance", "#f3eee2", "#0b1230", "#f3eee2", "#0b1230"],
+];
 let phaseAvant = "";
 function posePhase(p) {
-  if ($view.dataset) $view.dataset.phase = p;
+  if ($view.dataset) { $view.dataset.phase = p; $view.dataset.ambiance = S.ambiance || "sable"; }
   if (p) $view.innerHTML = `<div class="phase${p !== phaseAvant ? " neuf" : ""}" data-phase="${p}" role="note">${PHASE[p]}</div>` + $view.innerHTML;
   phaseAvant = p;
 }
@@ -1186,6 +1197,10 @@ function viewSettings() {
       <p class="muted">Fixe le nombre maximal d'éléments dans la révision du jour (${GOALS[S.goal]}).</p></section>
     <section class="panel"><h3>Affichage</h3>
       <div class="seg"><button data-act="translit" data-on="1" aria-pressed="${S.translit}">Avec translittération</button><button data-act="translit" data-on="0" aria-pressed="${!S.translit}">Arabe seul</button></div></section>
+    <section class="panel"><h3>Ambiance des séances</h3>
+      <p class="muted">Couleurs de l'écran quand on découvre (on lit et on écoute) et quand on s'exerce (on répond).</p>
+      <div class="ambiances">${AMBIANCES.map(([k, nom, dc, ds, ec, es]) => `<button data-act="ambiance" data-a="${k}" aria-pressed="${(S.ambiance || "sable") === k}">
+        <span class="amb-apercu" aria-hidden="true"><span style="background:light-dark(${dc},${ds})"></span><span style="background:light-dark(${ec},${es})"></span></span>${nom}</button>`).join("")}</div></section>
     <section class="panel"><h3>Bruitages</h3>
       <div class="seg"><button data-act="sfx" data-on="1" aria-pressed="${S.sfx !== false}">Activés</button><button data-act="sfx" data-on="0" aria-pressed="${S.sfx === false}">Coupés</button></div></section>
     <section class="panel"><h3>Sauvegarde</h3>
@@ -2074,6 +2089,7 @@ document.addEventListener("click", e => {
     // Réglages
     case "mesure": choisirMesure(el.dataset.on === "1"); break;
     case "traces": S.traces = el.dataset.on === "1"; saveState(); break;   // tableau d'écriture : garder ou non ce qu'on y écrit
+    case "ambiance": S.ambiance = el.dataset.a; saveState(); break;   // ambiance des séances (réglages)
     case "sfx": S.sfx = el.dataset.on === "1"; saveState(); if (S.sfx) sfx("ok"); break;
     case "goal": S.goal = Number(el.dataset.g); saveState(); break;
     case "translit": S.translit = el.dataset.on === "1"; saveState(); break;
