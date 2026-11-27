@@ -25,6 +25,8 @@ global.speechSynthesis = { getVoices: () => [] };
 global.navigator = {};
 global.indexedDB = { open() { throw new Error("absent"); } };
 global.URL = { createObjectURL: () => "blob:x", revokeObjectURL() {} };
+// Images des makhārij présentes dans le dépôt : le test vérifie que chaque lettre a la sienne
+global.IMAGES_MAKHARIJ = fs.readdirSync(path.join(__dirname, "..", "sources", "makharij"));
 
 const r = new Function(code + `
 // Joue la séance en cours jusqu'au bout ; si failOnce est vrai, rate volontairement la première question
@@ -55,10 +57,10 @@ startLearn(101); out.formes = sess.tasks.filter(t => t.ex === "f2l").length; run
 // la fiche d'une lettre montre le dessin, le nom arabe de l'endroit, et le second endroit de و et ي
 out.makharij = MAKHARIJ.length; out.makharijIds = new Set(MAKHARIJ.map(m => m.id)).size;
 out.makharijLettres = LETTERS.map(l => MAKHARIJ.filter(m => m.lettres.includes(l.ar)).length);
-out.makharijHors = MAKHARIJ.filter(m => typeof m.repere === "string" ? !["air", "nez"].includes(m.repere)
-  : !(m.repere.length === 4 && m.repere[0] - m.repere[2] >= 34 && m.repere[0] + m.repere[2] <= 298 && m.repere[1] - m.repere[3] >= 2 && m.repere[1] + m.repere[3] <= 288)).map(m => m.id);
+// chaque lettre a son image, et chaque image nommée existe dans sources/makharij/
+out.makharijHors = [...LETTERS.map(l => MAKHRAJ_IMAGE[l.ar] || "(" + l.ar + ")"), ...Object.values(MAKHRAJ_MADD)].filter(n => !IMAGES_MAKHARIJ.includes(n + ".webp"));
 out.makharijInconnues = MAKHARIJ.flatMap(m => m.lettres).filter(c => c !== "ء" && !LETTERS.some(l => l.ar === c));
-out.makharijFiche = [viewIntro(BY_ID.l7).includes("mk-point"), viewIntro(BY_ID.l7).includes("الشَّفَتان"), viewIntro(BY_ID.l1).includes("mk-allume"),
+out.makharijFiche = [viewIntro(BY_ID.l7).includes("sources/makharij/"), viewIntro(BY_ID.l7).includes("الشَّفَتان"), viewIntro(BY_ID.l1).includes("alif-madd.webp"),
   viewIntro(BY_ID.l6).includes("الجَوْف"), viewIntro(BY_ID.l7).includes("الجَوْف"), makhrajHtml({ ar: "x" })];
 out.lettres = Object.keys(S.cards).length; out.alif = Object.values(formsOf(BY_ID.l1)).join("|"); out.ba = Object.values(formsOf(BY_ID.l7)).join("|");
 S.cards = {}; S.days = {}; S.log = [];
@@ -440,7 +442,7 @@ assert.strictEqual(r.lettres, 4, "une séance d'alphabet introduit tout le group
 assert.strictEqual(r.alif, "ا|ا|ـا|ـا", "alif ne s'attache pas à la lettre suivante");
 assert.ok(r.makharij === 17 && r.makharijIds === 17, "dix-sept makhārij, aux identifiants tous différents");
 assert.ok(r.makharijLettres.length === 28 && r.makharijLettres.every(n => n === 1), "chaque lettre de l'alphabet a un makhraj et un seul : " + r.makharijLettres);
-assert.deepStrictEqual(r.makharijHors, [], "makhārij : repère hors du dessin ou mal formé");
+assert.deepStrictEqual(r.makharijHors, [], "makhārij : lettre sans image, ou image absente de sources/makharij/");
 assert.deepStrictEqual(r.makharijInconnues, [], "makhārij : lettre absente de l'alphabet");
 assert.deepStrictEqual(r.makharijFiche, [true, true, true, true, false, ""], "la fiche d'une lettre montre son makhraj ; و rappelle le جَوْف, ب non ; une lettre inconnue ne montre rien");
 assert.strictEqual(r.ba, "ب|بـ|ـبـ|ـب", "bāʾ a quatre formes");

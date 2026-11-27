@@ -1,21 +1,12 @@
 /* Makhārij al-ḥurūf : coupe de la bouche sur la fiche d'une lettre (js/makharij.js).
-   Toutes les couleurs sont des variables de l'application : le dessin suit les thèmes clair et sombre. */
-.makhraj { display: flex; align-items: center; gap: 12px; width: 100%; border: 2px solid var(--line); border-radius: 16px; padding: 8px 12px; text-align: start; }
-.mk { flex: 0 0 132px; width: 132px; height: auto; }
+   Les couleurs de l'encadré sont des variables de l'application ; le dessin, lui, garde le fond blanc du livre. */
+.makhraj { display: flex; flex-direction: column; gap: 8px; width: 100%; border: 2px solid var(--line); border-radius: 16px; padding: 10px 12px; text-align: start; }
+.mk-haut { display: flex; align-items: center; gap: 12px; }
+.mk { flex: 0 0 44%; width: 44%; max-width: 210px; height: auto; border-radius: 14px; background: #fff; }
+.mk-madd .mk { flex-basis: 26%; width: 26%; max-width: 120px; }
 .mk-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 15px; line-height: 1.35; }
 .mk-titre { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .fiche .mk-txt > .ar { font-size: 30px; line-height: 1.5; color: var(--gold-ink); }
 .fiche .mk-txt .muted .ar { font-size: 24px; line-height: 1.3; }
-
-.mk-chair { fill: var(--line); stroke: var(--line-deep); stroke-width: 2; stroke-linejoin: round; }
-.mk-vide { fill: var(--surface); stroke: var(--line-deep); stroke-width: 1.5; stroke-linejoin: round; }
-.mk-langue { fill: var(--bad-bg); stroke: var(--bad-deep); stroke-width: 1.5; stroke-linejoin: round; }
-.mk-dent { fill: var(--surface); stroke: var(--muted); stroke-width: 1.5; stroke-linejoin: round; }
-.mk-trait { fill: none; stroke: var(--muted); stroke-width: 2.5; stroke-linecap: round; }
-/* L'endroit d'où sort la lettre : une pastille dorée, entourée d'un halo qui bat doucement */
-.mk-point { fill: var(--gold); stroke: var(--gold-deep); stroke-width: 1.5; }
-.mk-halo { fill: var(--gold); opacity: .3; transform-box: fill-box; transform-origin: center; animation: mk-bat 1.6s ease-in-out infinite; }
-.mk-allume { fill: var(--gold); fill-opacity: .55; stroke: var(--gold-deep); animation: mk-souffle 1.6s ease-in-out infinite; }
-@keyframes mk-bat { 0%, 100% { transform: scale(.8); opacity: .35; } 50% { transform: scale(1.25); opacity: .12; } }
-@keyframes mk-souffle { 0%, 100% { fill-opacity: .6; } 50% { fill-opacity: .3; } }
-@media (prefers-reduced-motion: reduce) { .mk-halo, .mk-allume { animation: none; } }
+.mk-source { font-size: 12px; color: var(--muted); text-align: end; }
+.fiche .mk-source .ar { font-size: 17px; line-height: 1.2; }
