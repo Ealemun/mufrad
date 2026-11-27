@@ -67,5 +67,6 @@ function makhrajHtml(it) {
       ${autres.length ? `<span class="muted">Même endroit : ${autres.map(l => AR(l)).join(" ")}</span>` : ""}</div></div>
     ${madd ? `<div class="mk-haut mk-madd">${makhrajImg(madd, "Coupe de la bouche quand la lettre allonge une voyelle")}
       <div class="mk-txt"><span class="muted">Quand elle allonge une voyelle</span>${AR(makhrajById("jawf").ar)}</div></div>` : ""}
-    <span class="mk-source">Schémas : ${AR("التجويد المصوَّر")}</span></div>`;
+    <details class="mk-info"><summary aria-label="D'où viennent ces schémas"><span>i</span></summary>
+      <span class="mk-source">Schémas tirés du livre ${AR("التجويد المصوَّر")}</span></details></div>`;
 }
