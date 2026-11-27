@@ -715,11 +715,12 @@ function viewIntro(it) {
     : `${AR(it.ar)}${translit(it)}<p class="fr">${esc(it.fr)}</p>${it.note ? `<p class="muted">${it.note.replace(/[؀-ۿ ]{2,}/g, m => AR(m.trim()) + " ")}</p>` : ""}`;
   // Quand on refait une leçon, la fiche n'annonce pas une nouveauté : c'est un rappel
   const titre = sess && sess.redo ? (it.type === "letter" ? "Rappel : la lettre" : "Rappel : le mot") : (it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot");
-  // Une vraie nouveauté : invitation à l'écrire sous la carte. Une fiche de rappel : simple bouton « Écrire » à côté de « Écouter ».
+  // Une vraie nouveauté : invitation à l'écrire, au-dessus de la carte pour être vue sans faire défiler (une fiche de lettre
+  // est haute). Une fiche de rappel : simple bouton « Écrire » à côté de « Écouter ».
   const nouveau = !(sess && sess.redo);
   const invite = nouveau ? `<div class="invite-ecrire"><span>Une nouveauté se retient mieux quand on l'écrit au doigt.</span>${writeBtn()}</div>` : "";
-  return `<p class="ask"><small>${lessonHtml(it.l)}</small>${titre}</p>
-    <section class="card fiche">${body}${speakBtn(it.id, null, !nouveau)}</section>${invite}`;
+  return `<p class="ask"><small>${lessonHtml(it.l)}</small>${titre}</p>${invite}
+    <section class="card fiche">${body}${speakBtn(it.id, null, !nouveau)}</section>`;
 }
 
 // Question à quatre choix : on sélectionne, puis on vérifie
