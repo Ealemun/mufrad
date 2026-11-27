@@ -62,9 +62,10 @@ function makhrajHtml(it) {
   if (!m || !nom) return "";
   const autres = m.lettres.filter(l => l !== it.ar && l !== "ء");
   const madd = MAKHRAJ_MADD[it.ar];
-  return `<div class="makhraj"><div class="mk-haut">${makhrajImg(nom, "Coupe de la bouche et de la gorge : " + m.fr, it.nameAr)}
-    <div class="mk-txt"><span class="mk-titre">D'où sort la lettre</span>${AR(m.ar)}<span>${esc(m.fr)}</span>
-      ${autres.length ? `<span class="muted">Même endroit : ${autres.map(l => AR(l)).join(" ")}</span>` : ""}</div></div>
+  return `<div class="makhraj"><span class="mk-titre">D'où sort la lettre</span>
+    <div class="mk-haut">${makhrajImg(nom, "Coupe de la bouche et de la gorge : " + m.fr, it.nameAr)}
+    <div class="mk-txt">${AR(m.ar)}<span>${esc(m.fr)}</span>
+      ${autres.length ? `<span class="muted">Même endroit : <span class="mk-memes">${autres.map(l => AR(l)).join(" ")}</span></span>` : ""}</div></div>
     ${madd ? `<div class="mk-haut mk-madd">${makhrajImg(madd, "Coupe de la bouche quand la lettre allonge une voyelle")}
       <div class="mk-txt"><span class="muted">Quand elle allonge une voyelle</span>${AR(makhrajById("jawf").ar)}</div></div>` : ""}
     <details class="mk-info"><summary aria-label="D'où viennent ces schémas"><span>i</span></summary>

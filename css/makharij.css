@@ -9,7 +9,8 @@
 .mk-nom { position: absolute; left: 9%; bottom: 5%; line-height: 1; color: #1b1b22; }
 .fiche .mk-nom .ar { font-size: clamp(18px, 5.4vw, 26px); line-height: 1.3; color: inherit; }
 .mk-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 15px; line-height: 1.35; }
-.mk-titre { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+/* Titre un peu plus petit, sur sa propre ligne au-dessus du schéma, à côté du « i » */
+.mk-titre { font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .fiche .mk-txt > .ar { font-size: 30px; line-height: 1.5; color: var(--gold-ink); }
 .fiche .mk-txt .muted .ar { font-size: 24px; line-height: 1.3; }
 /* Le petit « i » : en haut à droite de l'encadré ; la zone qui réagit au doigt fait 44 px, le rond visible 22 px */
@@ -18,10 +19,9 @@
 .mk-info > summary::-webkit-details-marker { display: none; }
 .mk-info > summary > span { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--muted); color: var(--muted); display: grid; place-items: center; font-size: 13px; font-weight: 600; font-style: italic; font-family: Georgia, "Times New Roman", serif; line-height: 1; }
 .mk-info[open] > summary > span { background: var(--muted); color: var(--surface); }
-.mk-titre { padding-inline-end: 26px; }
+.mk-titre { padding-inline-end: 30px; }
 .mk-source { display: block; font-size: 12px; color: var(--muted); text-align: end; }
 .fiche .mk-source .ar { font-size: 17px; line-height: 1.2; }
 /* Le nom arabe se range du côté du texte français, et la liste des lettres voisines ne se coupe pas en deux lignes */
 .mk-txt > .ar { align-self: flex-start; }
-.mk-txt .muted { white-space: nowrap; }
-.mk-madd .mk-txt .muted { white-space: normal; }
+.mk-memes { white-space: nowrap; }
