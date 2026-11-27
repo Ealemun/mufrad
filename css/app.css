@@ -223,9 +223,10 @@ button.unit-banner { font: inherit; border: 0; width: 100%; text-align: left; cu
 .linkbtn { font: inherit; font-size: 15px; font-weight: 500; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 8px 4px; min-height: 44px; text-decoration: underline; }
 /* Écoute et choix de la voix ; lignes de l'onglet Voix qui passent à la ligne sur petit écran */
 .listen { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
-/* Au-dessus de la fiche d'une nouveauté : invitation à l'écrire au doigt, avec son bouton */
-.invite-ecrire { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; border: 2px dashed var(--gold); }
-.invite-ecrire span { flex: 1; }
+/* Fiche d'une nouveauté : le titre, une courte invitation et le bouton « Écrire » sur la même ligne */
+.invite-ecrire { display: flex; align-items: center; gap: 12px; }
+.invite-ecrire .ask { flex: 1; }
+.invite-txt { display: block; font-size: 14px; font-weight: 500; color: var(--gold-ink); }
 .invite-ecrire .speak { flex: none; }
 .vrow { flex-wrap: wrap; }
 .stop-txt b, .ask, h2, .unit-banner b { overflow-wrap: anywhere; }
