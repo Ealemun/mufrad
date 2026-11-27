@@ -124,3 +124,6 @@ h3 .gi, small .gi, .muted .gi, .gloss .gi, .pill .gi { font-size: 1.9em; }
 .gson svg { width: 16px; height: 16px; vertical-align: -2px; }
 .gson:disabled { cursor: default; opacity: .75; }
 .sheet .linkbtn svg { width: 18px; height: 18px; vertical-align: -3px; }   /* micro de « Enregistrer ces sons » à la taille du texte */
+
+/* Bouton « Écrire » sous la consigne d'une question qui contient de l'arabe */
+.gecrire { display: flex; justify-content: center; margin: 4px 0 12px; }

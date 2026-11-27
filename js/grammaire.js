@@ -324,6 +324,7 @@ function gramRender(r) {
       <div class="tiles"><div><b>${gs.right} / ${gs.asked}</b>bonnes réponses</div><div><b>${streak()}</b>${streak() > 1 ? "jours de suite" : "jour de suite"}</div></div>
       <p class="muted">${gs.kind === "lesson" ? "Les questions de cette leçon reviendront dans la révision de grammaire, espacées comme les mots." : gs.kind === "train" ? "L'entraînement libre ne change pas le calendrier des révisions." : "Les prochaines révisions sont planifiées."}</p>`;
     $foot.innerHTML = `<div class="act">${gs.kind === "train" ? `<button class="btn" data-act="g-train" data-w="${gs.what}">Encore dix questions</button>` : ""}<button class="btn ${gs.kind === "train" ? "ghost" : ""}" data-act="g-quit">${gs.kind === "train" ? "Terminer" : "Continuer"}</button></div>`;
+    posePhase("");   // bilan : ni découverte ni exercice
     return true;
   }
   const st = gs.steps[gs.i];
@@ -344,10 +345,11 @@ function gramRender(r) {
       return `<button class="${cls}"${o.ar ? ' lang="ar" dir="rtl"' : ""} data-act="g-pick" data-k="${k}" ${gs.checked ? "disabled" : ""}>${o.html}</button>`;
     }).join("");
     const prompt = gs.checked && q.solved ? q.solved : q.prompt;     // une fois corrigé, le vers s'affiche complet
+    // Quand la consigne contient de l'arabe, un bouton « Écrire » (défini dans js/app.js) ouvre le tableau sous la consigne
     const body = q.type === "ecrit"
       ? `<div class="gfield ar ${gs.checked ? (gs.ok ? "right" : "wrong") : ""}" lang="ar" dir="rtl" aria-live="polite" aria-label="Votre réponse">${esc(gs.typed) || `<span class="muted">…</span>`}</div>${gs.checked ? "" : gKeyboard()}`
       : `<div class="opts">${opts}</div>`;
-    $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gText(q.ask)}</p>${prompt ? `<div class="prompt gprompt">${prompt}</div>` : ""}${body}`;
+    $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gText(q.ask)}</p>${prompt ? `<div class="prompt gprompt">${prompt}</div>` : ""}${prompt && /[\u0600-\u06FF]/.test(prompt) ? `<div class="gecrire">${writeBtn()}</div>` : ""}${body}`;
     if (gs.checked) {
       // Mot écrit et faux : on dit si seules les voyelles sont en cause, et on montre le mot attendu
       const ok = gs.ok, why = q.type === "ecrit" && !ok ? (gNorm(gs.typed) === gNorm(q.answer) ? "Les lettres sont justes, ce sont les voyelles à revoir : " : "Il fallait écrire ") + `[[${q.answer}]].` : q.why;
@@ -356,6 +358,7 @@ function gramRender(r) {
         <button class="btn ${ok ? "good" : "bad"}" data-act="g-next">Continuer</button></div>`;
     } else $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-check" ${(q.type === "ecrit" ? gs.typed === "" : gs.picked === null) ? "disabled" : ""}>Vérifier</button></div>`;
   }
+  posePhase(st.t === "page" || st.t === "verses" ? "decouverte" : "exercice");   // cours à lire, ou question (js/app.js)
   $view.innerHTML += gTermSheet() + gSourceView();
   return true;
 }

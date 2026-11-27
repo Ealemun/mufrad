@@ -265,6 +265,13 @@ $view.scrollTop = 300; render(); const resteLa = $view.scrollTop;
 gs.i++; render(); const pageSuivante = $view.scrollTop;
 gs = null; render();
 out.defilement = { hautLecon, resteLa, pageSuivante, retourListe: $view.scrollTop };
+// Phase : « Je découvre » sur une page de cours, « Je m'exerce » sur une question ; le bandeau ne s'anime qu'au changement
+gStartLesson("g1b"); render(); const phCours = $view.dataset.phase, bandeauCours = $view.innerHTML.startsWith('<div class="phase neuf" data-phase="decouverte"');
+render(); const sansRejouer = $view.innerHTML.startsWith('<div class="phase" data-phase="decouverte"');
+gs.i = gs.steps.findIndex(x => x.t !== "page" && x.t !== "verses"); render(); const phQuestion = $view.dataset.phase, bandeauQ = $view.innerHTML.includes('class="phase neuf" data-phase="exercice"');
+const ambDefaut = $view.dataset.ambiance;
+gs = null; render();
+out.phase = { ambDefaut, reglages: viewSettings().includes('data-act="ambiance" data-a="sable" aria-pressed="true"'), phCours, bandeauCours, sansRejouer, phQuestion, bandeauQ, horsSeance: $view.dataset.phase === "" && !$view.innerHTML.includes('class="phase') };
 S.cards = {}; S.days = {}; location.hash = "";
 // « Réviser au choix » (panneau du parcours) : les unités sont repliées sauf celle en cours ;
 // le bouton de départ, collé en bas, s'active dès qu'une leçon est cochée. Le glossaire ne contient plus ce choix.
@@ -340,7 +347,12 @@ out.voixEtat = { aucun: avantV === "aucun", moi: pageV.includes('class="vrow v-m
 const sessHeadPulse = vu => { S.crayonVu = vu; startLearn(101); const h = sessHead().includes("pulse"); sess = null; return h; };
 // Tableau d'écriture : ce qu'on écrit est déduit de l'écran ; le modèle ne s'affiche pas quand il donnerait la réponse
 S.cards = {}; location.hash = ""; startLearn(101); render();
-const tc1 = tbContext(); sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "fr2ar" }; const tc2 = tbContext(); sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "ar2fr" }; const tc3 = tbContext(); sess = null;
+const tc1 = tbContext(); const ficheNeuve = viewIntro(BY_ID[sess.tasks[sess.i].id]);
+sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "fr2ar" }; const tc2 = tbContext();
+// Bouton « Écrire » : invitation sous la fiche d'une nouveauté ; dans chaque question, à côté de « Écouter » ou seul
+const ecrireQ = ["ar2fr", "fr2ar", "listen", "f2l", "l2n", "n2l"].every(ex => viewQuestion({ kind: "q", id: ["f2l", "l2n", "n2l"].includes(ex) ? "l2" : "w37", ex },
+  { opts: [], form: "ب", picked: null, checked: false }, false).includes('data-act="t-open"'));
+out.ecrire = { invite: ficheNeuve.includes('class="invite-ecrire"'), questions: ecrireQ }; sess.tasks[sess.i] = { kind: "q", id: "w37", ex: "ar2fr" }; const tc3 = tbContext(); sess = null;
 out.tableau = [tc1.contexte, tc1.montre, Boolean(tc1.lettre), tc2.contexte, tc2.montre, tc2.text === BY_ID.w37.ar, tc3.montre];
 const trec = tbRecord(tc2, "isolee", [[[10, 20, 0], [30, 40, 16]]], 400, "touch", false, false, false);
 // Un chemin du fichier est ramené au cadre de la lettre à l'écran ; une lettre sans largeur (ا) est centrée
@@ -424,6 +436,8 @@ toast("Voix remise dans le partage."); render(); out.toast = $foot.innerHTML.inc
   const feuille = viewSheet(l);
   startLearn(l, true);
   const fiches = sess.tasks.filter(t => t.kind === "intro").length, ficheTitre = viewIntro(its[0]).includes("Rappel");
+  // Fiche de rappel : pas d'invitation (ce n'est pas une nouveauté), mais le bouton « Écrire » à côté de « Écouter »
+  out.ecrireRappel = !viewIntro(its[0]).includes("invite-ecrire") && viewIntro(its[0]).includes('data-act="t-open"');
   run(false);                                        // tout juste
   out.refaire = { bouton: feuille.includes('data-act="redo"'), fiches: fiches === its.length && ficheTitre, titre: sess.redo === true,
     calendrier: JSON.stringify(its.map(it => S.cards[it.id])) === avant };
@@ -512,6 +526,8 @@ assert.deepStrictEqual(r.marques, { n: 2, sansEtoile: true, liant: true, sansLia
 assert.deepStrictEqual(r.citationFin, { partout: true, apresRegle: true, memesBlocs: true }, "Grammaire : la citation du texte de référence vient en fin de page, sans perdre de bloc");
 assert.deepStrictEqual(r.defilement, { hautLecon: 0, resteLa: 300, pageSuivante: 0, retourListe: 900 },
   "Défilement : chaque nouvel écran s'ouvre en haut, la liste de grammaire se retrouve à sa place en revenant");
+assert.deepStrictEqual(r.phase, { ambDefaut: "sable", reglages: true, phCours: "decouverte", bandeauCours: true, sansRejouer: true, phQuestion: "exercice", bandeauQ: true, horsSeance: true },
+  "Phase : bandeau « Je découvre » sur le cours, « Je m'exerce » sur les questions, animé seulement quand la phase change");
 assert.deepStrictEqual(r.gramDoubles, [],"grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
 assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");
@@ -545,6 +561,8 @@ assert.deepStrictEqual(r.voixEtat, { aucun: true, moi: true, badge: true, point:
 assert.deepStrictEqual(r.choixVoix, { sansAncien: true, avecAncien: true, rognage: true }, "Voix : choisir entre l'ancien et le nouvel enregistrement");
 // Les réponses de la base factice arrivent après coup (promesses) : on vérifie au tour suivant
 setTimeout(() => assert.deepStrictEqual(r.essai(), { refus: true, lecture: true, jamaisAppele: true, auth: true, stats: true }, "Version d'essai : lecture seule de la vraie base, sauf les statistiques"), 0);
+assert.deepStrictEqual(r.ecrire, { invite: true, questions: true }, "bouton « Écrire » : invitation sous une nouveauté, présent dans chaque question");
+assert.strictEqual(r.ecrireRappel, true, "fiche de rappel : bouton « Écrire » sans invitation");
 assert.deepStrictEqual(r.tableau, ["cours", true, true, "exo:fr2ar", false, true, true], "tableau : la cible suit l'écran, et le modèle ne donne pas la réponse");
 assert.deepStrictEqual(r.formesFautes, [], "sens d'écriture des formes de position : tracé absent, hors du tableau, ou nombre de points incorrect");
 assert.deepStrictEqual(r.lettresFautes, [], "sens d'écriture : tracé absent, hors du tableau, ou nombre de points de la lettre incorrect");
