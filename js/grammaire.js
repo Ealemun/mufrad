@@ -344,10 +344,11 @@ function gramRender(r) {
       return `<button class="${cls}"${o.ar ? ' lang="ar" dir="rtl"' : ""} data-act="g-pick" data-k="${k}" ${gs.checked ? "disabled" : ""}>${o.html}</button>`;
     }).join("");
     const prompt = gs.checked && q.solved ? q.solved : q.prompt;     // une fois corrigé, le vers s'affiche complet
+    // Quand la consigne contient de l'arabe, un bouton « Écrire » (défini dans js/app.js) ouvre le tableau sous la consigne
     const body = q.type === "ecrit"
       ? `<div class="gfield ar ${gs.checked ? (gs.ok ? "right" : "wrong") : ""}" lang="ar" dir="rtl" aria-live="polite" aria-label="Votre réponse">${esc(gs.typed) || `<span class="muted">…</span>`}</div>${gs.checked ? "" : gKeyboard()}`
       : `<div class="opts">${opts}</div>`;
-    $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gText(q.ask)}</p>${prompt ? `<div class="prompt gprompt">${prompt}</div>` : ""}${body}`;
+    $view.innerHTML = `<p class="ask"><small>${gText(gs.title, true)}</small>${gText(q.ask)}</p>${prompt ? `<div class="prompt gprompt">${prompt}</div>` : ""}${prompt && /[\u0600-\u06FF]/.test(prompt) ? `<div class="gecrire">${writeBtn()}</div>` : ""}${body}`;
     if (gs.checked) {
       // Mot écrit et faux : on dit si seules les voyelles sont en cause, et on montre le mot attendu
       const ok = gs.ok, why = q.type === "ecrit" && !ok ? (gNorm(gs.typed) === gNorm(q.answer) ? "Les lettres sont justes, ce sont les voyelles à revoir : " : "Il fallait écrire ") + `[[${q.answer}]].` : q.why;

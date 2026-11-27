@@ -496,11 +496,15 @@ const AR = (txt, cls) => `<span class="ar ${cls || ""}" lang="ar" dir="rtl">${es
 const ICON_SPEAK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const ICON_MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>';
 const ICON_FLAME = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 3.5 5 5.5 5 10.5A5 5 0 0 1 12 18a5 5 0 0 1-5-5.5c0-1.8.8-3.2 1.8-4.3.3 1.6 1 2.5 2 3C10.300 8.500 10.800 5 12 2z"/><path d="M6 20.500h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-const speakBtn = (id, label) => {
-  if (!canSpeak(id)) return "";
+// Bouton « Écrire » : ouvre le tableau d'écriture, comme le ✎ de l'en-tête, mais au milieu de la carte où on le voit
+const writeBtn = () => `<button class="speak" data-act="t-open">✎ Écrire</button>`;
+// Bouton « Écouter » (et changement de voix). Avec ecrire = vrai, le bouton « Écrire » se place à côté, même sans audio.
+const speakBtn = (id, label, ecrire) => {
+  const w = ecrire ? writeBtn() : "";
+  if (!id || !canSpeak(id)) return w ? `<span class="listen">${w}</span>` : "";   // sans id : bouton « Écrire » seul
   const n = voicesFor(id).length;
   return `<span class="listen"><button class="speak" data-act="speak" data-id="${id}">${ICON_SPEAK}${label || "Écouter"}</button>` +
-    (n > 1 ? `<button class="mini txt" data-act="voice-next" data-id="${id}" aria-label="Écouter une autre voix">↻ ${voiceIndex(id) + 1}/${n}</button>` : "") + `</span>`;
+    (n > 1 ? `<button class="mini txt" data-act="voice-next" data-id="${id}" aria-label="Écouter une autre voix">↻ ${voiceIndex(id) + 1}/${n}</button>` : "") + w + `</span>`;
 };
 const translit = it => S.translit && it.tr ? `<span class="tr">${esc(it.tr)}</span>` : "";
 // Libellé d'une leçon pour l'affichage, titre isolé du reste de la ligne (sens d'écriture)
@@ -711,21 +715,25 @@ function viewIntro(it) {
     : `${AR(it.ar)}${translit(it)}<p class="fr">${esc(it.fr)}</p>${it.note ? `<p class="muted">${it.note.replace(/[؀-ۿ ]{2,}/g, m => AR(m.trim()) + " ")}</p>` : ""}`;
   // Quand on refait une leçon, la fiche n'annonce pas une nouveauté : c'est un rappel
   const titre = sess && sess.redo ? (it.type === "letter" ? "Rappel : la lettre" : "Rappel : le mot") : (it.type === "letter" ? "Nouvelle lettre" : "Nouveau mot");
+  // Une vraie nouveauté : invitation à l'écrire sous la carte. Une fiche de rappel : simple bouton « Écrire » à côté de « Écouter ».
+  const nouveau = !(sess && sess.redo);
+  const invite = nouveau ? `<div class="invite-ecrire"><span>Une nouveauté se retient mieux quand on l'écrit au doigt.</span>${writeBtn()}</div>` : "";
   return `<p class="ask"><small>${lessonHtml(it.l)}</small>${titre}</p>
-    <section class="card fiche">${body}${speakBtn(it.id)}</section>`;
+    <section class="card fiche">${body}${speakBtn(it.id, null, !nouveau)}</section>${invite}`;
 }
 
 // Question à quatre choix : on sélectionne, puis on vérifie
 function viewQuestion(task, c, ro) {
   const it = BY_ID[task.id], ex = task.ex;
   let prompt, optLabel, optCls = "", two = false, ask;
-  if (ex === "ar2fr")  { ask = "Que signifie ce mot ?";             prompt = AR(it.ar) + translit(it) + speakBtn(it.id);  optLabel = o => esc(o.fr); }
-  if (ex === "fr2ar")  { ask = "Comment le dit-on en arabe ?";      prompt = `<span class="fr">${esc(it.fr)}</span>`;   optLabel = o => esc(o.ar); optCls = "ar"; }
-  if (ex === "listen") { ask = "Qu'entendez-vous ?";                prompt = speakBtn(it.id, "Écouter");                optLabel = o => esc(o.ar); optCls = "ar"; }
+  // Chaque question propose « Écrire » dans la consigne (speakBtn(…, true)) ; le tableau ne montre le modèle que s'il ne donne pas la réponse
+  if (ex === "ar2fr")  { ask = "Que signifie ce mot ?";             prompt = AR(it.ar) + translit(it) + speakBtn(it.id, null, true);  optLabel = o => esc(o.fr); }
+  if (ex === "fr2ar")  { ask = "Comment le dit-on en arabe ?";      prompt = `<span class="fr">${esc(it.fr)}</span>` + speakBtn(null, null, true); optLabel = o => esc(o.ar); optCls = "ar"; }
+  if (ex === "listen") { ask = "Qu'entendez-vous ?";                prompt = speakBtn(it.id, "Écouter", true); optLabel = o => esc(o.ar); optCls = "ar"; }
   if (ex === "listen" && it.type === "letter") { optCls = "ar glyph"; two = true; }
-  if (ex === "f2l")    { ask = "Quelle lettre reconnaissez-vous ?"; prompt = AR(c.form, "glyph");                       optLabel = o => esc(o.ar); optCls = "ar glyph"; two = true; }
-  if (ex === "l2n")    { ask = "Quelle est cette lettre ?";         prompt = AR(it.ar, "glyph") + speakBtn(it.id);       optLabel = o => `<b>${esc(o.name)}</b> · ${esc(o.s)}`; two = true; }
-  if (ex === "n2l")    { ask = "Quelle lettre s'appelle ainsi ?";   prompt = `<span class="fr">${esc(it.name)} · ${esc(it.s)}</span>`; optLabel = o => esc(o.ar); optCls = "ar glyph"; two = true; }
+  if (ex === "f2l")    { ask = "Quelle lettre reconnaissez-vous ?"; prompt = AR(c.form, "glyph") + speakBtn(null, null, true); optLabel = o => esc(o.ar); optCls = "ar glyph"; two = true; }
+  if (ex === "l2n")    { ask = "Quelle est cette lettre ?";         prompt = AR(it.ar, "glyph") + speakBtn(it.id, null, true); optLabel = o => `<b>${esc(o.name)}</b> · ${esc(o.s)}`; two = true; }
+  if (ex === "n2l")    { ask = "Quelle lettre s'appelle ainsi ?";   prompt = `<span class="fr">${esc(it.name)} · ${esc(it.s)}</span>` + speakBtn(null, null, true); optLabel = o => esc(o.ar); optCls = "ar glyph"; two = true; }
   const opts = c.opts.map((o, k) => {
     let cls = "opt " + optCls;
     if (c.checked && o.id === it.id) cls += " right";
