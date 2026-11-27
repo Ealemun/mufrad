@@ -7,6 +7,8 @@
    Les schémas et la description de chaque endroit viennent du livre « التجويد المصوَّر » (at-Tajwīd al-Muṣawwar),
    chapitre « مخارج الحروف العربية », pages 93 à 123 ; le responsable du projet a donné son accord pour les utiliser.
    Les images sont dans sources/makharij/, une par lettre ou par groupe de lettres dessinées ensemble dans le livre.
+   Elles sont prises à la résolution du livre (640 px de large). Le nom de la lettre imprimé dans chaque schéma en a été
+   effacé : l'application le réécrit en vrai texte, dans sa police, pour qu'il reste net à toute taille.
    À VÉRIFIER PAR UN ENSEIGNANT DE TAJWĪD : la traduction française des descriptions.
 
    Un makhraj = { id, zone, ar (nom arabe de l'endroit), fr (explication courte), lettres (dans l'ordre de l'alphabet) }.
@@ -50,8 +52,9 @@ const MAKHRAJ_MADD = { "و": "waw-madd", "ي": "ya-madd" };
 const makhrajById = id => MAKHARIJ.find(m => m.id === id);
 // Makhraj d'une lettre donnée par son caractère (ا ب ت…)
 const makhrajOf = ar => MAKHARIJ.find(m => m.lettres.includes(ar));
-// Le dessin : toujours sur fond blanc, comme dans le livre, quel que soit le thème
-const makhrajImg = (nom, alt) => `<img class="mk" src="sources/makharij/${nom}.webp" alt="${esc(alt)}" loading="lazy">`;
+// Le dessin : toujours sur fond blanc, comme dans le livre, quel que soit le thème.
+// legende : le nom de la lettre, écrit par-dessus le coin blanc du schéma où le livre l'imprimait.
+const makhrajImg = (nom, alt, legende) => `<span class="mk"><img src="sources/makharij/${nom}.webp" alt="${esc(alt)}" loading="lazy">${legende ? `<span class="mk-nom">${AR(legende)}</span>` : ""}</span>`;
 
 // Encadré de la fiche d'une lettre : le dessin, le nom arabe de l'endroit, son explication, et les lettres voisines
 function makhrajHtml(it) {
@@ -59,7 +62,7 @@ function makhrajHtml(it) {
   if (!m || !nom) return "";
   const autres = m.lettres.filter(l => l !== it.ar && l !== "ء");
   const madd = MAKHRAJ_MADD[it.ar];
-  return `<div class="makhraj"><div class="mk-haut">${makhrajImg(nom, "Coupe de la bouche et de la gorge : " + m.fr)}
+  return `<div class="makhraj"><div class="mk-haut">${makhrajImg(nom, "Coupe de la bouche et de la gorge : " + m.fr, it.nameAr)}
     <div class="mk-txt"><span class="mk-titre">D'où sort la lettre</span>${AR(m.ar)}<span>${esc(m.fr)}</span>
       ${autres.length ? `<span class="muted">Même endroit : ${autres.map(l => AR(l)).join(" ")}</span>` : ""}</div></div>
     ${madd ? `<div class="mk-haut mk-madd">${makhrajImg(madd, "Coupe de la bouche quand la lettre allonge une voyelle")}

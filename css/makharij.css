@@ -2,8 +2,12 @@
    Les couleurs de l'encadré sont des variables de l'application ; le dessin, lui, garde le fond blanc du livre. */
 .makhraj { display: flex; flex-direction: column; gap: 8px; width: 100%; border: 2px solid var(--line); border-radius: 16px; padding: 10px 12px; text-align: start; }
 .mk-haut { display: flex; align-items: center; gap: 12px; }
-.mk { flex: 0 0 44%; width: 44%; max-width: 210px; height: auto; border-radius: 14px; background: #fff; }
+.mk { position: relative; flex: 0 0 46%; width: 46%; max-width: 230px; border-radius: 14px; overflow: hidden; background: #fff; line-height: 0; }
+.mk img { display: block; width: 100%; height: auto; }
 .mk-madd .mk { flex-basis: 26%; width: 26%; max-width: 120px; }
+/* Le nom de la lettre, dans le coin blanc en bas à gauche du schéma : toujours sombre, puisque le fond reste blanc */
+.mk-nom { position: absolute; left: 9%; bottom: 5%; line-height: 1; color: #1b1b22; }
+.fiche .mk-nom .ar { font-size: clamp(18px, 5.4vw, 26px); line-height: 1.3; color: inherit; }
 .mk-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 15px; line-height: 1.35; }
 .mk-titre { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .fiche .mk-txt > .ar { font-size: 30px; line-height: 1.5; color: var(--gold-ink); }
