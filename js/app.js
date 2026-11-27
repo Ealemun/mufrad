@@ -542,6 +542,20 @@ function placeEcran(cle, avant) {
   }
 }
 
+// Phase de l'écran pendant une séance : « decouverte » (on lit et on écoute pour retenir, rien à répondre)
+// ou « exercice » (on répond). L'attribut data-phase de la zone centrale permet au style de changer tout l'écran,
+// et un bandeau dit en clair où l'on en est. Le bandeau ne s'anime que quand la phase change, pas à chaque appui.
+const PHASE = {
+  decouverte: `<span class="phase-signe" aria-hidden="true">★</span><b>Je découvre</b><span>Lis et écoute, rien à répondre</span>`,
+  exercice: `<span class="phase-signe" aria-hidden="true">✎</span><b>Je m'exerce</b><span>À toi de répondre</span>`,
+};
+let phaseAvant = "";
+function posePhase(p) {
+  if ($view.dataset) $view.dataset.phase = p;
+  if (p) $view.innerHTML = `<div class="phase${p !== phaseAvant ? " neuf" : ""}" data-phase="${p}" role="note">${PHASE[p]}</div>` + $view.innerHTML;
+  phaseAvant = p;
+}
+
 function render() {
   const r = route(), inSess = sess && r === "accueil";
   const cle = cleEcran(r, inSess), avant = $view.scrollTop || 0;   // défilement de l'écran affiché, avant qu'on le remplace
@@ -549,6 +563,7 @@ function render() {
   if (inSess) {
     $top.innerHTML = sess.over ? "" : sessHead();
     $view.innerHTML = sess.over ? viewSummary() : viewTask();
+    posePhase(sess.over ? "" : snapshot().task.kind === "intro" ? "decouverte" : "exercice");
     placeEcran(cle, avant);
     $foot.innerHTML = sessFoot();
   } else {
@@ -559,6 +574,7 @@ function render() {
     $view.innerHTML = r === "mots" ? viewWords() : r === "grammaire" ? viewGrammar() : r === "voix" ? viewVoices() : r === "reglages" ? viewSettings() : r === "partage" ? viewPartage() : r === "statistiques" ? viewStats() : r === "avance" ? viewAdvanced() : r === "enregistrer" ? viewGuide() : viewHome();
     const sh2 = document.querySelector ? document.querySelector(".sheet") : null;
     if (sh2 && shTop) sh2.scrollTop = shTop;   // même panneau ouvert : on reste là où on était
+    posePhase("");   // hors séance : ni découverte ni exercice
     placeEcran(cle, avant);   // avant le recentrage du parcours sur la leçon en cours, qui passe après
     if (r === "voix" || r === "enregistrer") pending.forEach(drawWave); // les pistes se dessinent une fois les éléments en place
     if (wantScroll && !sheet && r !== "mots" && r !== "grammaire" && r !== "voix" && r !== "reglages" && r !== "partage" && r !== "statistiques" && r !== "enregistrer" && r !== "avance") {

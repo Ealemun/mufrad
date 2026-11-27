@@ -324,6 +324,7 @@ function gramRender(r) {
       <div class="tiles"><div><b>${gs.right} / ${gs.asked}</b>bonnes réponses</div><div><b>${streak()}</b>${streak() > 1 ? "jours de suite" : "jour de suite"}</div></div>
       <p class="muted">${gs.kind === "lesson" ? "Les questions de cette leçon reviendront dans la révision de grammaire, espacées comme les mots." : gs.kind === "train" ? "L'entraînement libre ne change pas le calendrier des révisions." : "Les prochaines révisions sont planifiées."}</p>`;
     $foot.innerHTML = `<div class="act">${gs.kind === "train" ? `<button class="btn" data-act="g-train" data-w="${gs.what}">Encore dix questions</button>` : ""}<button class="btn ${gs.kind === "train" ? "ghost" : ""}" data-act="g-quit">${gs.kind === "train" ? "Terminer" : "Continuer"}</button></div>`;
+    posePhase("");   // bilan : ni découverte ni exercice
     return true;
   }
   const st = gs.steps[gs.i];
@@ -357,6 +358,7 @@ function gramRender(r) {
         <button class="btn ${ok ? "good" : "bad"}" data-act="g-next">Continuer</button></div>`;
     } else $foot.innerHTML = `<div class="act"><button class="btn" data-act="g-check" ${(q.type === "ecrit" ? gs.typed === "" : gs.picked === null) ? "disabled" : ""}>Vérifier</button></div>`;
   }
+  posePhase(st.t === "page" || st.t === "verses" ? "decouverte" : "exercice");   // cours à lire, ou question (js/app.js)
   $view.innerHTML += gTermSheet() + gSourceView();
   return true;
 }

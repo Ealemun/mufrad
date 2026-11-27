@@ -254,6 +254,12 @@ $view.scrollTop = 300; render(); const resteLa = $view.scrollTop;
 gs.i++; render(); const pageSuivante = $view.scrollTop;
 gs = null; render();
 out.defilement = { hautLecon, resteLa, pageSuivante, retourListe: $view.scrollTop };
+// Phase : « Je découvre » sur une page de cours, « Je m'exerce » sur une question ; le bandeau ne s'anime qu'au changement
+gStartLesson("g1b"); render(); const phCours = $view.dataset.phase, bandeauCours = $view.innerHTML.startsWith('<div class="phase neuf" data-phase="decouverte"');
+render(); const sansRejouer = $view.innerHTML.startsWith('<div class="phase" data-phase="decouverte"');
+gs.i = gs.steps.findIndex(x => x.t !== "page" && x.t !== "verses"); render(); const phQuestion = $view.dataset.phase, bandeauQ = $view.innerHTML.includes('class="phase neuf" data-phase="exercice"');
+gs = null; render();
+out.phase = { phCours, bandeauCours, sansRejouer, phQuestion, bandeauQ, horsSeance: $view.dataset.phase === "" && !$view.innerHTML.includes('class="phase') };
 S.cards = {}; S.days = {}; location.hash = "";
 // « Réviser au choix » (panneau du parcours) : les unités sont repliées sauf celle en cours ;
 // le bouton de départ, collé en bas, s'active dès qu'une leçon est cochée. Le glossaire ne contient plus ce choix.
@@ -503,6 +509,8 @@ assert.deepStrictEqual(r.marques, { n: 2, sansEtoile: true, liant: true, sansLia
 assert.deepStrictEqual(r.citationFin, { partout: true, apresRegle: true, memesBlocs: true }, "Grammaire : la citation du texte de référence vient en fin de page, sans perdre de bloc");
 assert.deepStrictEqual(r.defilement, { hautLecon: 0, resteLa: 300, pageSuivante: 0, retourListe: 900 },
   "Défilement : chaque nouvel écran s'ouvre en haut, la liste de grammaire se retrouve à sa place en revenant");
+assert.deepStrictEqual(r.phase, { phCours: "decouverte", bandeauCours: true, sansRejouer: true, phQuestion: "exercice", bandeauQ: true, horsSeance: true },
+  "Phase : bandeau « Je découvre » sur le cours, « Je m'exerce » sur les questions, animé seulement quand la phase change");
 assert.deepStrictEqual(r.gramDoubles, [],"grammaire : identifiant en double");
 assert.deepStrictEqual(r.gramFautes, [], "grammaire : question, vers ou renvoi incomplet");
 assert.deepStrictEqual(r.gramTermes, [], "grammaire : terme absent du glossaire");
